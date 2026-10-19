@@ -25,6 +25,8 @@ export * from './importer.js';
 export * from './apikeys.js';
 export * from './webhooks.js';
 export * from './dashboard.js';
+export * from './firm.js';
+export * from './inbox.js';
 export * from './reports.js';
 export * from './handlers.js';
 export * from './einvoice.js';

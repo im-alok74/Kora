@@ -207,3 +207,17 @@ Honest position: Kora today fits a **service business or small trader that wants
 2. Build for the **CA firm** next: firm roll-up, purchases and ITC, client inbox. A CA brings dozens of businesses and tests the compliance claims harder than anyone.
 3. Treat **lawyers** as a vertical module on the same core (matters, time, retainers, client money, narrative template), and only after a practising advocate and a CA have reviewed the tax and client-money rules.
 4. Do not promise "every field" on the site. Say who it is for today and add audiences as each module ships and is reviewed.
+
+## 8. Build order agreed on 19 Oct 2026
+
+CA firm, then lawyer, then freelancer, then shopkeeper, then B2B marketplace.
+
+| Stage | Audience | Status |
+|---|---|---|
+| 1a | CA firm: clients roll-up with GST dates | **done**, tested |
+| 1b | CA firm: client inbox and review queue | **done**, tested |
+| 1c | CA firm: vendor bills, input tax credit, GSTR-2B matching, bulk filing data | next |
+| 2 | Lawyer: matters, time, retainers, client money, narrative invoice | planned |
+| 3 | Freelancer: time and projects, retainers, international clients and currency, payment links | planned |
+| 4 | Shopkeeper: stock, barcode billing, thermal and A5 print, Hindi | planned |
+| 5 | B2B marketplace: buyer and seller network, purchase orders, supplier invoices and e-way bills, trade credit | planned, needs a product decision |

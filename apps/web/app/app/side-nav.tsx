@@ -6,7 +6,7 @@ import Icon, { type IconName } from '../../components/Icon';
 type Item = { href: string; label: string; icon: IconName; show?: boolean };
 
 /** The main navigation. On a phone it is a drawer behind a menu button. The page you are on is marked, for sighted users and screen readers. */
-export default function SideNav({ role, children }: { role: string; children: ReactNode }) {
+export default function SideNav({ role, multi = false, children }: { role: string; multi?: boolean; children: ReactNode }) {
   const path = usePathname() ?? '';
   const [open, setOpen] = useState(false);
   useEffect(() => { setOpen(false); }, [path]);
@@ -17,11 +17,11 @@ export default function SideNav({ role, children }: { role: string; children: Re
   }, []);
 
   const groups: { title: string; items: Item[] }[] = [
-    { title: 'Overview', items: [{ href: '/app', label: 'Dashboard', icon: 'home' }] },
+    { title: 'Overview', items: [{ href: '/app', label: 'Dashboard', icon: 'home' }, { href: '/app/firm', label: 'Clients', icon: 'team', show: multi }] },
     { title: 'Sales', items: [
       { href: '/app/invoices', label: 'Documents', icon: 'documents' }, { href: '/app/recurring', label: 'Recurring', icon: 'repeat' },
       { href: '/app/customers', label: 'Customers', icon: 'user' }, { href: '/app/items', label: 'Items', icon: 'box' }] },
-    { title: 'Money', items: [{ href: '/app/expenses', label: 'Expenses', icon: 'receipt' }, { href: '/app/reports', label: 'Reports', icon: 'chart' }] },
+    { title: 'Money', items: [{ href: '/app/inbox', label: 'Inbox', icon: 'inbox' }, { href: '/app/expenses', label: 'Expenses', icon: 'receipt' }, { href: '/app/reports', label: 'Reports', icon: 'chart' }] },
     { title: 'Manage', items: [
       { href: '/app/data', label: 'Data', icon: 'database' }, { href: '/app/developers', label: 'Developers', icon: 'code', show: role === 'owner' },
       { href: '/app/team', label: 'Team', icon: 'team', show: role === 'owner' }, { href: '/app/activity', label: 'Activity', icon: 'clock', show: role !== 'staff' },

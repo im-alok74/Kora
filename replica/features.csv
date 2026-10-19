@@ -62,3 +62,7 @@ Payroll,hr,could,yes,skip,sag; bible out of scope for year one
 ROC MCA XBRL filing,corporate,could,yes,skip,sag; separate product
 GSP licence and direct IRP credentials,regulated,could,yes,skip,licence not rebuildable; use partner adapter
 Customer base and brand,network,could,yes,skip,cannot be cloned
+Firm roll-up across all clients,ca firm,must,yes,yes,"one screen for every business the person belongs to: owed, overdue, drafts, standard GSTR-1 and GSTR-3B dates (monthly only); each business read with the person's own role; unit and browser tested"
+Client inbox with review queue,ca firm,must,yes,yes,"business sends a bill or paper (JPEG PNG PDF up to 2 MB, content checked), accountant marks done or sends back with a reason; roles enforced; unit and browser tested"
+Vendor bills purchases and input tax credit,ca firm,must,yes,no,next for the CA module; needed for GSTR-3B input credit and GSTR-2B matching
+Matters time entries retainers and client money,lawyer,must,yes,no,lawyer module; needs review by a practising advocate before launch

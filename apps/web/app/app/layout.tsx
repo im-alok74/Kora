@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const active = businesses.find((b) => b.businessId === chosen) ?? businesses[0]!;
   return (
     <div className="shell">
-      <SideNav role={active.role}>
+      <SideNav role={active.role} multi={businesses.length > 1}>
         <BusinessSwitcher businesses={businesses} activeId={active.businessId} />
         <span className="role">{active.role}</span>
         <SignOut />
