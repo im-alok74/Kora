@@ -71,6 +71,14 @@ describe('otp login', () => {
     await auth.revokeSession(s.token);
     expect(await auth.getSession(s.token)).toBeNull();
   });
+  it('a fixed demo code signs in any number or email, and a wrong code still fails', async () => {
+    const auth = mk({ fixedCode: '123456' });
+    await auth.requestOtp('9811122233');
+    await expect(auth.verifyOtp('9811122233', '654321')).rejects.toMatchObject({ name: 'AuthError' });
+    expect((await auth.verifyOtp('9811122233', '123456')).isNewUser).toBe(true);
+    await auth.requestOtp('Demo.User@Example.com');
+    expect((await auth.verifyOtp('demo.user@example.com', '123456')).isNewUser).toBe(true);
+  });
   it('the same person logging in again gets the same user', async () => {
     const auth = mk();
     await auth.requestOtp('+91 98765 43210');

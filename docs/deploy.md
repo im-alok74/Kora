@@ -80,6 +80,7 @@ Alert on:
 | `job` rows with `status = 'failed'`, and queued jobs older than 10 minutes | Messages or e-invoices are not going out. |
 | `einvoice` rows with `status in ('rejected', 'failed')` older than a day | An invoice is not legally complete. Contact the owner. |
 | `webhook_event` rows with `processed_at is null` | A payment was received but not applied. |
+| `recurring_run` rows with `status = 'failed'`, or `recurring_profile` rows active with `next_run_date` more than a day in the past | A scheduled invoice was not made. The note on the run says why. |
 | Worker `/healthz` returns 503 | The loop has stalled. |
 | 5xx rate on `/api/*` | Application errors. |
 | Database connections, replication lag, disk | Basics. |

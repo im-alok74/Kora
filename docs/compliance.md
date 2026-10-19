@@ -32,6 +32,11 @@ One library computes everything, in integer paise, with these rules:
 - An e-invoice can be cancelled within 24 hours. After that, Kora steers to a credit note.
 - Whether e-invoicing applies is the owner's decision, recorded in Settings. The question asked is whether turnover has been above Rs 5 crore in any year since 2017-18, because a business that dipped below can still be covered. The threshold lives in configuration and is not hard-coded.
 
+### Estimates and recurring invoices
+- An estimate is not a tax document. Accepting or declining it, and turning it into an invoice, never changes the estimate; the invoice is a new draft that is numbered only when issued.
+- A recurring invoice set to issue automatically issues a real tax invoice on each date, with the next number in sequence, and queues its e-invoice if one is required. The owner is responsible for what the template says. Draft mode leaves each invoice for review first.
+- Each scheduled date makes at most one invoice, even if two workers run at once or the worker was down and catches up.
+
 ### Returns data
 - **GSTR-1 JSON** for a month: B2B, B2CL, B2CS, credit and debit notes (registered and unregistered), nil and exempt supplies, HSN summary, and the document series summary. Kora proves that the sections add up to the sales ledger to the paisa and warns if they do not.
 - **GST summary** laid out like GSTR-3B table 3.1 (outward supplies), net of credit notes, with reverse-charge, nil-rated and exempt supplies shown apart.

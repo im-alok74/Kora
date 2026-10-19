@@ -236,7 +236,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
           </div>
           <div className="grid2">
             <div><label htmlFor="dd">Date</label><input id="dd" type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} /></div>
-            <div><label htmlFor="du">Due date</label><input id="du" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>
+            <div><label htmlFor="du">{docType === 'estimate' ? 'Valid until' : 'Due date'}</label><input id="du" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>
           </div>
         </div>
         {newCust && online && (

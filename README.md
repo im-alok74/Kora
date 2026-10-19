@@ -8,7 +8,7 @@ Kora issues legally correct GST documents, sends them on WhatsApp, collects by U
 
 | Area | What it does |
 |---|---|
-| Documents | Tax invoice, bill of supply, estimate, proforma, delivery challan, credit note, debit note. Gapless numbering per series and financial year. Issued documents cannot be edited; corrections go through credit and debit notes. |
+| Documents | Tax invoice, bill of supply, estimate, proforma, delivery challan, credit note, debit note. Gapless numbering per series and financial year. Issued documents cannot be edited; corrections go through credit and debit notes. Estimates have a valid-until date, can be accepted or declined, and turn into an invoice once. Recurring invoices repeat weekly, monthly or yearly and are saved as drafts, issued, or issued and sent automatically. |
 | Tax | One pure library (`packages/tax`) computes CGST, SGST, IGST and cess in integer paise. 10,000-run property tests and a database cross-check. |
 | Parties and items | GSTIN checksum and state validation, HSN or SAC, allowed rate list. |
 | Delivery | PDF (headless Chromium), public link with view tracking, WhatsApp, SMS and email through a retrying queue. |
@@ -18,7 +18,7 @@ Kora issues legally correct GST documents, sends them on WhatsApp, collects by U
 | Team | Owner, staff and accountant roles enforced in the database. Activity log that cannot be edited. Several businesses per login. |
 | Reports | Sales register, sales by customer, payments received, ageing, customer statement, with CSV export that is safe to open in a spreadsheet. |
 
-What is **not** in v1: filing returns, purchases and input tax credit, e-way bills, exports and SEZ, recurring invoices, a customer portal, inventory. See [docs/compliance.md](docs/compliance.md).
+What is **not** in v1: filing returns, purchases and input tax credit, e-way bills, exports and SEZ, a customer portal, inventory. See [docs/compliance.md](docs/compliance.md).
 
 ## Run it locally
 
@@ -49,7 +49,7 @@ Copy `.env.example`. Never commit `.env`.
 | `APP_URL` | web, worker | Public base URL, used in message links and payment links. |
 | `SESSION_TTL_DAYS` | web | Sign-in lifetime, default 30. |
 | `KORA_ALLOW_MOCKS` | web, worker | Set to `1` only for a staging demo. In production every mock adapter refuses to start without it. |
-| `WORKER_HEALTH_PORT`, `REMINDER_TICK_MS` | worker | Liveness endpoint port, and how often reminders are checked. |
+| `WORKER_HEALTH_PORT`, `REMINDER_TICK_MS`, `RECURRING_TICK_MS` | worker | Liveness endpoint port, and how often reminders (30s) and recurring invoices (60s) are checked. |
 
 ## Tests
 

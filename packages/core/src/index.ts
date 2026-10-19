@@ -13,6 +13,8 @@ export * from './delivery.js';
 export * from './jobs.js';
 export * from './payments.js';
 export * from './reminders.js';
+export * from './estimates.js';
+export * from './recurring.js';
 export * from './reports.js';
 export * from './handlers.js';
 export * from './einvoice.js';

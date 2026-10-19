@@ -22,6 +22,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <nav className="side" aria-label="Main">
         <div className="brand">kora</div>
         <a className="nav" href="/app/invoices">Documents</a>
+        <a className="nav" href="/app/recurring">Recurring</a>
         <a className="nav" href="/app/customers">Customers</a>
         <a className="nav" href="/app/items">Items</a>
         <a className="nav" href="/app/reports">Reports</a>

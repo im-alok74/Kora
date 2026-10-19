@@ -42,7 +42,7 @@ export default defineConfig({
       url: `http://localhost:${WORKER_PORT}/healthz`,
       timeout: 120_000,
       reuseExistingServer: !!process.env.KORA_E2E_REUSE,
-      env: { ...ENV, WORKER_HEALTH_PORT: String(WORKER_PORT), REMINDER_TICK_MS: '2000', KORA_ALLOW_MOCKS: '1' },
+      env: { ...ENV, WORKER_HEALTH_PORT: String(WORKER_PORT), REMINDER_TICK_MS: '2000', RECURRING_TICK_MS: '2000', KORA_ALLOW_MOCKS: '1' },
     },
   ],
 });

@@ -4,11 +4,13 @@ import { api, DOC_LABEL, rupees } from '../../../../lib/client';
 
 type Doc = Record<string, any>;
 const RECEIVABLE = ['tax_invoice', 'bill_of_supply', 'debit_note'];
+const EST_LABEL: Record<string, string> = { draft: 'Draft', open: 'Open', accepted: 'Accepted', declined: 'Declined', expired: 'Expired', invoiced: 'Invoiced', cancelled: 'Cancelled' };
+const EST_CHIP: Record<string, string> = { draft: 'draft', open: 'issued', accepted: 'paid', declined: 'cancelled', expired: 'cancelled', invoiced: 'paid', cancelled: 'cancelled' };
 const METHODS: [string, string][] = [['cash', 'Cash'], ['upi', 'UPI'], ['bank_transfer', 'Bank transfer'], ['cheque', 'Cheque'], ['card', 'Card'], ['netbanking', 'Net banking'], ['tds', 'TDS deducted by customer'], ['other', 'Other']];
 
 export default function DocumentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [data, setData] = useState<{ document: Doc; lines: Doc[]; deliveries: Doc[] } | null>(null);
+  const [data, setData] = useState<{ document: Doc; lines: Doc[]; deliveries: Doc[]; estimate?: Doc | null } | null>(null);
   const [html, setHtml] = useState('');
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
@@ -88,6 +90,8 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
   const isDraft = d.status === 'draft', isIssued = d.status === 'issued';
   const canIssue = role === 'owner' || role === 'staff';
   const receivable = RECEIVABLE.includes(d.doc_type);
+  const est = d.doc_type === 'estimate' ? (data.estimate ?? null) : null;
+  const estAnswerable = !!est && isIssued && !['invoiced', 'expired'].includes(est.status);
   const outstanding = isIssued && receivable ? BigInt(d.grand_total_paise) - BigInt(d.amount_settled_paise) : 0n;
 
   return (
@@ -95,15 +99,20 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
       <div className="toolbar">
         <div>
           <h1>{label} {d.number ?? ''}</h1>
+          {est ? <span className={`chip ${EST_CHIP[est.status] ?? 'issued'}`} data-testid="estimate-status">{EST_LABEL[est.status] ?? est.status}</span> : (
           <span className={`chip ${d.status === 'issued' && d.payment_status === 'paid' ? 'paid' : d.status}`}>
-            {d.status === 'draft' ? 'Draft' : d.status === 'cancelled' ? 'Cancelled' : d.payment_status === 'paid' ? 'Paid' : d.payment_status === 'part_paid' ? 'Part paid' : 'Issued'}</span>{' '}
-          <span className="muted">{d.party_name ?? 'Walk-in customer'} · {d.doc_date} · {rupees(d.grand_total_paise)}{outstanding > 0n && outstanding !== BigInt(d.grand_total_paise) ? ` · ${rupees(outstanding)} due` : ''}</span>
+            {d.status === 'draft' ? 'Draft' : d.status === 'cancelled' ? 'Cancelled' : d.payment_status === 'paid' ? 'Paid' : d.payment_status === 'part_paid' ? 'Part paid' : 'Issued'}</span>)}{' '}
+          <span className="muted">{d.party_name ?? 'Walk-in customer'} · {d.doc_date} · {rupees(d.grand_total_paise)}{est && d.due_date ? ` · valid until ${d.due_date}` : ''}{outstanding > 0n && outstanding !== BigInt(d.grand_total_paise) ? ` · ${rupees(outstanding)} due` : ''}</span>
         </div>
         <div className="row" style={{ flex: 'none' }}>
           <a className="btn secondary" href="/app/invoices">Back</a>
           {isDraft && canIssue && <a className="btn secondary" href={`/app/invoices/${id}/edit`}>Edit</a>}
           {isDraft && canIssue && <button disabled={busy} onClick={() => run(async () => { await api(`/api/documents/${id}/issue`, { body: {} }); await load(); setMsg(`${label} issued.`); })}>Issue</button>}
           {isDraft && canIssue && <button className="danger" disabled={busy} onClick={() => run(async () => { await api(`/api/documents/${id}`, { method: 'DELETE' }); window.location.href = '/app/invoices'; })}>Delete draft</button>}
+          {estAnswerable && canIssue && est!.decision !== 'accepted' && <button className="secondary" disabled={busy} onClick={() => run(async () => { await api(`/api/documents/${id}/estimate`, { body: { action: 'accept' } }); await load(); setMsg('Marked as accepted.'); })}>Mark accepted</button>}
+          {estAnswerable && canIssue && est!.decision !== 'declined' && <button className="secondary" disabled={busy} onClick={() => run(async () => { await api(`/api/documents/${id}/estimate`, { body: { action: 'decline' } }); await load(); setMsg('Marked as declined.'); })}>Mark declined</button>}
+          {estAnswerable && canIssue && est!.status !== 'declined' && <button disabled={busy} onClick={() => run(async () => { const r = await api(`/api/documents/${id}/estimate`, { body: { action: 'convert' } }); window.location.href = `/app/invoices/${r.id}/edit`; })}>Convert to invoice</button>}
+          {est?.converted_to_id && <a className="btn secondary" href={`/app/invoices/${est.converted_to_id}`}>View invoice {est.converted_number ?? '(draft)'}</a>}
           <a className="btn secondary" href={`/api/documents/${id}/pdf`} target="_blank" rel="noreferrer">Download PDF</a>
         </div>
       </div>

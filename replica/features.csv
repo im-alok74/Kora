@@ -1,7 +1,7 @@
 feature,area,priority,original,clone,notes
 Tax invoice,documents,must,yes,yes,zoho mbb sag; step 3 done and tested
 Bill of supply for exempt supply,documents,must,yes,yes,zoho help lists it; bible v1; step 3 done and tested
-Estimate or quote with expiry and convert to invoice,documents,must,yes,partial,zoho; portal approval is v2; estimate issues; no expiry date and no convert-to-invoice yet
+Estimate or quote with expiry and convert to invoice,documents,must,yes,yes,"expiry (valid until), accept or decline, convert to an invoice once, expired estimates refused; unit and browser tested"
 Proforma invoice,documents,must,yes,yes,mbb; bible v1; step 3 done and tested
 Delivery challan,documents,must,yes,yes,zoho play listing; mbb; step 3 done and tested
 Credit note and debit note,documents,must,yes,yes,zoho credit notes; debit note not seen at zoho; step 3 done and tested
@@ -42,7 +42,7 @@ E-way bill generate extend cancel bulk,compliance,should,yes,no,mbb sag; bible v
 Team roles owner staff accountant,team,should,yes,yes,"zoho roles and per-customer restriction; permission table + DB functions done, no UI yet; UI, DB-enforced roles and audit log built and e2e tested"
 Multi-factor login,security,should,yes,partial,zoho MFA; kora uses OTP then passkeys; OTP login done (mock sender); passkeys later
 Multi-business and per-document currency,business,should,yes,no,zoho multi-currency basic; bible v1.5
-Recurring invoices with auto-send,recurring,should,yes,no,zoho; bible v2
+Recurring invoices with auto-send,recurring,should,yes,yes,"weekly, monthly or yearly; draft, issue, or issue and send; worker makes each date exactly once, catches up, pauses without backfill; unit and browser tested"
 Auto-charge with saved mandate,recurring,should,yes,no,zoho saved cards; bible v2
 Client portal,portal,should,yes,no,zoho; bible v2
 Inventory with batches serials barcodes,inventory,should,yes,no,mbb deep; zoho SKU only; bible v2

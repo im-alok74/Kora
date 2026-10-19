@@ -142,7 +142,7 @@ async function creditHeadroom(tx: Tx, originalId: string, excludeId: string | nu
   return { original: BigInt(o.taxable_paise as string), already: BigInt(c!.s as string) };
 }
 
-async function persist(tx: Tx, t: TenantSession, id: string | null, input: DocIn, clientRef: string | null = null) {
+export async function persist(tx: Tx, t: TenantSession, id: string | null, input: DocIn, clientRef: string | null = null) {
   const b = await build(tx, t, input);
   const isNote = input.docType === 'credit_note' || input.docType === 'debit_note';
   if (isNote && !input.originalDocumentId) throw new ValidationError('Choose the invoice this note corrects.', 'originalDocumentId');
@@ -269,7 +269,17 @@ export async function getDocumentTx(tx: Tx, id: string) {
   if (!d) return null;
   const lines = await tx`select * from document_line where document_id = ${id} order by position`;
   const deliveries = await tx`select id, channel, to_address, status, error_message, created_at from delivery where document_id = ${id} order by created_at desc`;
-  return { document: d, lines, deliveries };
+  let estimate: Record<string, unknown> | null = null;
+  if (d.doc_type === 'estimate') {
+    const [e] = await tx`select estimate_status(d.status, d.due_date, b.timezone, es.decision, es.converted_to_id) as status,
+                                es.decision, es.decided_at, es.converted_to_id, c.number as converted_number, c.status as converted_status
+                           from document d join business b on b.id = d.business_id
+                           left join estimate_state es on es.document_id = d.id
+                           left join document c on c.id = es.converted_to_id
+                          where d.id = ${id}`;
+    estimate = e ?? null;
+  }
+  return { document: d, lines, deliveries, estimate };
 }
 
 export async function getDocument(sql: Sql, t: TenantSession, id: string) {
@@ -279,8 +289,10 @@ export async function getDocument(sql: Sql, t: TenantSession, id: string) {
 export async function listDocuments(sql: Sql, t: TenantSession, f: { type?: string; status?: string; q?: string; limit?: number; offset?: number } = {}) {
   return inTenant(sql, t, 'document.read', (tx) => tx`
     select d.id, d.doc_type, d.status, d.number, d.doc_date, d.due_date, d.grand_total_paise, d.amount_settled_paise, d.payment_status,
-           d.einvoice_status, d.party_id, p.name as party_name
+           d.einvoice_status, d.party_id, p.name as party_name,
+           case when d.doc_type = 'estimate' then estimate_status(d.status, d.due_date, b.timezone, es.decision, es.converted_to_id) end as estimate_status
       from document d left join party p on p.id = d.party_id
+      join business b on b.id = d.business_id left join estimate_state es on es.document_id = d.id
      where (${f.type ?? null}::text is null or d.doc_type = ${f.type ?? ''})
        and (${f.status ?? null}::text is null or d.status = ${f.status ?? ''})
        and (${f.q ?? null}::text is null or d.number ilike ${'%' + (f.q ?? '') + '%'} or p.name ilike ${'%' + (f.q ?? '') + '%'})
@@ -292,7 +304,12 @@ export async function listDocuments(sql: Sql, t: TenantSession, f: { type?: stri
  * so concurrent issues from any code path stay gapless.
  */
 export async function issueDocument(sql: Sql, t: TenantSession, id: string) {
-  return inTenant(sql, t, 'document.issue', async (tx) => {
+  return inTenant(sql, t, 'document.issue', (tx) => issueTx(tx, t, id));
+}
+
+/** The issue steps, for callers that already hold the tenant transaction (the recurring runner). */
+export async function issueTx(tx: Tx, t: TenantSession, id: string) {
+  {
     const [d] = await tx`select id, status, doc_type, doc_date, original_document_id from document where id = ${id} for update`;
     if (!d) throw new ValidationError('Document not found.');
     if (d.status !== 'draft') throw new ValidationError('This document is already issued.');
@@ -319,7 +336,7 @@ export async function issueDocument(sql: Sql, t: TenantSession, id: string) {
     await scheduleReminders(tx, issued as never);
     await queueEinvoiceIfRequired(tx, issued as never);
     return (await getDocumentTx(tx, id))!;
-  });
+  }
 }
 
 export async function cancelDocument(sql: Sql, t: TenantSession, id: string, reason: string) {
@@ -342,6 +359,15 @@ export async function deleteDraft(sql: Sql, t: TenantSession, id: string): Promi
   });
 }
 
+/** Maps stored lines back to editor input, for drafts made from an existing document. */
+export function linesToInput(lines: Record<string, unknown>[]): LineIn[] {
+  return lines.map((l) => ({
+    itemId: l.item_id as string | null, name: l.item_name as string, hsnSac: l.hsn_sac as string | null, unit: l.unit as string,
+    quantity: String(l.quantity), rate: rs(l.rate_paise as string), discount: rs(l.discount_paise as string),
+    taxRateBp: l.tax_rate_bp as number, cessRateBp: l.cess_rate_bp as number,
+  }));
+}
+
 /** A draft credit or debit note that copies the original's lines, ready to edit. */
 export async function startNote(sql: Sql, t: TenantSession, originalId: string, kind: 'credit_note' | 'debit_note') {
   const src = await inTenant(sql, t, 'document.read', (tx) => getDocumentTx(tx, originalId));
@@ -349,11 +375,7 @@ export async function startNote(sql: Sql, t: TenantSession, originalId: string, 
   const input: DocIn = {
     docType: kind, partyId: src.document.party_id as string | null, originalDocumentId: originalId,
     placeOfSupply: src.document.place_of_supply as string, reverseCharge: src.document.reverse_charge as boolean,
-    lines: src.lines.map((l) => ({
-      itemId: l.item_id as string | null, name: l.item_name as string, hsnSac: l.hsn_sac as string | null, unit: l.unit as string,
-      quantity: String(l.quantity), rate: rs(l.rate_paise as string), discount: rs(l.discount_paise as string),
-      taxRateBp: l.tax_rate_bp as number, cessRateBp: l.cess_rate_bp as number,
-    })),
+    lines: linesToInput(src.lines),
   };
   return saveDraft(sql, t, input);
 }

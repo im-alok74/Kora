@@ -1,10 +1,10 @@
 import { createHttpGsp, createMockMessenger } from '@kora/adapters';
-import { createHandlers, processDueReminders, runJobsOnce } from '@kora/core';
+import { createHandlers, processDueRecurring, processDueReminders, runJobsOnce } from '@kora/core';
 import { createSql } from '@kora/db';
 import { createServer } from 'node:http';
 
 /**
- * Background worker: sends queued messages, registers e-invoices, and queues due reminders.
+ * Background worker: sends queued messages, registers e-invoices, and queues due reminders and recurring invoices.
  * It only polls and runs jobs; every job is safe to run twice, so a crash or a second worker does no harm.
  */
 const log = (event: string, data: Record<string, unknown> = {}) => console.log(JSON.stringify({ t: new Date().toISOString(), event, ...data }));
@@ -31,8 +31,10 @@ for (const s of ['SIGTERM', 'SIGINT'] as const) process.on(s, () => { log('stopp
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let lastReminders = 0;
+let lastRecurring = 0;
 let lastTick = Date.now();
 const reminderEveryMs = Number(process.env.REMINDER_TICK_MS ?? 30_000);
+const recurringEveryMs = Number(process.env.RECURRING_TICK_MS ?? 60_000);
 
 // Liveness for the platform: 200 while the loop is turning, 503 if it has stalled for a minute.
 const healthPort = Number(process.env.WORKER_HEALTH_PORT ?? 0);
@@ -52,6 +54,11 @@ while (!stopping) {
       lastReminders = Date.now();
       const r = await processDueReminders(sql);
       if (r.queued || r.skipped) log('reminders', r);
+    }
+    if (Date.now() - lastRecurring > recurringEveryMs) {
+      lastRecurring = Date.now();
+      const rr = await processDueRecurring(sql);
+      if (rr.created || rr.failed) log('recurring', rr);
     }
     const r = await runJobsOnce(sql, handlers, { worker, limit: 10 });
     if (r.claimed) log('jobs', r);
