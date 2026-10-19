@@ -1,3 +1,5 @@
+// Starting the serverless Chromium takes a few seconds the first time.
+export const maxDuration = 30;
 import { getPublicDocument } from '@kora/core';
 import { renderDocumentHtml, renderPdf } from '@kora/pdf';
 import { irnBlock, services, withUpi } from '../../../../lib/server';

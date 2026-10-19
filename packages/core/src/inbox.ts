@@ -2,6 +2,7 @@ import type { Sql } from '@kora/db';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { str, ValidationError } from './validation.js';
 import { RECEIPT_MAX_BYTES, RECEIPT_TYPES } from './expenses.js';
+import { getBlobStore } from './blobs.js';
 
 export const INBOX_STATUSES = ['new', 'done', 'rejected'] as const;
 export type InboxStatus = (typeof INBOX_STATUSES)[number];
@@ -20,12 +21,19 @@ export async function addToInbox(sql: Sql, t: TenantSession, i: { title: string;
     : i.type === 'image/png' ? data.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))
     : data.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]));
   if (!magic) throw new ValidationError('The file does not look like a real file of that type.', 'data');
-  return inTenant(sql, t, 'inbox.upload', async (tx) => {
-    const [r] = await tx`insert into inbox_item (business_id, title, note, file_name, content_type, uploaded_by)
-                         values (${t.businessId}, ${title}, ${note}, ${name}, ${i.type}, ${t.userId}) returning id`;
-    await tx`insert into inbox_file (item_id, business_id, data) values (${r!.id}, ${t.businessId}, ${data})`;
-    return { id: r!.id as string };
-  });
+  const store = getBlobStore();
+  try {
+    return await inTenant(sql, t, 'inbox.upload', async (tx) => {
+      const [r] = await tx`insert into inbox_item (business_id, title, note, file_name, content_type, uploaded_by)
+                           values (${t.businessId}, ${title}, ${note}, ${name}, ${i.type}, ${t.userId}) returning id`;
+      const key = store ? `${t.businessId}/inbox/${r!.id}` : null;
+      if (store && key) await store.put(key, data, i.type);
+      await tx`insert into inbox_file (item_id, business_id, data, storage_key) values (${r!.id}, ${t.businessId}, ${key ? null : data}, ${key})`;
+      return { id: r!.id as string };
+    });
+  } catch (e) {
+    throw e;
+  }
 }
 
 export async function listInbox(sql: Sql, t: TenantSession, f: { status?: string } = {}) {
@@ -58,12 +66,23 @@ export async function removeFromInbox(sql: Sql, t: TenantSession, id: string): P
     if (!i) throw new ValidationError('That item was not found.');
     const mine = i.uploaded_by === t.userId && i.status === 'new';
     if (!mine && t.role !== 'owner') throw new ValidationError('Only the person who sent this, or an owner, can remove it.');
+    const [f] = await tx`select storage_key from inbox_file where item_id = ${id}`;
     await tx`delete from inbox_item where id = ${id}`;
+    const key = (f?.storage_key as string | null) ?? null;
+    if (key) await getBlobStore()?.delete(key).catch(() => {});
   });
 }
 
 export async function getInboxFile(sql: Sql, t: TenantSession, id: string) {
-  const rows = await inTenant(sql, t, 'inbox.read', (tx) => tx`select i.file_name, i.content_type, f.data from inbox_item i join inbox_file f on f.item_id = i.id where i.id = ${id}`);
+  const rows = await inTenant(sql, t, 'inbox.read', (tx) => tx`select i.file_name, i.content_type, f.data, f.storage_key from inbox_item i join inbox_file f on f.item_id = i.id where i.id = ${id}`);
   const r = rows[0];
-  return r ? { name: r.file_name as string, type: r.content_type as string, data: r.data as Buffer } : null;
+  if (!r) return null;
+  let data = r.data as Buffer | null;
+  if (!data && r.storage_key) {
+    const store = getBlobStore();
+    if (!store) throw new Error('This file is in object storage, which is not configured here.');
+    data = await store.get(r.storage_key as string);
+    if (!data) return null;
+  }
+  return { name: r.file_name as string, type: r.content_type as string, data: data! };
 }

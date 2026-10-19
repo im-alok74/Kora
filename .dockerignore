@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+.next
+**/.next
+.git
+e2e/test-results
+**/test-results
+*.log
+.env
+.env.*
+replica
+docs/*.docx
+bible.docx
+.claude

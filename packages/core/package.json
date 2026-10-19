@@ -8,8 +8,9 @@
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
-    "@kora/db": "workspace:*",
     "@kora/adapters": "workspace:*",
-    "@kora/tax": "workspace:*"
+    "@kora/db": "workspace:*",
+    "@kora/tax": "workspace:*",
+    "aws4fetch": "^1.0.20"
   }
 }

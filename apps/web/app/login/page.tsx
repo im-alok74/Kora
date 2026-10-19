@@ -4,7 +4,8 @@ import { api } from '../../lib/client';
 
 export default function Login() {
   const [ready, setReady] = useState(false);
-  const [step, setStep] = useState<'id' | 'code'>('id');
+  const [step, setStep] = useState<'id' | 'code' | 'mfa'>('id');
+  const [mfaToken, setMfaToken] = useState('');
   const [identifier, setIdentifier] = useState('');
   const [code, setCode] = useState('');
   const [err, setErr] = useState('');
@@ -36,8 +37,15 @@ export default function Login() {
             <input id="id" autoComplete="username" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required />
             <button disabled={busy}>Send code</button>
           </form>
+        ) : step === 'mfa' ? (
+          <form onSubmit={(e) => { e.preventDefault(); void run(async () => { await api('/api/auth/mfa', { body: { mfaToken, code } }); await enter(); }); }}>
+            <label htmlFor="mfa">Code from your authenticator app, or a recovery code</label>
+            <input id="mfa" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} required />
+            <button disabled={busy}>Sign in</button>{' '}
+            <button type="button" className="link" onClick={() => { setStep('id'); setCode(''); }}>Start again</button>
+          </form>
         ) : (
-          <form onSubmit={(e) => { e.preventDefault(); void run(async () => { await api('/api/auth/verify', { body: { identifier, code } }); await enter(); }); }}>
+          <form onSubmit={(e) => { e.preventDefault(); void run(async () => { const r = await api('/api/auth/verify', { body: { identifier, code } }); if (r.needsMfa) { setMfaToken(r.mfaToken); setCode(''); setStep('mfa'); return; } await enter(); }); }}>
             <label htmlFor="code">Six-digit code sent to {identifier}</label>
             <input id="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(e) => setCode(e.target.value)} required />
             <button disabled={busy}>Sign in</button>{' '}

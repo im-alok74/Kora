@@ -126,3 +126,36 @@ select d.number, e.status, e.error_code, e.attempts from einvoice e join documen
 - [ ] Row-level security verified with the production role.
 - [ ] Privacy notice, terms, and data processing terms reviewed by a lawyer.
 - [ ] A person answers support, in Hindi and English.
+
+
+## Running with no always-on worker (Vercel and similar)
+
+The worker is a long-running process, and Vercel does not run one. `GET /api/cron/tick` does one pass of the same work: it queues due
+reminders and recurring invoices, then runs ready jobs (messages, e-invoices, webhooks) for up to 40 seconds.
+
+- Set `CRON_SECRET` (16 or more characters). Without it the route answers 503 to everyone, so it is never open by accident.
+- `apps/web/vercel.json` runs it once a day at 10:00 IST. That is enough for daily reminders and recurring invoices, because the free
+  Vercel plan allows nothing more often. Queued messages, e-invoices and webhooks then wait until the next pass.
+- For near-real-time sending, call it every minute or two from any scheduler with `Authorization: Bearer <CRON_SECRET>`: a paid Vercel
+  plan, an external cron service, or a GitHub Actions schedule. Overlapping calls and a running worker are safe (jobs use `SKIP LOCKED`).
+- The better answer is a real worker. `Dockerfile` builds an image for both: run the web command and, as a second service, the worker command
+  (`pnpm --filter @kora/worker start`) on Fly.io, Render, Railway or any container host.
+
+## PDFs on Vercel
+
+Vercel has no browser installed. When `VERCEL` is set (or `PDF_CHROMIUM=sparticuz`), PDFs use a Chromium built for serverless
+functions (`@sparticuz/chromium`), shipped with the two PDF routes. The first PDF after a quiet period takes a few seconds to start.
+Everywhere else, Playwright's own Chromium is used. The container image includes it.
+
+## Backups
+
+`infra/backup.sh` writes a `pg_dump` (custom format), checks it can be read back, encrypts it if `BACKUP_PASSPHRASE` is set, copies it to
+`BACKUP_S3_URI` if set, and deletes local files older than `BACKUP_KEEP_DAYS`. `infra/restore-check.sh` loads a backup into a scratch
+database, compares row counts with the live database, and drops the scratch database. A mismatch, a wrong passphrase or an unreadable file
+exits non-zero.
+
+- `.github/workflows/backup.yml` runs the backup daily to object storage you own. It stays off until you set the repository variable
+  `BACKUPS_ENABLED=true` and add the secrets listed at the top of that file. It never keeps data on GitHub.
+- Run `restore-check.sh` against a scratch server at least monthly. A backup that has never been restored is not yet a backup.
+- Supabase keeps its own daily backups on paid plans only. On the free plan this script is the only copy.
+- Keep the passphrase somewhere other than the backup bucket. Without it the files cannot be opened.

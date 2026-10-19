@@ -1,5 +1,5 @@
-import { createHttpGsp, createMockMessenger } from '@kora/adapters';
-import { createHandlers, processDueRecurring, processDueReminders, runJobsOnce } from '@kora/core';
+import { createHttpGsp, messengerFromEnv } from '@kora/adapters';
+import { createHandlers, reportError, processDueRecurring, processDueReminders, runJobsOnce } from '@kora/core';
 import { createSql } from '@kora/db';
 import { createServer } from 'node:http';
 
@@ -15,14 +15,8 @@ function need(name: string): string {
   return v;
 }
 
-const provider = process.env.MESSENGER ?? 'mock';
-if (provider !== 'mock') throw new Error(`Unknown MESSENGER "${provider}". Real providers need an approved account first.`);
-if (process.env.NODE_ENV === 'production' && process.env.KORA_ALLOW_MOCKS !== '1') {
-  throw new Error('The mock messenger is not allowed in production. Connect a real provider, or set KORA_ALLOW_MOCKS=1 for a staging demo.');
-}
-
 const sql = createSql(need('DATABASE_URL'), { max: 5 });
-const messenger = createMockMessenger((line) => log('message', { line }));
+const messenger = messengerFromEnv(process.env, (line) => log('message', { line }));
 const gsp = createHttpGsp({ baseUrl: need('GSP_URL'), token: process.env.GSP_TOKEN, timeoutMs: Number(process.env.GSP_TIMEOUT_MS ?? 15_000) });
 const handlers = createHandlers(sql, { messenger, gsp, appUrl: process.env.APP_URL ?? 'http://localhost:3000' });
 const worker = `worker-${process.pid}`;
@@ -65,6 +59,7 @@ while (!stopping) {
     if (r.claimed === 0) await sleep(1000);
   } catch (e) {
     log('error', { message: (e as Error).message });
+    await reportError(e, { event: 'worker_error', worker });
     await sleep(5000);
   }
 }

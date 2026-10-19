@@ -16,7 +16,12 @@ const SECURITY_HEADERS = [
 /** @type {import('next').NextConfig} */
 export default {
   transpilePackages: ['@kora/core', '@kora/db', '@kora/adapters', '@kora/tax', '@kora/pdf'],
-  serverExternalPackages: ['postgres', 'playwright', 'playwright-core'],
+  serverExternalPackages: ['postgres', 'playwright', 'playwright-core', '@sparticuz/chromium'],
+  // The serverless Chromium is a packed binary; make sure it is shipped with the two routes that make PDFs.
+  outputFileTracingIncludes: {
+    '/api/documents/[id]/pdf': ['./node_modules/@sparticuz/chromium/bin/**'],
+    '/i/[token]/pdf': ['./node_modules/@sparticuz/chromium/bin/**'],
+  },
   poweredByHeader: false,
   async headers() {
     return [

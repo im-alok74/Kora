@@ -1,3 +1,5 @@
+import { liveMessenger } from './live.js';
+
 /** Sends a document to a customer. Real providers: WhatsApp Business Cloud API, a transactional email service. */
 export interface SendResult { providerMessageId: string }
 
@@ -30,4 +32,15 @@ export function createMockMessenger(log: (line: string) => void = () => {}): Moc
     sendEmail: (m) => go('email', m.to, m.subject + '\n' + m.text, m.documentUrl),
     sendSms: (m) => go('sms', m.to, m.text),
   };
+}
+
+/** The messenger named by MESSENGER. Only the mock exists until a provider is approved; the mock is refused in production unless KORA_ALLOW_MOCKS=1. */
+export function messengerFromEnv(env: Record<string, string | undefined> = process.env, log: (line: string) => void = () => {}): Messenger {
+  const provider = env.MESSENGER ?? 'mock';
+  if (provider === 'live') return liveMessenger(env);
+  if (provider !== 'mock') throw new Error(`Unknown MESSENGER "${provider}". Use mock or live.`);
+  if (env.NODE_ENV === 'production' && env.KORA_ALLOW_MOCKS !== '1') {
+    throw new Error('The mock messenger is not allowed in production. Connect a real provider, or set KORA_ALLOW_MOCKS=1 for a staging demo.');
+  }
+  return createMockMessenger(log);
 }

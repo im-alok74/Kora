@@ -3,6 +3,8 @@ import type { Sql } from '@kora/db';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { isDate, str, todayIn, ValidationError } from './validation.js';
 import type { Column } from './registers.js';
+import { randomUUID } from 'node:crypto';
+import { getBlobStore } from './blobs.js';
 
 /** Suggested categories. A business can type its own: the category is free text. */
 export const EXPENSE_CATEGORIES = [
@@ -117,20 +119,44 @@ export async function setReceipt(sql: Sql, t: TenantSession, id: string, file: {
     : file.type === 'image/png' ? data.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))
     : data.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]));
   if (!magic) throw new ValidationError('The file does not look like a real receipt of that type.', 'data');
-  await inTenant(sql, t, 'expense.write', async (tx) => {
-    const [e] = await tx`select id from expense where id = ${id}`;
-    if (!e) throw new ValidationError('Expense not found.');
-    await tx`insert into expense_receipt (expense_id, business_id, file_name, content_type, data) values (${id}, ${t.businessId}, ${name}, ${file.type}, ${data})
-             on conflict (expense_id) do update set file_name = excluded.file_name, content_type = excluded.content_type, data = excluded.data`;
-  });
+  const store = getBlobStore();
+  const key = store ? `${t.businessId}/receipts/${id}-${randomUUID()}` : null;
+  if (store && key) await store.put(key, data, file.type);
+  let previous: string | null = null;
+  try {
+    await inTenant(sql, t, 'expense.write', async (tx) => {
+      const [e] = await tx`select id from expense where id = ${id}`;
+      if (!e) throw new ValidationError('Expense not found.');
+      const [old] = await tx`select storage_key from expense_receipt where expense_id = ${id}`;
+      previous = (old?.storage_key as string | null) ?? null;
+      await tx`insert into expense_receipt (expense_id, business_id, file_name, content_type, data, storage_key) values (${id}, ${t.businessId}, ${name}, ${file.type}, ${key ? null : data}, ${key})
+               on conflict (expense_id) do update set file_name = excluded.file_name, content_type = excluded.content_type, data = excluded.data, storage_key = excluded.storage_key`;
+    });
+  } catch (e) {
+    if (store && key) await store.delete(key).catch(() => {});
+    throw e;
+  }
+  if (store && previous) await store.delete(previous).catch(() => {});
 }
 
 export async function getReceipt(sql: Sql, t: TenantSession, id: string) {
-  const rows = await inTenant(sql, t, 'expense.read', (tx) => tx`select file_name, content_type, data from expense_receipt where expense_id = ${id}`);
+  const rows = await inTenant(sql, t, 'expense.read', (tx) => tx`select file_name, content_type, data, storage_key from expense_receipt where expense_id = ${id}`);
   const r = rows[0];
-  return r ? { name: r.file_name as string, type: r.content_type as string, data: r.data as Buffer } : null;
+  if (!r) return null;
+  let data = r.data as Buffer | null;
+  if (!data && r.storage_key) {
+    const store = getBlobStore();
+    if (!store) throw new Error('This file is in object storage, which is not configured here.');
+    data = await store.get(r.storage_key as string);
+    if (!data) return null;
+  }
+  return { name: r.file_name as string, type: r.content_type as string, data: data! };
 }
 
 export async function removeReceipt(sql: Sql, t: TenantSession, id: string): Promise<void> {
-  await inTenant(sql, t, 'expense.write', (tx) => tx`delete from expense_receipt where expense_id = ${id}`);
+  const key = await inTenant(sql, t, 'expense.write', async (tx) => {
+    const [r] = await tx`delete from expense_receipt where expense_id = ${id} returning storage_key`;
+    return (r?.storage_key as string | null) ?? null;
+  });
+  if (key) await getBlobStore()?.delete(key).catch(() => {});
 }

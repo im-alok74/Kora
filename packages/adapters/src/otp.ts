@@ -1,3 +1,5 @@
+import { liveOtpSender } from './live.js';
+
 /** Sends a one-time code. Real providers (SMS with DLT registration, transactional email) implement this. */
 export interface OtpSender {
   send(msg: { channel: 'sms' | 'email'; to: string; code: string }): Promise<void>;
@@ -27,5 +29,6 @@ export function otpSenderFromEnv(env: Record<string, string | undefined> = proce
     if (env.NODE_ENV === 'production' && env.KORA_ALLOW_MOCKS !== '1') throw new Error('OTP_PROVIDER=mock is not allowed in production. Set KORA_ALLOW_MOCKS=1 for a staging demo.');
     return createMockOtpSender();
   }
-  throw new Error(`Unknown OTP_PROVIDER "${provider}". Real providers need credentials and DLT approval first.`);
+  if (provider === 'live') return liveOtpSender(env);
+  throw new Error(`Unknown OTP_PROVIDER "${provider}". Use mock or live.`);
 }

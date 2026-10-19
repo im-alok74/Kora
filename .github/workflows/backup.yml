@@ -1,0 +1,39 @@
+name: backup
+# A daily encrypted copy of the production database, sent to object storage you control.
+# It does nothing until the secrets below exist, and it never stores the data on GitHub.
+#
+# Secrets to add (Settings > Secrets and variables > Actions):
+#   BACKUP_DATABASE_URL   the owner role, on a connection that works from GitHub (IPv4): for Supabase use the pooler in session mode, port 5432
+#   BACKUP_PASSPHRASE     a long random passphrase. Keep a copy somewhere that is not the backup bucket.
+#   BACKUP_S3_URI         s3://bucket/kora   (Cloudflare R2, Backblaze B2 and AWS S3 all work)
+#   BACKUP_S3_ENDPOINT    the storage endpoint URL (leave out for AWS S3)
+#   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY   keys that may write to that bucket only
+on:
+  schedule: [{ cron: '0 21 * * *' }]     # 02:30 IST
+  workflow_dispatch: {}
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    if: ${{ vars.BACKUPS_ENABLED == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the Postgres 16 client
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-16
+      - name: Back up
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          BACKUP_S3_URI: ${{ secrets.BACKUP_S3_URI }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          BACKUP_KEEP_DAYS: '0'
+        run: |
+          test -n "$BACKUP_PASSPHRASE" || { echo "BACKUP_PASSPHRASE is required: backups are always encrypted"; exit 1; }
+          test -n "$BACKUP_S3_URI" || { echo "BACKUP_S3_URI is required"; exit 1; }
+          bash infra/backup.sh

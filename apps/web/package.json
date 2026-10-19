@@ -13,12 +13,13 @@
     "@kora/adapters": "workspace:*",
     "@kora/core": "workspace:*",
     "@kora/db": "workspace:*",
-    "next": "^15.1.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
     "@kora/pdf": "workspace:*",
     "@kora/tax": "workspace:*",
-    "playwright": "^1.49.0"
+    "@sparticuz/chromium": "^153.0.0",
+    "next": "^15.1.0",
+    "playwright": "^1.49.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

@@ -7,7 +7,7 @@ export const WORKER_PORT = 3201;
 export const GSP_PORT = 3202;
 const ENV = {
   DATABASE_URL: 'postgres://kora_web:kora_web_dev@localhost:54329/kora_e2e',
-  OTP_HMAC_SECRET: SECRET, OTP_PROVIDER: 'mock', GATEWAY: 'mock', GATEWAY_WEBHOOK_SECRET: GATEWAY_SECRET, MESSENGER: 'mock',
+  CRON_SECRET: 'e2e-cron-secret-0123456789', OTP_HMAC_SECRET: SECRET, OTP_PROVIDER: 'mock', GATEWAY: 'mock', GATEWAY_WEBHOOK_SECRET: GATEWAY_SECRET, MESSENGER: 'mock',
   KORA_WEBHOOK_ALLOW_PRIVATE: '1',   // lets the browser tests receive webhooks on localhost
   APP_URL: `http://localhost:${PORT}`, GSP_URL: `http://127.0.0.1:${GSP_PORT}`, GSP_TIMEOUT_MS: '5000',
 };
