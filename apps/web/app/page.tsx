@@ -129,6 +129,7 @@ export default function Landing() {
       <footer className="l-foot">
         <span>Kora</span>
         <span>GST invoicing and collections for Indian businesses</span>
+        <span><a href="/terms">Terms</a> &middot; <a href="/privacy">Privacy</a></span>
       </footer>
     </div>
   );

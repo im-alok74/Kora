@@ -34,7 +34,7 @@ test('a CA with two clients sees both on one screen, with what is overdue, and c
   await expect(rows.nth(2)).toContainText('Alpha Textiles');
   await expect(page.getByText(/GSTR-3B for/).first()).toBeVisible();
 
-  await page.getByLabel('Search').fill('alpha');
+  await page.getByRole('searchbox', { name: 'Search' }).fill('alpha');
   await expect(page.getByRole('table', { name: 'Clients' }).getByRole('row')).toHaveCount(2);
   await page.getByRole('button', { name: 'Open Alpha Textiles' }).click();
   await expect(page).toHaveURL(/\/app$/);

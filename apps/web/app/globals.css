@@ -434,3 +434,8 @@ kbd { font: 11px ui-monospace, Menlo, Consolas, monospace; padding: 1px 6px; bor
 .pos-tiles .tile small { color: var(--text-muted); } .pos-tiles .tile small.out { color: var(--danger); font-weight: 700; }
 .pos-found { background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 4px 12px; margin: 8px 0 0; }
 @media (max-width: 900px) { .pos { grid-template-columns: 1fr; } .pos-cart { position: static; } }
+
+/* ---------------------------------------------------------------- legal pages */
+main.legal { max-width: 760px; padding: 36px 20px 80px; }
+main.legal h1 { margin-top: 8px; } main.legal h2 { margin-top: 28px; font-size: 21px; }
+main.legal ul { padding-left: 22px; } main.legal li { margin: 6px 0; }

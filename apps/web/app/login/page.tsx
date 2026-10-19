@@ -54,7 +54,7 @@ export default function Login() {
         )}
         {err && <p className="error" role="alert">{err}</p>}
       </div>
-      <p className="muted" style={{ textAlign: 'center', marginTop: 16, fontSize: 13 }}>Kora prepares your documents. You and your CA stay responsible for every invoice and filing.</p>
+      <p className="muted" style={{ textAlign: 'center', marginTop: 16, fontSize: 13 }}>Kora prepares your documents. You and your CA stay responsible for every invoice and filing. By signing in you agree to the <a href="/terms">terms</a> and the <a href="/privacy">privacy policy</a>.</p>
       </div>
     </main>
   );
