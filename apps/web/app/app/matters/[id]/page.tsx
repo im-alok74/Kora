@@ -1,5 +1,7 @@
 'use client';
 import { use, useCallback, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import Icon from '../../../../components/Icon';
 import { api, rupees } from '../../../../lib/client';
 
 type Entry = { id: string; kind: 'time' | 'expense' | 'fee'; entry_date: string; description: string; minutes: number | null; rate_paise: string | null; amount_paise: string; billable: boolean; pure_agent: boolean; invoiced_document_id: string | null; invoice_number: string | null; invoice_status: string | null };
@@ -15,6 +17,9 @@ const FUND_LABEL = { deposit: 'Received', refund: 'Returned', applied: 'Kept for
 
 export default function MatterPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const isProject = (usePathname() ?? '').startsWith('/app/projects');
+  const base = isProject ? '/app/projects' : '/app/matters';
+  const word = isProject ? 'project' : 'matter';
   const [d, setD] = useState<Detail | null>(null);
   const [role, setRole] = useState('');
   const [err, setErr] = useState('');
@@ -25,8 +30,23 @@ export default function MatterPage({ params }: { params: Promise<{ id: string }>
   const [fd, setFd] = useState({ kind: 'deposit', amount: '', note: '' });
   const [fee, setFee] = useState({ description: '', amount: '', date: '' });
   const [pay, setPay] = useState({ documentId: '', amount: '' });
-  const [ev, setEv] = useState({ date: '', title: '', kind: 'hearing' });
+  const [ev, setEv] = useState({ date: '', title: '', kind: isProject ? 'deadline' : 'hearing' });
   const [access, setAccess] = useState<{ restricted: boolean; people: Person[] } | null>(null);
+  // A stopwatch kept in this browser, so a running timer survives a reload. Stopping it fills in the time; saving the entry is still a click.
+  const timerKey = `kora-timer-${id}`;
+  const [started, setStarted] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { try { const v = localStorage.getItem(timerKey); if (v) setStarted(Number(v)); } catch { /* storage unavailable */ } }, [timerKey]);
+  useEffect(() => { if (started === null) return; const h = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(h); }, [started]);
+  const startTimer = () => { const t0 = Date.now(); setStarted(t0); setNow(t0); try { localStorage.setItem(timerKey, String(t0)); } catch { /* ignore */ } };
+  const stopTimer = () => {
+    if (started === null) return;
+    const mins = Math.max(1, Math.ceil((Date.now() - started) / 60000));
+    setTm((x) => ({ ...x, duration: `${mins}m` })); setStarted(null);
+    try { localStorage.removeItem(timerKey); } catch { /* ignore */ }
+  };
+  const elapsed = started === null ? '' : (() => { const sec = Math.max(0, Math.floor((now - started) / 1000)); return `${Math.floor(sec / 3600)}:${String(Math.floor(sec / 60) % 60).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`; })();
+
 
   const load = useCallback(async () => { setD(await api(`/api/matters/${id}`)); }, [id]);
   const loadAccess = useCallback(async () => { setAccess(await api(`/api/matters/${id}/access`)); }, [id]);
@@ -53,20 +73,25 @@ export default function MatterPage({ params }: { params: Promise<{ id: string }>
           <div className="muted">{d.unbilled.count} unbilled {d.unbilled.count === 1 ? 'entry' : 'entries'}{d.unbilled.minutes ? ` · ${hm(d.unbilled.minutes)}` : ''}</div>
         </div>
         <div className="row doc-actions">
-          <a className="btn secondary" href="/app/matters">Back</a>
+          <a className="btn secondary" href={base}>Back</a>
           {canWrite && d.unbilled.count > 0 && <button disabled={busy} onClick={() => run(async () => { const r = await api(`/api/matters/${id}/bill`, { body: {} }); window.location.href = `/app/invoices/${r.id}`; })}>Create draft invoice</button>}
-          {canWrite && <button className="secondary" disabled={busy} onClick={() => run(async () => { await api(`/api/matters/${id}`, { method: 'PATCH', body: { status: open ? 'closed' : 'open' } }); await load(); })}>{open ? 'Close matter' : 'Reopen matter'}</button>}
+          {canWrite && <button className="secondary" disabled={busy} onClick={() => run(async () => { await api(`/api/matters/${id}`, { method: 'PATCH', body: { status: open ? 'closed' : 'open' } }); await load(); })}>{open ? `Close ${word}` : `Reopen ${word}`}</button>}
         </div>
       </div>
       {err && <p className="error" role="alert">{err}</p>}
       {msg && <p className="ok" role="status">{msg}</p>}
-      {(m.reverse_charge || m.tds_bp > 0) && <p className="muted" style={{ fontSize: 13 }}>Invoices from this matter carry {m.reverse_charge ? 'reverse charge' : ''}{m.reverse_charge && m.tds_bp > 0 ? ' and ' : ''}{m.tds_bp > 0 ? `${m.tds_bp / 100}% TDS` : ''}, as set on the matter. SAC {m.sac}.</p>}
+      {(m.reverse_charge || m.tds_bp > 0) && <p className="muted" style={{ fontSize: 13 }}>Invoices from this {word} carry {m.reverse_charge ? 'reverse charge' : ''}{m.reverse_charge && m.tds_bp > 0 ? ' and ' : ''}{m.tds_bp > 0 ? `${m.tds_bp / 100}% TDS` : ''}, as set on the matter. SAC {m.sac}.</p>}
 
       <div className="doc-layout">
         <div>
           {canWrite && open && (
             <div className="panel">
               <p className="section-label">Record time</p>
+              <div className="row" style={{ alignItems: 'center', marginBottom: 10 }}>
+                {started === null
+                  ? <button type="button" className="secondary sm" style={{ flex: 'none' }} onClick={startTimer}><Icon name="clock" size={16} />Start timer</button>
+                  : <><span data-testid="timer" style={{ flex: 'none', fontVariantNumeric: 'tabular-nums', fontWeight: 700 }} role="timer" aria-label="Time on the clock">{elapsed}</span><button type="button" className="sm" style={{ flex: 'none' }} onClick={stopTimer}>Stop and fill in the time</button></>}
+              </div>
               <form onSubmit={(e) => { e.preventDefault(); void run(async () => { await api(`/api/matters/${id}/time`, { body: { duration: tm.duration, description: tm.description, date: tm.date || undefined, rate: tm.rate || undefined } }); setTm({ duration: '', description: '', date: '', rate: '' }); setMsg('Time recorded.'); await load(); }); }}>
                 <div className="row">
                   <div><label htmlFor="td" style={{ marginTop: 0 }}>Time</label><input id="td" value={tm.duration} placeholder="1:30 or 90m or 1.5" onChange={(e) => setTm({ ...tm, duration: e.target.value })} required /></div>
@@ -127,7 +152,7 @@ export default function MatterPage({ params }: { params: Promise<{ id: string }>
 
         <div className="doc-side">
           <div className="panel" aria-label="Client money">
-            <h2>Client money</h2>
+            <h2>{isProject ? 'Advance held' : 'Client money'}</h2>
             <p>Held for the client: <b data-testid="held">{rupees(d.heldPaise)}</b></p>
             <p className="muted" style={{ fontSize: 13 }}>Money received in advance for this matter. Entries cannot be edited. A mistake is fixed with another entry. The rules for holding client money are set by your bar council, so check them before you rely on this ledger.</p>
             {canWrite && (
@@ -156,7 +181,7 @@ export default function MatterPage({ params }: { params: Promise<{ id: string }>
                 <li key={k.id}><span>{k.entry_date} · {FUND_LABEL[k.kind]}{k.note ? ` · ${k.note}` : ''}</span><span>{k.kind === 'deposit' ? '+' : '-'}{rupees(k.amount_paise)}</span></li>))}</ul>)}
           </div>
           <div className="panel" aria-label="Hearings and deadlines">
-            <h2>Hearings and deadlines</h2>
+            <h2>{isProject ? 'Deadlines' : 'Hearings and deadlines'}</h2>
             {d.events.length === 0 ? <p className="muted">None recorded.</p> : (
               <ul className="plain">{d.events.map((x) => (
                 <li key={x.id} style={{ opacity: x.done ? 0.55 : 1 }}>
@@ -179,13 +204,13 @@ export default function MatterPage({ params }: { params: Promise<{ id: string }>
 
           {role === 'owner' && access && (
             <div className="panel" aria-label="Who can see this matter">
-              <h2>Who can see this matter</h2>
+              <h2>Who can see this {word}</h2>
               <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 0 }}>
                 <input type="checkbox" style={{ width: 'auto', height: 'auto' }} checked={access.restricted} disabled={busy}
                   onChange={(e) => run(async () => { await api(`/api/matters/${id}/access`, { method: 'PUT', body: { restricted: e.target.checked, userIds: access.people.filter((x) => x.listed).map((x) => x.user_id) } }); await loadAccess(); })} />
-                Only the people I choose can see this matter
+                Only the people I choose can see this {word}
               </label>
-              <p className="muted" style={{ fontSize: 13 }}>Owners always can. This covers the matter, its time, its client money and its dates. An invoice made from it is an ordinary invoice, and anyone who can see invoices can read its lines.</p>
+              <p className="muted" style={{ fontSize: 13 }}>Owners always can. This covers the {word}, its time, its {isProject ? 'advance' : 'client money'} and its dates. An invoice made from it is an ordinary invoice, and anyone who can see invoices can read its lines.</p>
               {access.restricted && access.people.filter((x) => x.role !== 'owner').map((x) => (
                 <label key={x.user_id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <input type="checkbox" style={{ width: 'auto', height: 'auto' }} checked={x.listed} disabled={busy}

@@ -11,6 +11,10 @@ export const viewport = { themeColor: '#0b5d4f', width: 'device-width', initialS
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-IN">
+      <head>
+        {/* Sets the theme before the first paint, from the saved choice or else the device setting, so there is no flash of the wrong one. */}
+        <script dangerouslySetInnerHTML={{ __html: "try{var t=localStorage.getItem('kora-theme');if(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.dataset.theme='dark'}catch(e){}" }} />
+      </head>
       <body>{children}</body>
     </html>
   );

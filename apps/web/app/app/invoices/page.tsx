@@ -21,6 +21,11 @@ export default function Documents() {
   const [role, setRole] = useState('');
   const [localDrafts, setLocalDrafts] = useState<LocalDraft[]>([]);
   const [offline, setOffline] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [sort, setSort] = useState<{ key: 'number' | 'type' | 'party_name' | 'doc_date' | 'grand_total_paise' | 'status'; dir: 1 | -1 } | null>(null);
+  const [bulkMsg, setBulkMsg] = useState('');
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [cancelReason, setCancelReason] = useState<string | null>(null);
   const [tick, setTick] = useState(0); // bumps when the connection returns or a draft syncs, so the list refetches
   useEffect(() => { const r = () => { void listDrafts().then(setLocalDrafts); setTick((n) => n + 1); }; r(); window.addEventListener('online', r); const off = onDraftsChanged(r); return () => { window.removeEventListener('online', r); off(); }; }, []);
   useEffect(() => { api('/api/business').then((b) => setRole(b.role)); }, []);
@@ -35,6 +40,27 @@ export default function Documents() {
   }, [status, type, q, tick]);
 
   const canWrite = role !== 'accountant';
+  const canIssue = role === 'owner' || role === 'staff';
+  const sorted = rows && sort ? [...rows].sort((a, b) => {
+    const av = sort.key === 'grand_total_paise' ? Number(a.grand_total_paise) : String(sort.key === 'status' ? a.status : (a as Record<string, unknown>)[sort.key] ?? '');
+    const bv = sort.key === 'grand_total_paise' ? Number(b.grand_total_paise) : String(sort.key === 'status' ? b.status : (b as Record<string, unknown>)[sort.key] ?? '');
+    return (av < bv ? -1 : av > bv ? 1 : 0) * sort.dir;
+  }) : rows;
+  const chosen = (rows ?? []).filter((r) => picked.has(r.id));
+  const toggle = (id: string) => setPicked((s0) => { const n = new Set(s0); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const bulk = async (action: 'issue' | 'delete' | 'cancel' | 'remind', reason?: string) => {
+    setBulkBusy(true); setBulkMsg(''); setErr('');
+    try {
+      const r = await api('/api/documents/bulk', { body: { action, ids: chosen.map((c) => c.id), reason, channel: 'whatsapp' } });
+      const bad = (r.results as { ok: boolean; error?: string }[]).find((x) => !x.ok);
+      setBulkMsg(`${r.done} done${r.failed ? `, ${r.failed} could not be done${bad?.error ? `: ${bad.error}` : ''}` : ''}.`);
+      setPicked(new Set()); setCancelReason(null); setTick((n) => n + 1);
+    } catch (e) { setErr((e as Error).message); } finally { setBulkBusy(false); }
+  };
+  const th = (label: string, key: NonNullable<typeof sort>['key'], right = false) => (
+    <th className={right ? 'n' : undefined} aria-sort={sort?.key === key ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" className="thsort" onClick={() => setSort((c) => (c?.key === key ? (c.dir === 1 ? { key, dir: -1 } : null) : { key, dir: 1 }))}>{label}{sort?.key === key ? (sort.dir === 1 ? ' \u2191' : ' \u2193') : ''}</button>
+    </th>);
   const tab = !type && !status ? 'all' : type === 'estimate' && !status ? 'estimates' : type === 'tax_invoice' && !status ? 'invoices' : status === 'draft' && !type ? 'drafts' : status === 'cancelled' && !type ? 'cancelled' : '';
   const pick = (t: string, s: string) => { setType(t); setStatus(s); };
 
@@ -82,12 +108,27 @@ export default function Documents() {
           {q || type || status ? <><h3>Nothing matches</h3><p>No documents match those filters. Try clearing them.</p><button className="secondary" onClick={() => { setQ(''); pick('', ''); }}>Clear filters</button></>
             : <><h3>No documents yet.</h3><p>Create an invoice and it will show up here.</p>{canWrite && <a className="btn" href="/app/invoices/new">Create your first invoice</a>}</>}
         </div>)}
+      {bulkMsg && <p className="ok" role="status">{bulkMsg}</p>}
+      {chosen.length > 0 && canIssue && (
+        <div className="bulkbar" role="region" aria-label="Actions for the selected documents">
+          <b>{chosen.length} selected</b>
+          {chosen.every((c) => c.status === 'draft') && <button disabled={bulkBusy} onClick={() => bulk('issue')}>Issue</button>}
+          {chosen.every((c) => c.status === 'draft') && <button className="danger" disabled={bulkBusy} onClick={() => bulk('delete')}>Delete drafts</button>}
+          {chosen.every((c) => c.status === 'issued' && ['tax_invoice', 'bill_of_supply', 'debit_note'].includes(c.doc_type)) && <button className="secondary" disabled={bulkBusy} onClick={() => bulk('remind')}>Send reminders</button>}
+          {chosen.every((c) => c.status === 'issued') && role === 'owner' && <button className="secondary" disabled={bulkBusy} onClick={() => setCancelReason(cancelReason === null ? '' : null)}>Cancel</button>}
+          <button className="link" onClick={() => setPicked(new Set())}>Clear</button>
+          {cancelReason !== null && (
+            <form onSubmit={(e) => { e.preventDefault(); void bulk('cancel', cancelReason); }} style={{ display: 'flex', gap: 8, flex: '1 0 100%' }}>
+              <input aria-label="Reason for cancelling" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="Reason for cancelling these" required />
+              <button className="danger" disabled={bulkBusy}>Confirm cancel</button>
+            </form>)}
+        </div>)}
       {rows && rows.length > 0 && (
         <table className="t cards">
-          <thead><tr><th>Number</th><th>Type</th><th>Customer</th><th>Date</th><th className="n">Total</th><th>Status</th></tr></thead>
-          <tbody>{rows.map((r) => (
+          <thead><tr><th aria-sort={sort?.key === 'number' ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>{canIssue && <input type="checkbox" aria-label="Select all documents" checked={rows.length > 0 && rows.every((r) => picked.has(r.id))} onChange={(e) => setPicked(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())} />} <button type="button" className="thsort" onClick={() => setSort((c) => (c?.key === 'number' ? (c.dir === 1 ? { key: 'number', dir: -1 } : null) : { key: 'number', dir: 1 }))}>Number{sort?.key === 'number' ? (sort.dir === 1 ? ' \u2191' : ' \u2193') : ''}</button></th>{th('Type', 'type')}{th('Customer', 'party_name')}{th('Date', 'doc_date')}{th('Total', 'grand_total_paise', true)}{th('Status', 'status')}</tr></thead>
+          <tbody>{(sorted ?? rows).map((r) => (
             <tr key={r.id}>
-              <td className="c-num"><a href={`/app/invoices/${r.id}`}>{r.number ?? 'Draft'}</a></td>
+              <td className="c-num">{canIssue && <input type="checkbox" aria-label={`Select ${r.number ?? 'draft'} for ${r.party_name ?? 'walk-in customer'}`} checked={picked.has(r.id)} onChange={() => toggle(r.id)} />} <a href={`/app/invoices/${r.id}`}>{r.number ?? 'Draft'}</a></td>
               <td className="c-type">{DOC_LABEL[r.doc_type]}</td>
               <td className="c-cust">{r.party_name ?? 'Walk-in'}</td>
               <td className="c-date">{r.doc_date}</td>

@@ -116,7 +116,7 @@ export default function Customers() {
       <table className="t">
         <thead><tr><th>Name</th><th>GSTIN</th><th>State</th><th>Mobile</th><th /></tr></thead>
         <tbody>{rows.map((p) => (
-          <tr key={p.id}><td>{p.name}{p.currency && p.currency !== 'INR' ? <span className="muted"> ({p.currency})</span> : null}</td><td>{p.gstin ?? ''}</td><td>{p.state_code === '96' ? 'Outside India' : STATE_NAMES[p.state_code]}</td><td>{p.phone ?? ''}</td>
+          <tr key={p.id}><td><a href={`/app/customers/${p.id}`}>{p.name}</a>{p.currency && p.currency !== 'INR' ? <span className="muted"> ({p.currency})</span> : null}</td><td>{p.gstin ?? ''}</td><td>{p.state_code === '96' ? 'Outside India' : STATE_NAMES[p.state_code]}</td><td>{p.phone ?? ''}</td>
             <td className="n"><button className="link" onClick={() => { setEditing(p.id); setForm({ name: p.name, gstin: p.gstin ?? '', stateCode: p.state_code, phone: p.phone ?? '', email: p.email ?? '', currency: p.currency ?? 'INR', line1: p.billing_address?.line1 ?? '', city: p.billing_address?.city ?? '', pincode: p.billing_address?.pincode ?? '' }); window.scrollTo(0, 0); }}>Edit</button>{' '}
               {canPortal && <button className="link" onClick={() => void openPortal(p)}>Portal</button>}{' '}
               <button className="link" onClick={async () => { await api(`/api/parties/${p.id}`, { method: 'DELETE' }); await load(); }}>Archive</button></td></tr>))}</tbody>

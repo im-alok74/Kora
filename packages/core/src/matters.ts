@@ -30,8 +30,10 @@ export const formatDuration = (minutes: number) => `${Math.floor(minutes / 60)}h
 /** Paise for the minutes at an hourly rate, rounded half up. Worked out once, when the entry is saved. */
 export const timeAmount = (minutes: number, ratePaise: bigint): bigint => (BigInt(minutes) * ratePaise + 30n) / 60n;
 
+export type MatterKind = 'matter' | 'project';
+
 export interface MatterIn {
-  partyId: string; title: string; reference?: string | null; rate?: string | null; sac?: string | null;
+  kind?: MatterKind; partyId: string; title: string; reference?: string | null; rate?: string | null; sac?: string | null;
   reverseCharge?: boolean; tdsBp?: number; notes?: string | null; status?: 'open' | 'closed';
 }
 
@@ -66,14 +68,16 @@ function mapMatterError(e: unknown): never {
 }
 
 export async function createMatter(sql: Sql, t: TenantSession, i: MatterIn): Promise<{ id: string }> {
+  const kind = i.kind ?? 'matter';
+  if (kind !== 'matter' && kind !== 'project') throw new ValidationError('Choose matter or project.', 'kind');
   const c = cleanMatter(i, true);
   return inTenant(sql, t, 'matter.write', async (tx) => {
     const [p] = await tx`select id from party where id = ${i.partyId} and kind in ('customer', 'both')`;
     if (!p) throw new ValidationError('Choose a client from your customers.', 'partyId');
     try {
-      const [r] = await tx`insert into matter (business_id, party_id, title, reference, rate_paise, sac, reverse_charge, tds_bp, notes, created_by)
-                           values (${t.businessId}, ${i.partyId}, ${c.title as string}, ${(c.reference as string | null) ?? null}, ${c.rate_paise as string},
-                                   ${(c.sac as string | undefined) ?? '998212'}, ${(c.reverse_charge as boolean | undefined) ?? false}, ${(c.tds_bp as number | undefined) ?? 0},
+      const [r] = await tx`insert into matter (business_id, kind, party_id, title, reference, rate_paise, sac, reverse_charge, tds_bp, notes, created_by)
+                           values (${t.businessId}, ${kind}, ${i.partyId}, ${c.title as string}, ${(c.reference as string | null) ?? null}, ${c.rate_paise as string},
+                                   ${(c.sac as string | undefined) ?? (kind === 'project' ? '998314' : '998212')}, ${(c.reverse_charge as boolean | undefined) ?? false}, ${(c.tds_bp as number | undefined) ?? 0},
                                    ${(c.notes as string | null) ?? null}, ${t.userId}) returning id`;
       return { id: r!.id as string };
     } catch (e) { return mapMatterError(e); }
@@ -91,22 +95,24 @@ export async function updateMatter(sql: Sql, t: TenantSession, id: string, i: Pa
   });
 }
 
-export async function listMatters(sql: Sql, t: TenantSession, f: { status?: string; q?: string } = {}) {
+export async function listMatters(sql: Sql, t: TenantSession, f: { status?: string; q?: string; kind?: string } = {}) {
+  if (f.kind && f.kind !== 'matter' && f.kind !== 'project') throw new ValidationError('Choose matter or project.', 'kind');
   const like = f.q ? `%${f.q.replace(/[%_\\]/g, '\\$&')}%` : null;
   return inTenant(sql, t, 'matter.read', (tx) => tx`
-    select m.id, m.title, m.reference, m.status, m.rate_paise::text as rate_paise, m.opened_on::text as opened_on, p.name as party_name,
+    select m.id, m.kind, m.title, m.reference, m.status, m.rate_paise::text as rate_paise, m.opened_on::text as opened_on, p.name as party_name,
            coalesce((select sum(e.amount_paise) from matter_entry e where e.matter_id = m.id and e.billable and e.invoiced_document_id is null), 0)::text as unbilled_paise,
            coalesce((select sum(e.minutes) from matter_entry e where e.matter_id = m.id and e.kind = 'time' and e.billable and e.invoiced_document_id is null), 0)::int as unbilled_minutes,
            coalesce((select sum(case when k.kind = 'deposit' then k.amount_paise else -k.amount_paise end) from client_fund_entry k where k.matter_id = m.id), 0)::text as held_paise
       from matter m join party p on p.id = m.party_id
      where (${f.status ?? null}::text is null or m.status = ${f.status ?? null})
+       and (${f.kind ?? null}::text is null or m.kind = ${f.kind ?? null})
        and (${like}::text is null or m.title ilike ${like} or m.reference ilike ${like} or p.name ilike ${like})
      order by (m.status = 'open') desc, m.created_at desc limit 300`);
 }
 
 export async function getMatter(sql: Sql, t: TenantSession, id: string) {
   return inTenant(sql, t, 'matter.read', async (tx) => {
-    const [m] = await tx`select m.id, m.title, m.reference, m.status, m.rate_paise::text as rate_paise, m.sac, m.reverse_charge, m.tds_bp, m.notes, m.opened_on::text as opened_on,
+    const [m] = await tx`select m.id, m.kind, m.title, m.reference, m.status, m.rate_paise::text as rate_paise, m.sac, m.reverse_charge, m.tds_bp, m.notes, m.opened_on::text as opened_on,
                                 m.party_id, p.name as party_name, p.gstin as party_gstin
                            from matter m join party p on p.id = m.party_id where m.id = ${id}`;
     if (!m) return null;
@@ -346,15 +352,15 @@ export async function removeEvent(sql: Sql, t: TenantSession, eventId: string): 
 }
 
 /** What is coming up across every matter the person can see: anything overdue and not done, then the next N days. */
-export async function upcomingEvents(sql: Sql, t: TenantSession, days = 30) {
+export async function upcomingEvents(sql: Sql, t: TenantSession, days = 30, kind?: MatterKind) {
   const n = Math.max(1, Math.min(365, Math.floor(days)));
   return inTenant(sql, t, 'matter.read', async (tx) => {
     const [b] = await tx`select timezone from business where id = ${t.businessId}`;
     const today = todayIn(b!.timezone as string);
-    const rows = await tx`select e.id, e.matter_id, e.event_date::text as event_date, e.kind, e.title, e.notes, e.done, m.title as matter_title, m.reference as matter_reference,
+    const rows = await tx`select e.id, e.matter_id, e.event_date::text as event_date, e.kind, e.title, e.notes, e.done, m.title as matter_title, m.reference as matter_reference, m.kind as matter_kind,
                                  (e.event_date - ${today}::date)::int as days_left
                             from matter_event e join matter m on m.id = e.matter_id
-                           where m.status = 'open' and not e.done and e.event_date <= (${today}::date + ${n}::int)
+                           where m.status = 'open' and not e.done and e.event_date <= (${today}::date + ${n}::int) and (${kind ?? null}::text is null or m.kind = ${kind ?? null})
                            order by e.event_date, e.created_at limit 200`;
     return { today, events: rows };
   });

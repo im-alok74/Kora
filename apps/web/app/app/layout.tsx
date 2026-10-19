@@ -8,6 +8,7 @@ import SignOut from './sign-out';
 import ClientOnly from '../../components/ClientOnly';
 import BusinessSwitcher from './business-switcher';
 import SyncStatus from '../../components/SyncStatus';
+import TopBar from '../../components/TopBar';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +26,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <span className="role">{active.role}</span>
         <SignOut />
       </SideNav>
-      <div className="content"><ClientOnly><SyncStatus />{children}</ClientOnly></div>
+      <div className="content"><ClientOnly><TopBar /><SyncStatus />{children}</ClientOnly></div>
     </div>
   );
 }
