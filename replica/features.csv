@@ -1,0 +1,64 @@
+feature,area,priority,original,clone,notes
+Tax invoice,documents,must,yes,yes,zoho mbb sag; step 3 done and tested
+Bill of supply for exempt supply,documents,must,yes,yes,zoho help lists it; bible v1; step 3 done and tested
+Estimate or quote with expiry and convert to invoice,documents,must,yes,partial,zoho; portal approval is v2; estimate issues; no expiry date and no convert-to-invoice yet
+Proforma invoice,documents,must,yes,yes,mbb; bible v1; step 3 done and tested
+Delivery challan,documents,must,yes,yes,zoho play listing; mbb; step 3 done and tested
+Credit note and debit note,documents,must,yes,yes,zoho credit notes; debit note not seen at zoho; step 3 done and tested
+Sales receipt (pay at sale),documents,could,yes,no,zoho; not in bible scope
+Customer and vendor master with GSTIN validation,parties,must,yes,yes,"zoho fetches taxpayer details from GSTIN; DB checksum + state checks done, no UI yet; step 3 done and tested"
+GSTIN lookup fills name and address,parties,must,yes,partial,"zoho ""Get Taxpayer details""; bible key flow; adapter and mock only fill the state; needs GST partner for name and address"
+Item master with HSN or SAC and tax rate from allowed list,items,must,yes,yes,mbb zoho; step 3 done and tested
+Place of supply drives CGST+SGST vs IGST,tax,must,yes,yes,all three; library done and tested; no UI yet; step 3 done and tested
+Cess,tax,must,yes,yes,zoho help mentions additional cess; library done (ad valorem only); step 3 done and tested
+Reverse charge flag on sales,tax,must,yes,yes,zoho setting; library + DB totals rule done; no UI yet; step 3 done and tested
+Registration types (regular composition SEZ ISD),tax,should,yes,yes,zoho; composition affects documents issued; composition/unregistered rules in library; no UI yet; step 3 done and tested
+TDS and TCS fields,tax,must,yes,partial,"zoho TDS settings; bible v1; library done; no UI yet; library, database and totals done; no field in the editor yet"
+Gapless numbering per series and financial year,numbering,must,no,yes,"not seen at any competitor; bible rule; DB trigger done and tested, no UI yet; step 3 done and tested"
+Template editor with locked statutory fields,templates,must,yes,partial,"zoho gallery and item-table styling; mbb themes and thermal/A4/A5; colour, font, layout, paper, logo, optional sections and locked fields done; no block layout or per-customer templates"
+Thermal and A5 print layouts,templates,could,yes,no,mbb; shop counter use
+Multi-language invoice output,templates,could,yes,no,zoho 10+ languages; bible v3 for regional
+PDF output,delivery,must,yes,yes,all; step 3 done and tested
+Share by WhatsApp,delivery,must,yes,partial,zoho (claimed) mbb; depth at zoho unverified; built against a mock adapter; live WhatsApp provider needs approval
+Share by email,delivery,must,yes,partial,all; built against a mock adapter; no PDF attachment yet
+Share by SMS,delivery,must,yes,partial,mbb; zoho SMS notifications setting; DLT needed; built against a mock adapter; DLT registration needed
+Public invoice link with view tracking,delivery,must,unknown,yes,view tracking not confirmed at any competitor; step 3 done and tested
+Dynamic UPI QR on invoice,collections,must,unknown,yes,"built and e2e tested: QR for the amount still due, gone once paid"
+Payment link via gateway,collections,must,yes,yes,built against the mock gateway with signed webhooks; real gateway needs credentials
+Partial payments and allocation,collections,must,yes,yes,"built and e2e tested, including overpayment refusal and credit-note allocation"
+Automatic reconciliation of gateway payments,collections,must,unknown,yes,idempotent webhooks match payments to invoices and settle them; mock gateway only
+Automated reminders,collections,must,yes,yes,"scheduled at issue, 10:00 IST, cancelled when paid; sends via the mock messenger"
+Late fee,collections,should,unknown,no,bible v1; not seen at competitors
+Receivables ageing report,reports,must,yes,yes,"built and e2e tested, with CSV"
+Sales report,reports,must,yes,yes,"sales register, by customer, payments received and statements, with safe CSV"
+GST summary report,reports,must,yes,yes,GSTR-3B 3.1 style summary net of credit notes; CA review pending
+GSTR-1 JSON export,reports,must,yes,yes,sections reconcile to the ledger; schema must be checked by a CA against the offline utility
+GSTR-3B summary,reports,should,yes,no,mbb sag
+Direct GST return filing from product,compliance,could,yes,no,zoho online filing; sag e-filing. Bible does not include filing
+E-invoice IRN and QR via partner adapter,compliance,must,yes,yes,built against a mock partner that validates IRP v1.1 rules; real partner needs credentials
+E-invoice cancel within window and credit-note steer,compliance,must,yes,yes,"24 hour window enforced, then steers to a credit note"
+Plain-words IRP rejection errors with retry,compliance,must,unknown,yes,"pre-check, plain-words rejections, correct-buyer-and-resubmit; error codes need mapping to the real partner"
+E-way bill generate extend cancel bulk,compliance,should,yes,no,mbb sag; bible v1.5
+Team roles owner staff accountant,team,should,yes,yes,"zoho roles and per-customer restriction; permission table + DB functions done, no UI yet; UI, DB-enforced roles and audit log built and e2e tested"
+Multi-factor login,security,should,yes,partial,zoho MFA; kora uses OTP then passkeys; OTP login done (mock sender); passkeys later
+Multi-business and per-document currency,business,should,yes,no,zoho multi-currency basic; bible v1.5
+Recurring invoices with auto-send,recurring,should,yes,no,zoho; bible v2
+Auto-charge with saved mandate,recurring,should,yes,no,zoho saved cards; bible v2
+Client portal,portal,should,yes,no,zoho; bible v2
+Inventory with batches serials barcodes,inventory,should,yes,no,mbb deep; zoho SKU only; bible v2
+Expenses and receipts,expenses,should,yes,no,zoho; mbb; bible v2
+Tally and Excel import and export,integrations,should,yes,no,mbb Tally export; zoho Tally XML extension; bible v2
+Public API and webhooks,integrations,should,yes,no,zoho; bible v2
+Installable app with offline drafts and sync,platform,must,unknown,yes,"IndexedDB drafts, service worker, conflict handling; e2e tested offline, reload and sync"
+Data backup and export,platform,should,yes,no,zoho backup setting
+Time tracking and project billing,projects,could,yes,no,zoho; bible v3
+POS billing and barcode counter,pos,could,yes,no,mbb; bible v3
+Zoho marketplace and ecosystem integrations,network,could,yes,skip,partner network not a feature
+Third-party app marketplace,network,could,yes,skip,partner network not a feature
+WhatsApp marketing campaigns and loyalty points,marketing,could,yes,skip,mbb; separate product
+AI bookkeeping (Hissab Kitaab),ai,could,yes,skip,mbb; separate product; bible AI is invoice-from-message in v3
+Income tax TDS return filing,tax filing,could,yes,skip,sag; separate product
+Payroll,hr,could,yes,skip,sag; bible out of scope for year one
+ROC MCA XBRL filing,corporate,could,yes,skip,sag; separate product
+GSP licence and direct IRP credentials,regulated,could,yes,skip,licence not rebuildable; use partner adapter
+Customer base and brand,network,could,yes,skip,cannot be cloned

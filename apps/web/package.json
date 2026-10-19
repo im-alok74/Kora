@@ -1,0 +1,27 @@
+{
+  "name": "@kora/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@kora/adapters": "workspace:*",
+    "@kora/core": "workspace:*",
+    "@kora/db": "workspace:*",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@kora/pdf": "workspace:*",
+    "@kora/tax": "workspace:*",
+    "playwright": "^1.49.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
+  }
+}

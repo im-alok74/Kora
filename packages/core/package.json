@@ -1,0 +1,15 @@
+{
+  "name": "@kora/core",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@kora/db": "workspace:*",
+    "@kora/adapters": "workspace:*",
+    "@kora/tax": "workspace:*"
+  }
+}

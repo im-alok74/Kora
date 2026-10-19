@@ -1,0 +1,8 @@
+{
+  "name": "@kora/tax",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": { "test": "vitest run", "typecheck": "tsc --noEmit -p ." },
+  "devDependencies": { "@kora/db": "workspace:*", "fast-check": "^3.23.0" }
+}

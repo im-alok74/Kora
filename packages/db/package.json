@@ -1,0 +1,12 @@
+{
+  "name": "@kora/db",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "migrate": "tsx src/migrate-cli.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": { "postgres": "^3.4.5" }
+}

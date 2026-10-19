@@ -1,0 +1,5 @@
+{
+  "avoid": ["Zoho Invoice", "Zoho", "Zia", "myBillBook", "My Bill Book", "Hissab Kitaab", "FloBooks", "SAG Infotech", "Gen GST", "GenCodex", "EazeMax", "Vyapar", "QuickBooks", "Refrens", "ProfitBooks", "Skydo"],
+  "domains": ["zoho.com", "zohoinvoice.com", "mybillbook.in", "saginfotech.com", "vyapar.com", "refrens.com"],
+  "colors": []
+}

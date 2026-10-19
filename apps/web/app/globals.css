@@ -1,0 +1,70 @@
+/* Tokens from replica/design/tokens.json. Role names are stable; change values there, then here. */
+:root {
+  --bg: #fbfaf7; --surface: #f3f1ec; --surface-raised: #ffffff; --border: #dfdbd2; --border-input: #7a766c;
+  --text: #17201d; --text-muted: #55605b; --accent: #0b5d4f; --accent-hover: #084a3f; --on-accent: #ffffff;
+  --danger: #a82727; --warning: #8a5a00; --success: #1b6b40; --focus-ring: #0b5d4f;
+  --font-sans: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Devanagari', sans-serif;
+  --font-display: Fraunces, 'Source Serif 4', Georgia, serif;
+  --radius-sm: 4px; --radius-md: 8px; --radius-lg: 12px;
+  --shadow-card: 0 1px 2px rgba(23,32,29,.05), 0 1px 3px rgba(23,32,29,.08);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/24px var(--font-sans); font-variant-numeric: tabular-nums; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; margin: 0 0 8px; }
+h1 { font-size: 28px; line-height: 34px; } h2 { font-size: 20px; line-height: 28px; } h3 { font-size: 16px; }
+a { color: var(--accent); }
+main { max-width: 440px; margin: 0 auto; padding: 64px 16px; }
+.card { background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 24px; }
+label { display: block; font-size: 14px; font-weight: 500; margin: 16px 0 4px; }
+input, select, textarea { width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--border-input); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--text); font: inherit; }
+textarea { height: auto; padding: 8px 12px; min-height: 72px; }
+button, .btn { display: inline-flex; align-items: center; justify-content: center; height: 40px; padding: 0 16px; border: 1px solid transparent; border-radius: var(--radius-md); background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 600; cursor: pointer; text-decoration: none; margin-top: 16px; }
+button:hover, .btn:hover { background: var(--accent-hover); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+button.secondary, .btn.secondary { background: var(--surface-raised); color: var(--accent); border-color: var(--accent); }
+button.secondary:hover, .btn.secondary:hover { background: var(--surface); }
+button.danger { background: var(--surface-raised); color: var(--danger); border-color: var(--danger); }
+button.link { background: none; color: var(--accent); padding: 0; height: auto; font-weight: 500; text-decoration: underline; border: 0; margin-top: 0; }
+button.sm { height: 32px; padding: 0 10px; margin-top: 0; font-size: 14px; }
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.muted { color: var(--text-muted); font-size: 14px; }
+.error { color: var(--danger); font-size: 14px; margin-top: 8px; }
+.warn { color: var(--warning); font-size: 14px; margin-top: 4px; }
+.ok { color: var(--success); font-size: 14px; margin-top: 8px; }
+ul.plain { list-style: none; padding: 0; margin: 16px 0 0; }
+ul.plain li { padding: 12px 0; border-top: 1px solid var(--border); display: flex; justify-content: space-between; }
+
+/* app shell */
+.shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+.side { background: var(--surface); border-right: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.brand { font-family: var(--font-display); font-size: 24px; font-weight: 600; margin-bottom: 8px; color: var(--accent); }
+.side a.nav { display: block; padding: 8px 12px; border-radius: var(--radius-md); color: var(--text); text-decoration: none; }
+.side a.nav:hover { background: var(--surface-raised); }
+.side .who { margin-top: auto; font-size: 14px; }
+.content { padding: 32px; max-width: 1120px; width: 100%; }
+.toolbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; }
+.toolbar .btn, .toolbar button { margin-top: 0; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+.row > * { flex: 1; min-width: 140px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+table.t { width: 100%; border-collapse: collapse; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+table.t th { text-align: left; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); padding: 10px 12px; background: var(--surface); }
+table.t td { padding: 10px 12px; border-top: 1px solid var(--border); vertical-align: middle; }
+table.t td.n, table.t th.n { text-align: right; }
+table.t input, table.t select { height: 36px; }
+.chip { display: inline-block; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border-input); color: var(--text-muted); line-height: 20px; }
+.chip.issued { border-color: var(--accent); color: var(--accent); }
+.chip.paid { border-color: var(--success); color: var(--success); }
+.chip.cancelled { border-color: var(--danger); color: var(--danger); }
+.totals { margin-left: auto; width: 320px; }
+.totals div { display: flex; justify-content: space-between; padding: 3px 0; }
+.totals .grand { border-top: 2px solid var(--accent); font-weight: 700; font-size: 18px; margin-top: 4px; padding-top: 6px; }
+.panel { background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; }
+iframe.preview { width: 100%; height: 880px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: #fff; }
+.locked { list-style: none; padding: 0; margin: 8px 0 0; font-size: 14px; color: var(--text-muted); }
+.locked li::before { content: '\1F512\00a0'; }
+@media (max-width: 800px) {
+  .shell { grid-template-columns: 1fr; } .side { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .side .who { margin-top: 0; margin-left: auto; } .content { padding: 16px; } .grid2 { grid-template-columns: 1fr; }
+  table.t { display: block; overflow-x: auto; } .totals { width: 100%; }
+}

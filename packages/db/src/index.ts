@@ -1,0 +1,66 @@
+import postgres from 'postgres';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+export type Sql = postgres.Sql;
+export type Tx = postgres.TransactionSql;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Dates (the `date` type) stay as 'YYYY-MM-DD' strings. The default would build a JS Date at local midnight,
+ * which shifts the day when serialised to JSON in another time zone.
+ */
+const dateAsString = { date: { to: 1082, from: [1082], serialize: (x: unknown) => String(x), parse: (x: string) => x } };
+
+export function createSql(url: string, opts: postgres.Options<{}> = {}): Sql {
+  return postgres(url, { onnotice: () => {}, types: dateAsString, ...opts }) as Sql;
+}
+
+export interface TenantContext {
+  businessId: string;
+  userId: string;
+}
+
+/** Actor recorded in the audit log for work done by the system (webhooks, the worker), not a person. */
+export const SYSTEM_USER = '00000000-0000-0000-0000-000000000001';
+
+/** Sets the tenant inside a transaction the caller already opened (for work that starts before the tenant is known). */
+export async function setTenant(tx: Tx, ctx: TenantContext): Promise<void> {
+  if (!UUID.test(ctx.businessId) || !UUID.test(ctx.userId)) throw new Error('setTenant: ids must be UUIDs');
+  await tx`select set_config('app.business_id', ${ctx.businessId}, true), set_config('app.user_id', ${ctx.userId}, true)`;
+}
+
+/**
+ * The only way application code reaches tenant tables. Opens a transaction and sets the two
+ * variables the row-level security policies read. Without it every tenant query returns no rows.
+ * The caller must already have checked that userId is a member of businessId (see core/tenancy).
+ */
+export async function withTenant<T>(sql: Sql, ctx: TenantContext, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  if (!UUID.test(ctx.businessId) || !UUID.test(ctx.userId)) throw new Error('withTenant: ids must be UUIDs');
+  return sql.begin(async (tx) => {
+    await tx`select set_config('app.business_id', ${ctx.businessId}, true),
+                    set_config('app.user_id', ${ctx.userId}, true)`;
+    return fn(tx);
+  }) as Promise<T>;
+}
+
+export const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
+
+/** Applies pending SQL files in name order, each in its own transaction, under an advisory lock. */
+export async function runMigrations(sql: Sql, dir = MIGRATIONS_DIR): Promise<string[]> {
+  const applied: string[] = [];
+  await sql.begin(async (tx) => {
+    await tx`select pg_advisory_xact_lock(727274)`;
+    await tx`create table if not exists schema_migration (name text primary key, applied_at timestamptz not null default now())`;
+    const done = new Set((await tx`select name from schema_migration`).map((r) => r.name as string));
+    for (const f of readdirSync(dir).filter((x) => x.endsWith('.sql')).sort()) {
+      if (done.has(f)) continue;
+      await tx.unsafe(readFileSync(join(dir, f), 'utf8'));
+      await tx`insert into schema_migration (name) values (${f})`;
+      applied.push(f);
+    }
+  });
+  return applied;
+}

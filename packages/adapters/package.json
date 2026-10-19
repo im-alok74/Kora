@@ -1,0 +1,12 @@
+{
+  "name": "@kora/adapters",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@kora/tax": "workspace:*"
+  }
+}
