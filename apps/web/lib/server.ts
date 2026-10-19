@@ -27,6 +27,8 @@ export function services(): Services {
     const auth = createAuth(sql, otpSenderFromEnv(), {
       hmacSecret: need('OTP_HMAC_SECRET'),
       sessionTtlDays: Number(process.env.SESSION_TTL_DAYS ?? 30),
+      // Staging demo only. It needs KORA_ALLOW_MOCKS=1 as well, and lets anyone sign in as any number.
+      fixedCode: process.env.KORA_ALLOW_MOCKS === '1' ? process.env.DEMO_FIXED_OTP || undefined : undefined,
     });
     // On Vercel, the platform sets the production host; an explicit APP_URL (a custom domain) always wins.
     const vercelHost = process.env.VERCEL_PROJECT_PRODUCTION_URL;

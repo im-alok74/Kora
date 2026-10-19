@@ -16,6 +16,8 @@ export interface AuthConfig {
   maxRequestsPer15Min?: number;   // codes per identifier, default 5
   resendCooldownSeconds?: number; // default 30
   sessionTtlDays?: number;        // default 30
+  /** Staging demo only: every code is this value. Never set in production with real data. */
+  fixedCode?: string;
 }
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest();
@@ -25,6 +27,7 @@ export function codeHash(secret: string, identifier: string, code: string): Buff
 }
 
 export function createAuth(sql: Sql, sender: OtpSender, cfg: AuthConfig) {
+  if (cfg.fixedCode !== undefined && !/^\d{6}$/.test(cfg.fixedCode)) throw new Error('fixedCode must be six digits');
   if (cfg.hmacSecret.length < 32) throw new Error('OTP_HMAC_SECRET must be at least 32 characters');
   const ttl = cfg.otpTtlMinutes ?? 10;
   const maxAttempts = cfg.maxAttempts ?? 5;
@@ -42,7 +45,7 @@ export function createAuth(sql: Sql, sender: OtpSender, cfg: AuthConfig) {
           from otp_challenge where identifier = ${id.value}`;
       if (r!.recent >= maxReq) throw new AuthError('rate_limited', 'Too many codes requested. Try again in a few minutes.');
       if (r!.since_last < cooldown) throw new AuthError('too_soon', `Wait ${cooldown} seconds before asking for another code.`);
-      const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+      const code = cfg.fixedCode ?? String(randomInt(0, 1_000_000)).padStart(6, '0');
       await sql`insert into otp_challenge (identifier, channel, code_hash, expires_at)
                 values (${id.value}, ${id.channel}, ${codeHash(cfg.hmacSecret, id.value, code)},
                         now() + ${ttl + ' minutes'}::interval)`;
