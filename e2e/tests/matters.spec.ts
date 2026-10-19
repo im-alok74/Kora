@@ -109,3 +109,93 @@ test('an accountant sees matters but cannot record time, and another business se
   expect((await p3.request.post(`/api/matters/${m.id}/funds`, { data: { kind: 'deposit', amount: '1' } })).status()).toBe(400);
   await ctx3.close();
 });
+
+test('a fixed fee is billed, paid from money held, and shown in the legal layout', async ({ page, context }) => {
+  const u = await signedIn(context);
+  await makeBusiness(u.userId, 'Rao and Associates');
+  await page.request.post('/api/parties', { data: { kind: 'customer', name: 'Mehta Exports', stateCode: '27' } });
+  const parties = await (await page.request.get('/api/parties')).json();
+  const m = await (await page.request.post('/api/matters', { data: { partyId: parties.parties[0].id, title: 'Advisory retainer', reference: 'ADV-7' } })).json();
+
+  await page.goto(`/app/matters/${m.id}`);
+  await page.getByLabel('Fee for').fill('Retainer for October 2026');
+  await page.getByLabel('Fee (Rs, before GST)').fill('25000');
+  await page.getByRole('button', { name: 'Add fee' }).click();
+  await expect(page.getByTestId('unbilled')).toHaveText('Rs 25,000.00');
+  await expect(page.getByText('Fixed fee', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Create draft invoice' }).click();
+  await expect(page.locator('.doc-amount .big')).toHaveText('Rs 29,500.00');
+  const id = page.url().split('/').pop()!;
+  expect((await page.request.post(`/api/documents/${id}/issue`, { data: {} })).ok()).toBe(true);
+
+  // the legal layout: particulars and fee, with the statutory fields still printed
+  const t = await (await page.request.get('/api/template')).json();
+  expect((await page.request.put('/api/template', { data: { ...t.template, layout: 'narrative' } })).ok()).toBe(true);
+  const html = (await (await page.request.get(`/api/documents/${id}/html`)).json()).html as string;
+  expect(html).toContain('Particulars of professional services');
+  expect(html).toContain('Retainer for October 2026');
+  expect(html).toContain('Taxable value');
+
+  // money held, then used to pay the invoice
+  await page.goto(`/app/matters/${m.id}`);
+  await page.getByLabel('Amount (Rs)').last().fill('10000');
+  await page.getByRole('button', { name: 'Record', exact: true }).click();
+  await expect(page.getByTestId('held')).toHaveText('Rs 10,000.00');
+  await page.getByLabel('Invoice', { exact: true }).selectOption({ index: 1 });
+  await page.getByLabel(/Amount \(Rs, blank/).fill('4000');
+  await page.getByRole('button', { name: 'Pay invoice' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Paid Rs 4,000.00 from money held.' })).toBeVisible();
+  await expect(page.getByTestId('held')).toHaveText('Rs 6,000.00');
+  await page.goto(`/app/invoices/${id}`);
+  await expect(page.getByText('Rs 25,500.00').first()).toBeVisible();       // still due on the invoice
+  await expect(page.getByRole('cell', { name: 'client_money' })).toBeVisible();
+  await expect(page.getByRole('row', { name: /client_money/ }).getByRole('button', { name: 'Remove' })).toBeVisible();
+  const pays = await (await page.request.get(`/api/documents/${id}/payments`)).json();
+  const removed = await page.request.delete(`/api/payments/${pays.payments[0].payment_id}`);
+  expect(removed.status()).toBe(400);
+  expect((await removed.json()).error).toContain('client money ledger');
+});
+
+test('hearing dates show on the matters list, and a private matter is hidden from staff who are not listed', async ({ page, context, browser }) => {
+  const u = await signedIn(context);
+  const b = await makeBusiness(u.userId, 'Chambers');
+  await page.request.post('/api/parties', { data: { kind: 'customer', name: 'Client Two', stateCode: '27' } });
+  const parties = await (await page.request.get('/api/parties')).json();
+  const m = await (await page.request.post('/api/matters', { data: { partyId: parties.parties[0].id, title: 'Quiet matter', rate: '1000' } })).json();
+
+  const soon = new Date(Date.now() + 3 * 86400e3 + 5.5 * 3600e3).toISOString().slice(0, 10);
+  await page.goto(`/app/matters/${m.id}`);
+  await page.getByLabel('Date', { exact: true }).last().fill(soon);
+  await page.getByLabel('What is it?').fill('Final arguments');
+  await page.getByRole('button', { name: 'Add date' }).click();
+  await expect(page.getByText('Hearing: Final arguments')).toBeVisible();
+  await page.goto('/app/matters');
+  await expect(page.getByLabel('Coming up')).toContainText('Final arguments');
+  await expect(page.getByLabel('Coming up')).toContainText('in 3 days');
+
+  // a staff member sees it until the owner makes it private
+  const { createHash, randomBytes } = await import('node:crypto');
+  const [st] = await db`insert into app_user (email) values (${`st${Date.now()}@example.test`}) returning id`;
+  await db`insert into member (business_id, user_id, role) values (${b.businessId}, ${st!.id}, 'staff')`;
+  const token = randomBytes(32).toString('base64url');
+  await db`insert into app_session (user_id, token_hash, expires_at) values (${st!.id}, ${createHash('sha256').update(token).digest()}, now() + interval '1 day')`;
+  const ctx2 = await browser.newContext();
+  await ctx2.addCookies([{ name: 'kora_session', value: token, domain: 'localhost', path: '/', httpOnly: true, sameSite: 'Lax' }]);
+  const p2 = await ctx2.newPage();
+  expect((await p2.request.get(`/api/matters/${m.id}`)).status()).toBe(200);
+
+  await page.goto(`/app/matters/${m.id}`);
+  await page.getByLabel('Only the people I choose can see this matter').click();
+  await expect(page.getByLabel('Only the people I choose can see this matter')).toBeChecked();
+  expect((await p2.request.get(`/api/matters/${m.id}`)).status()).toBe(404);
+  await p2.goto('/app/matters');
+  await expect(p2.getByRole('heading', { name: 'No matters here.' })).toBeVisible();
+  expect((await p2.request.put(`/api/matters/${m.id}/access`, { data: { restricted: false } })).status()).toBe(403);
+
+  // listing the person lets them in
+  await page.getByLabel(/\(staff\)/).click();
+  await expect(page.getByLabel(/\(staff\)/)).toBeChecked();
+  expect((await p2.request.get(`/api/matters/${m.id}`)).status()).toBe(200);
+  await ctx2.close();
+});

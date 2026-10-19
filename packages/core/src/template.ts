@@ -9,7 +9,7 @@ import { ValidationError } from './validation.js';
 export interface TemplateConfig {
   accent: string;                 // #rrggbb
   font: 'sans' | 'serif';
-  layout: 'classic' | 'compact';
+  layout: 'classic' | 'compact' | 'narrative';
   paper: 'A4' | 'A5';
   logoDataUrl: string | null;     // png or jpeg, up to 150 KB
   showBank: boolean;
@@ -45,7 +45,7 @@ export function sanitiseTemplate(raw: unknown): TemplateConfig {
   const font = r.font === undefined ? d.font : r.font;
   if (font !== 'sans' && font !== 'serif') throw new ValidationError('Choose a font.', 'font');
   const layout = r.layout === undefined ? d.layout : r.layout;
-  if (layout !== 'classic' && layout !== 'compact') throw new ValidationError('Choose a layout.', 'layout');
+  if (layout !== 'classic' && layout !== 'compact' && layout !== 'narrative') throw new ValidationError('Choose a layout.', 'layout');
   const paper = r.paper === undefined ? d.paper : r.paper;
   if (paper !== 'A4' && paper !== 'A5') throw new ValidationError('Choose A4 or A5.', 'paper');
   let logo: string | null = null;

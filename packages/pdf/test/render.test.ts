@@ -26,6 +26,17 @@ describe('renderDocumentHtml', () => {
     for (const needle of ['Tax Invoice', 'INV/26-27/0001', '2026-10-18', 'GSTIN:</b> 27AAPFU0939F1ZV', 'Maharashtra (27)', '8471',
       'CGST', 'SGST', '1,180.00', 'Rupees One Thousand One Hundred Eighty Only', 'Acme Traders', 'Local Buyer']) expect(h).toContain(needle);
   });
+  it('the professional services layout drops quantity and rate but keeps every statutory field', () => {
+    const h = renderDocumentHtml(sample({ template: { ...TEMPLATE, layout: 'narrative' } }, { notes: 'Matter: CS-102/2026' }));
+    expect(h).toContain('Particulars of professional services');
+    expect(h).toContain('<th>SAC</th>');
+    expect(h).toContain('<th class="n">Fee</th>');
+    expect(h).not.toContain('<th class="n">Qty</th>');
+    expect(h).not.toContain('<th class="n">Rate</th>');
+    for (const needle of ['Tax Invoice', 'INV/26-27/0001', 'GSTIN:</b> 27AAPFU0939F1ZV', 'Maharashtra (27)', 'CGST', 'SGST', 'Taxable value', '1,180.00', 'Matter: CS-102/2026']) expect(h).toContain(needle);
+    const row = h.match(/<tbody>(.*?)<\/tbody>/s)![1]!;
+    expect((row.match(/<td/g) ?? []).length).toBe(4 + 2);   // number, particulars, SAC, fee, CGST, SGST
+  });
   it('the template cannot remove statutory fields', () => {
     const t = { ...TEMPLATE, showBank: false, showTerms: false, showNotes: false, showSignature: false, showAmountInWords: false };
     const h = renderDocumentHtml(sample({ template: t }));

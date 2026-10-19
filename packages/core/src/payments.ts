@@ -5,7 +5,7 @@ import type { GatewayEvent, PaymentGateway } from '@kora/adapters';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { isDate, str, todayIn, ValidationError } from './validation.js';
 
-export const PAYMENT_METHODS = ['cash', 'upi', 'card', 'netbanking', 'bank_transfer', 'cheque', 'tds', 'other'] as const;
+export const PAYMENT_METHODS = ['cash', 'upi', 'card', 'netbanking', 'bank_transfer', 'cheque', 'tds', 'client_money', 'other'] as const;
 const RECEIVABLE_TYPES = ['tax_invoice', 'bill_of_supply', 'debit_note'];
 
 /** Records money received against one issued invoice. The amount cannot exceed what is outstanding. */
@@ -62,9 +62,10 @@ export async function listUnallocated(sql: Sql, t: TenantSession) {
 /** Removes a manual payment entered by mistake. Gateway payments are refunded at the gateway instead. */
 export async function voidPayment(sql: Sql, t: TenantSession, paymentId: string): Promise<void> {
   await inTenant(sql, t, 'document.cancel', async (tx) => {
-    const [p] = await tx`select id, gateway from payment where id = ${paymentId} for update`;
+    const [p] = await tx`select id, gateway, method from payment where id = ${paymentId} for update`;
     if (!p) throw new ValidationError('Payment not found.');
     if (p.gateway) throw new ValidationError('A payment taken through the gateway is refunded at the gateway, not removed here.');
+    if (p.method === 'client_money') throw new ValidationError('This payment was made from money held for the client. The client money ledger is never edited, so it cannot be removed here.');
     await tx`delete from payment_allocation where payment_id = ${paymentId}`;
     await tx`delete from payment where id = ${paymentId}`;
   });

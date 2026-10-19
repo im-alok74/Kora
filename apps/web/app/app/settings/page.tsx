@@ -137,7 +137,7 @@ export default function Settings() {
                   <div><label htmlFor="tf">Font</label><select id="tf" value={tpl.font} onChange={(e) => setT({ font: e.target.value })}><option value="sans">Sans-serif</option><option value="serif">Serif</option></select></div>
                 </div>
                 <div className="row">
-                  <div><label htmlFor="tl">Layout</label><select id="tl" value={tpl.layout} onChange={(e) => setT({ layout: e.target.value })}><option value="classic">Classic</option><option value="compact">Compact</option></select></div>
+                  <div><label htmlFor="tl">Layout</label><select id="tl" value={tpl.layout} onChange={(e) => setT({ layout: e.target.value })}><option value="classic">Classic</option><option value="compact">Compact</option><option value="narrative">Professional services (particulars and fee)</option></select></div>
                   <div><label htmlFor="tp">Paper</label><select id="tp" value={tpl.paper} onChange={(e) => setT({ paper: e.target.value })}><option value="A4">A4</option><option value="A5">A5</option></select></div>
                 </div>
                 <label htmlFor="lg">Logo (PNG or JPEG, under 150 KB)</label>

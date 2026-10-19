@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { makeTestDb, type TestDb } from '@kora/db/src/testing.js';
 import {
-  addExpense, addFunds, addMember, addTime, billMatter, createBusiness, createMatter, createParty, formatDuration, getDocument, getMatter, issueDocument,
+  addEvent, addExpense, addFee, addFunds, getMatterAccess, listEvents, payInvoiceFromHeld, removeEvent, setEventDone, setMatterAccess, upcomingEvents, voidPayment, addMember, addTime, billMatter, createBusiness, createMatter, createParty, formatDuration, getDocument, getMatter, issueDocument,
   listMatters, parseDuration, removeEntry, resolveTenant, setEntryBillable, timeAmount, updateMatter, type TenantSession,
 } from '../src/index.js';
 
@@ -153,12 +153,13 @@ describe('client money', () => {
   it('keeps a running balance and refuses to pay out more than is held', async () => {
     const m = (await createMatter(db.web, owner, { partyId: client, title: 'Advance held', rate: '1000' })).id;
     await addFunds(db.web, owner, m, { kind: 'deposit', amount: '10000', note: 'Advance cheque 4412' });
-    await addFunds(db.web, owner, m, { kind: 'applied', amount: '2500.50' });
+    await addFunds(db.web, owner, m, { kind: 'refund', amount: '2500.50' });
     expect((await getMatter(db.web, owner, m))!.heldPaise).toBe('749950');
     await expect(addFunds(db.web, owner, m, { kind: 'refund', amount: '7500' })).rejects.toThrow(/Only Rs 7499.50 is held/);
     await addFunds(db.web, owner, m, { kind: 'refund', amount: '7499.50' });
     expect((await getMatter(db.web, owner, m))!.heldPaise).toBe('0');
-    await expect(addFunds(db.web, owner, m, { kind: 'applied', amount: '0.01' })).rejects.toThrow(/Only Rs 0.00 is held/);
+    await expect(addFunds(db.web, owner, m, { kind: 'refund', amount: '0.01' })).rejects.toThrow(/Only Rs 0.00 is held/);
+    await expect(addFunds(db.web, owner, m, { kind: 'applied' as never, amount: '1' })).rejects.toThrow(/Pay an invoice/);
   });
   it('cannot be edited or deleted, even directly in the database by the app role', async () => {
     const m = (await createMatter(db.web, owner, { partyId: client, title: 'Ledger', rate: '1000' })).id;
@@ -176,5 +177,125 @@ describe('client money', () => {
   it('is hidden from other businesses', async () => {
     const m = (await listMatters(db.web, owner))[0]!;
     await expect(addFunds(db.web, other, m.id as string, { kind: 'deposit', amount: '1' })).rejects.toThrow(/not found/);
+  });
+});
+
+describe('fixed fees', () => {
+  it('bills a lump sum with no hours, taxed like the rest', async () => {
+    const m = (await createMatter(db.web, owner, { partyId: client, title: 'Retainer client' })).id;
+    await expect(addFee(db.web, owner, m, { description: 'x', amount: '0' })).rejects.toThrow(/more than zero/);
+    await addFee(db.web, staff, m, { description: 'Retainer for October 2026', amount: '25000', date: '2026-10-01' });
+    const d = await getMatter(db.web, owner, m);
+    expect(d!.entries[0]).toMatchObject({ kind: 'fee', minutes: null, rate_paise: null, amount_paise: '2500000' });
+    const doc = await getDocument(db.web, owner, (await billMatter(db.web, owner, m)).id);
+    expect(doc!.document.taxable_paise).toBe('2500000');
+    expect(doc!.document.grand_total_paise).toBe('2950000');
+  });
+});
+
+describe('paying an invoice from money held', () => {
+  let m: string, inv: string;
+  it('moves money from the ledger onto the invoice as one payment', async () => {
+    m = (await createMatter(db.web, owner, { partyId: client, title: 'Advance matter', rate: '1000' })).id;
+    await addTime(db.web, owner, m, { duration: '1', description: 'Advice' });          // Rs 1,000 + 18% = Rs 1,180
+    inv = (await billMatter(db.web, owner, m)).id;
+    await issueDocument(db.web, owner, inv);
+    await addFunds(db.web, owner, m, { kind: 'deposit', amount: '5000' });
+    expect(await payInvoiceFromHeld(db.web, owner, m, { documentId: inv, amount: '500' })).toEqual({ paidPaise: '50000' });
+    const doc = await getDocument(db.web, owner, inv);
+    expect(doc!.document.amount_settled_paise).toBe('50000');
+    expect((await getMatter(db.web, owner, m))!.heldPaise).toBe('450000');
+    const [p] = await db.owner`select method, note from payment where id in (select payment_id from payment_allocation where document_id = ${inv})`;
+    expect(p).toMatchObject({ method: 'client_money', note: 'Paid from money held for Advance matter' });
+    const [k] = await db.owner`select kind, document_id from client_fund_entry where matter_id = ${m} and kind = 'applied'`;
+    expect(k).toMatchObject({ document_id: inv });
+  });
+  it('pays what is due when no amount is given, and cannot be removed afterwards', async () => {
+    expect(await payInvoiceFromHeld(db.web, owner, m, { documentId: inv })).toEqual({ paidPaise: '68000' });
+    expect((await getMatter(db.web, owner, m))!.heldPaise).toBe('382000');
+    const [p] = await db.owner`select id from payment where method = 'client_money' limit 1`;
+    await expect(voidPayment(db.web, owner, p!.id as string)).rejects.toThrow(/client money ledger/);
+    await expect(payInvoiceFromHeld(db.web, owner, m, { documentId: inv })).rejects.toThrow(/already paid/);
+  });
+  it('refuses more than is held, more than is due, another client invoice, a draft, and the accountant', async () => {
+    const m2 = (await createMatter(db.web, owner, { partyId: client, title: 'Small advance', rate: '1000' })).id;
+    await addTime(db.web, owner, m2, { duration: '1', description: 'Advice' });
+    const inv2 = (await billMatter(db.web, owner, m2)).id;
+    await expect(payInvoiceFromHeld(db.web, owner, m2, { documentId: inv2 })).rejects.toThrow(/Choose an issued invoice/);
+    await issueDocument(db.web, owner, inv2);
+    await expect(payInvoiceFromHeld(db.web, owner, m2, { documentId: inv2 })).rejects.toThrow(/no money held/);
+    await addFunds(db.web, owner, m2, { kind: 'deposit', amount: '100' });
+    await expect(payInvoiceFromHeld(db.web, owner, m2, { documentId: inv2, amount: '150' })).rejects.toThrow(/Only Rs 100.00 is held/);
+    await addFunds(db.web, owner, m2, { kind: 'deposit', amount: '5000' });
+    await expect(payInvoiceFromHeld(db.web, owner, m2, { documentId: inv2, amount: '2000' })).rejects.toThrow(/only Rs 1180.00 still due/);
+    await expect(payInvoiceFromHeld(db.web, ca, m2, { documentId: inv2 })).rejects.toThrow(/cannot do this/);
+    const other2 = await createParty(db.web, owner, { kind: 'customer', name: 'Someone Else', stateCode: '27' });
+    const m3 = (await createMatter(db.web, owner, { partyId: other2, title: 'Other client', rate: '1000' })).id;
+    await addFunds(db.web, owner, m3, { kind: 'deposit', amount: '5000' });
+    await expect(payInvoiceFromHeld(db.web, owner, m3, { documentId: inv2 })).rejects.toThrow(/different client/);
+  });
+});
+
+describe('hearings and deadlines', () => {
+  const add = (m: string, date: string, title: string, kind = 'hearing') => addEvent(db.web, staff, m, { date, title, kind });
+  const day = (n: number) => { const d = new Date(); d.setUTCDate(d.getUTCDate() + n); return new Date(d.getTime() + 5.5 * 3600e3).toISOString().slice(0, 10); };
+  it('lists what is overdue and coming, soonest first, and drops done and distant ones', async () => {
+    const m = (await createMatter(db.web, owner, { partyId: client, title: 'Calendar matter', rate: '1000' })).id;
+    const late = await add(m, day(-3), 'File reply');
+    await add(m, day(5), 'Hearing before Justice Rao');
+    await add(m, day(2), 'Serve notice', 'deadline');
+    await add(m, day(90), 'Far away');
+    const done = await add(m, day(1), 'Already done');
+    await setEventDone(db.web, staff, done.id, true);
+    const u = await upcomingEvents(db.web, ca, 30);
+    const mine = u.events.filter((e) => e.matter_id === m);
+    expect(mine.map((e) => e.title)).toEqual(['File reply', 'Serve notice', 'Hearing before Justice Rao']);
+    expect(mine.map((e) => e.days_left)).toEqual([-3, 2, 5]);
+    expect(mine[0]).toMatchObject({ matter_title: 'Calendar matter', kind: 'hearing' });
+    await removeEvent(db.web, staff, late.id);
+    expect((await listEvents(db.web, ca, m)).map((e) => e.title)).not.toContain('File reply');
+  });
+  it('validates, keeps roles apart, and hides other businesses', async () => {
+    const m = (await createMatter(db.web, owner, { partyId: client, title: 'Calendar two', rate: '1000' })).id;
+    await expect(add(m, '2026-13-45', 'x')).rejects.toThrow(/YYYY-MM-DD/);
+    await expect(add(m, '2026-11-01', 'x', 'party')).rejects.toThrow(/hearing, deadline or other/);
+    await expect(addEvent(db.web, ca, m, { date: '2026-11-01', title: 'x' })).rejects.toThrow(/cannot do this/);
+    await expect(addEvent(db.web, other, m, { date: '2026-11-01', title: 'x' })).rejects.toThrow(/not found/);
+    expect((await upcomingEvents(db.web, other)).events).toEqual([]);
+  });
+});
+
+describe('private matters', () => {
+  it('are seen by owners and listed people only, down to entries, money and dates', async () => {
+    const m = (await createMatter(db.web, owner, { partyId: client, title: 'Sensitive matter', rate: '1000' })).id;
+    await addTime(db.web, owner, m, { duration: '1', description: 'Secret work' });
+    await addFunds(db.web, owner, m, { kind: 'deposit', amount: '100' });
+    await addEvent(db.web, owner, m, { date: '2026-11-01', title: 'Secret hearing' });
+    const people = await getMatterAccess(db.web, owner, m);
+    expect(people!.restricted).toBe(false);
+    const staffId = people!.people.find((p) => p.role === 'staff')!.user_id as string;
+    expect((await getMatter(db.web, staff, m))?.matter.title).toBe('Sensitive matter');
+
+    await setMatterAccess(db.web, owner, m, { restricted: true, userIds: [] });
+    expect(await getMatter(db.web, staff, m)).toBeNull();
+    expect(await getMatter(db.web, ca, m)).toBeNull();
+    expect((await listMatters(db.web, staff)).some((x) => x.id === m)).toBe(false);
+    expect((await upcomingEvents(db.web, staff, 365)).events.some((e) => e.matter_id === m)).toBe(false);
+    await expect(addTime(db.web, staff, m, { duration: '1', description: 'x' })).rejects.toThrow(/not found/);
+    expect((await getMatter(db.web, owner, m))?.entries).toHaveLength(1);       // owners always see it
+
+    await setMatterAccess(db.web, owner, m, { restricted: true, userIds: [staffId] });
+    expect((await getMatter(db.web, staff, m))?.entries).toHaveLength(1);
+    expect(await getMatter(db.web, ca, m)).toBeNull();
+    await addTime(db.web, staff, m, { duration: '1', description: 'Listed person can work' });
+
+    await setMatterAccess(db.web, owner, m, { restricted: false });
+    expect((await getMatter(db.web, ca, m))?.entries).toHaveLength(2);
+  });
+  it('can only be changed by an owner, only for people in the business', async () => {
+    const m = (await listMatters(db.web, owner))[0]!.id as string;
+    await expect(setMatterAccess(db.web, staff, m, { restricted: true })).rejects.toThrow(/cannot do this/);
+    await expect(getMatterAccess(db.web, ca, m)).rejects.toThrow(/cannot do this/);
+    await expect(setMatterAccess(db.web, owner, m, { restricted: true, userIds: ['00000000-0000-0000-0000-000000000099'] })).rejects.toThrow(/belong to this business/);
   });
 });

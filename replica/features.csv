@@ -67,7 +67,8 @@ Client inbox with review queue,ca firm,must,yes,yes,"business sends a bill or pa
 Vendor bills purchases and input tax credit,ca firm,must,yes,no,next for the CA module; needed for GSTR-3B input credit and GSTR-2B matching
 Matters with client, rate and file number,lawyer,must,yes,yes,"open or closed, search, one matter per case; unit and browser tested"
 Time entries and billing from a matter,lawyer,must,yes,yes,"1:30, 90m or 1.5 style entry, amount worked out once in paise and never changed by later rate edits; draft invoice with one narrative line per entry, at-cost expenses without GST, reverse charge and TDS from the matter; entries lock once billed; claim step stops double billing; unit and browser tested"
-Client money ledger,lawyer,must,yes,partial,"deposits, refunds and amounts kept for an invoice, append-only, balance can never go below zero even with two refunds at once; applying held money to an invoice as a payment is not built; bar council rules need a lawyer's review"
-Retainer and fixed-fee billing,lawyer,should,yes,no,next for the lawyer module
-Per-matter access and confidentiality,lawyer,should,yes,no,roles are per business today
-Hearing dates and deadlines,lawyer,should,yes,no,not built
+Client money ledger,lawyer,must,yes,yes,"deposits and refunds, append-only, balance can never go below zero even with two refunds at once; held money can pay an invoice (recorded as a client_money payment that cannot be removed, with a correcting entry if the payment fails); bar council rules need a lawyer's review"
+Retainer and fixed-fee billing,lawyer,should,yes,yes,"lump-sum fee entries (a fixed fee, or one month of a retainer) billed like any entry; unit and browser tested"
+Per-matter access and confidentiality,lawyer,should,yes,yes,"owner makes a matter private to chosen people; enforced by the database on the matter, its entries, client money and dates; an invoice made from it is an ordinary invoice; unit and browser tested"
+Hearing dates and deadlines,lawyer,should,yes,partial,"dates per matter with done and remove, and a coming-up list across matters (overdue first, next 30 days); no reminders sent yet"
+Legal invoice layout,lawyer,should,yes,yes,"template layout with particulars and fee instead of quantity and rate; SAC, tax and every statutory field still printed"

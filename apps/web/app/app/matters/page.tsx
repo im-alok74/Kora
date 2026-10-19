@@ -5,11 +5,14 @@ import { api, rupees } from '../../../lib/client';
 
 type Row = { id: string; title: string; reference: string | null; status: 'open' | 'closed'; rate_paise: string; opened_on: string; party_name: string; unbilled_paise: string; unbilled_minutes: number; held_paise: string };
 type Party = { id: string; name: string; kind: string };
+type Ev = { id: string; matter_id: string; event_date: string; kind: string; title: string; matter_title: string; matter_reference: string | null; days_left: number };
+const when = (n: number) => (n < 0 ? `${-n} day${n === -1 ? '' : 's'} overdue` : n === 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`);
 const hm = (m: number) => `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
 
 /** Cases or engagements, each with its client, an hourly rate, and what is still to be billed. */
 export default function Matters() {
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [events, setEvents] = useState<Ev[]>([]);
   const [parties, setParties] = useState<Party[]>([]);
   const [role, setRole] = useState('');
   const [tab, setTab] = useState<'open' | 'closed'>('open');
@@ -21,6 +24,7 @@ export default function Matters() {
 
   const load = useCallback(async () => { setRows((await api(`/api/matters?status=${tab}${q.trim() ? `&q=${encodeURIComponent(q.trim())}` : ''}`)).matters); }, [tab, q]);
   useEffect(() => { load().catch((e) => setErr(e.message)); }, [load]);
+  useEffect(() => { api('/api/matters/events?days=30').then((r) => setEvents(r.events)).catch(() => {}); }, []);
   useEffect(() => {
     api('/api/business').then((b) => setRole(b.role));
     api('/api/parties').then((r) => setParties((r.parties as Party[]).filter((p) => p.kind !== 'vendor')));
@@ -57,6 +61,14 @@ export default function Matters() {
         </form>
       )}
       {!adding && err && <p className="error" role="alert">{err}</p>}
+
+      {events.length > 0 && (
+        <div className="panel" aria-label="Coming up">
+          <p className="section-label">Coming up in the next 30 days</p>
+          <ul className="plain">{events.slice(0, 8).map((e) => (
+            <li key={e.id}><span><b>{e.event_date}</b> · {e.kind === 'hearing' ? 'Hearing' : e.kind === 'deadline' ? 'Deadline' : 'Date'}: {e.title} <a href={`/app/matters/${e.matter_id}`}>{e.matter_reference ?? e.matter_title}</a></span>
+              <span className={e.days_left < 0 ? 'error' : 'muted'}>{when(e.days_left)}</span></li>))}</ul>
+        </div>)}
 
       <div className="tabs" role="group" aria-label="Matter status">
         {(['open', 'closed'] as const).map((k) => <button key={k} type="button" aria-pressed={tab === k} onClick={() => setTab(k)}>{k === 'open' ? 'Open' : 'Closed'}</button>)}

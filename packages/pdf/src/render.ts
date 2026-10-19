@@ -37,6 +37,7 @@ function accentColour(t: Record<string, any>): string {
  */
 export function renderDocumentHtml(i: RenderInput): string {
   const { doc: d, lines, supplier: s, recipient: r, template: t } = i;
+  const narrative = t.layout === 'narrative';
   const compact = t.layout === 'compact';
   const serif = t.font === 'serif';
   const accent = accentColour(t);
@@ -55,6 +56,7 @@ export function renderDocumentHtml(i: RenderInput): string {
       ? `<td class="n">${pct(l.tax_rate_bp / 2)}<br>${money(l.cgst_paise)}</td><td class="n">${pct(l.tax_rate_bp / 2)}<br>${money(l.sgst_paise)}</td>`
       : `<td class="n">${pct(l.tax_rate_bp)}<br>${money(l.igst_paise)}</td>`;
     const disc = BigInt(l.discount_paise) > 0n ? money(l.discount_paise) : '-';
+    if (narrative) return `<tr><td>${idx + 1}</td><td>${esc(l.item_name)}</td><td>${esc(l.hsn_sac ?? '')}</td><td class="n">${money(l.taxable_paise)}</td>${taxCells}</tr>`;
     return `<tr><td>${idx + 1}</td><td>${esc(l.item_name)}</td><td>${esc(l.hsn_sac ?? '')}</td>
       <td class="n">${esc(String(l.quantity).replace(/\.?0+$/, ''))} ${esc(l.unit)}</td><td class="n">${money(l.rate_paise)}</td>
       <td class="n">${disc}</td><td class="n">${money(l.taxable_paise)}</td>${taxCells}</tr>`;
@@ -117,7 +119,7 @@ ${s.gstin ? `<br><b>GSTIN:</b> ${esc(s.gstin)}` : ''}</div>
 ${d.original_number ? `<tr><td>Against</td><td>${esc(d.original_number)}</td></tr>` : ''}</table></div></div>
 <div class="parties"><div><div class="lbl">Bill to</div>${r ? `<b>${esc(r.name)}</b><br>${addr(r.billing_address)}${r.gstin ? `<br><b>GSTIN:</b> ${esc(r.gstin)}` : ''}${r.phone ? `<br>Ph: ${esc(r.phone)}` : ''}` : 'Walk-in customer'}</div>
 <div><div class="lbl">Place of supply</div><b>${place}</b>${r?.shipping_address && Object.keys(r.shipping_address).length ? `<div class="lbl" style="margin-top:8px">Ship to</div>${addr(r.shipping_address)}` : ''}</div></div>
-<table class="items"><thead><tr><th>#</th><th>Description</th><th>HSN/SAC</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Disc.</th><th class="n">Taxable</th>${taxHead}</tr></thead><tbody>${rows}</tbody></table>
+<table class="items"><thead>${narrative ? `<tr><th>#</th><th>Particulars of professional services</th><th>SAC</th><th class="n">Fee</th>${taxHead}</tr>` : `<tr><th>#</th><th>Description</th><th>HSN/SAC</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Disc.</th><th class="n">Taxable</th>${taxHead}</tr>`}</thead><tbody>${rows}</tbody></table>
 <div class="bottom"><div>${t.showAmountInWords && !foreign ? `<div class="words">${esc(rupeesInWords(BigInt(d.grand_total_paise)))}</div>` : ''}
 ${rcm ? '<div class="rcm">Tax is payable on reverse charge.</div>' : ''}
 ${bankBlock}${upiBlock}${optional(t.showNotes, 'Notes', d.notes)}${optional(t.showTerms, 'Terms', d.terms)}</div>
