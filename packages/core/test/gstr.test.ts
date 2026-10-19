@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { gstinCheckChar } from '@kora/tax';
 import { makeTestDb, type TestDb } from '@kora/db/src/testing.js';
 import {
-  addMember, cancelDocument, createBusiness, createParty, gstr1, gstSummary, issueDocument, periodBounds, resolveTenant, saveDraft, startNote,
+  addMember, cancelDocument, createBusiness, createParty, gstr1, gstr3b, gstSummary, issueDocument, periodBounds, resolveTenant, saveDraft, startNote,
   ForbiddenError, ValidationError, type DocIn, type TenantSession,
 } from '../src/index.js';
 
@@ -137,5 +137,35 @@ describe('GST summary', () => {
     expect(rs(BigInt(s.totalTax))).toBe(59404);
     expect(s.interStateToUnregistered.map((x) => [x.pos, rs(BigInt(x.taxable))]).sort()).toEqual([['29', 300300]]);
     expect(s.notes.join(' ')).toMatch(/not include|not included/);
+  });
+});
+
+describe('GSTR-3B data', () => {
+  it('agrees with the GST summary and lays the same figures out as the offline JSON', async () => {
+    const [sum, b] = await Promise.all([gstSummary(db.web, owner, '2026-10'), gstr3b(db.web, owner, '2026-10')]);
+    expect(b.json.ret_period).toBe('102026');
+    expect(b.json.gstin).toBe(gstin('27', 'AAPFU0939F'));
+    expect(b.json.sup_details.osup_det).toEqual({ txval: 334300, iamt: 57904, camt: 750, samt: 750, csamt: 0 });
+    expect(b.json.sup_details.osup_nil_exmp.txval).toBe(1700);                 // nil rated 1,000 plus exempt 700
+    expect(b.json.sup_details.osup_zero.txval).toBe(0);
+    expect(b.json.inter_sup.unreg_details).toEqual([{ pos: '29', txval: 300300, iamt: 54054 }]);
+    expect(rs(BigInt(b.liability.total))).toBe(59404);
+    expect(b.liability.total).toBe(sum.totalTax);
+    expect(b.table31).toHaveLength(5);
+    expect(b.table31[2]!.taxable).toBe('170000');                                    // (c) nil rated and exempt, in paise
+    expect(b.notes.join(' ')).toMatch(/input tax credit/i);
+  });
+
+  it('is refused for a bad month and for staff, and allowed for the accountant', async () => {
+    expect(await fails(gstr3b(db.web, owner, '2026-1'))).toBeInstanceOf(ValidationError);
+    await expect(gstr3b(db.web, staff, '2026-10')).rejects.toBeInstanceOf(ForbiddenError);
+    expect((await gstr3b(db.web, accountant, '2026-10')).period).toBe('2026-10');
+  });
+
+  it('is all zeros for a month with no invoices', async () => {
+    const b = await gstr3b(db.web, owner, '2026-01');
+    expect(b.json.sup_details.osup_det.txval).toBe(0);
+    expect(b.json.inter_sup.unreg_details).toEqual([]);
+    expect(b.liability.total).toBe('0');
   });
 });

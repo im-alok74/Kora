@@ -13,7 +13,7 @@ Place of supply drives CGST+SGST vs IGST,tax,must,yes,yes,all three; library don
 Cess,tax,must,yes,yes,zoho help mentions additional cess; library done (ad valorem only); step 3 done and tested
 Reverse charge flag on sales,tax,must,yes,yes,zoho setting; library + DB totals rule done; no UI yet; step 3 done and tested
 Registration types (regular composition SEZ ISD),tax,should,yes,yes,zoho; composition affects documents issued; composition/unregistered rules in library; no UI yet; step 3 done and tested
-TDS and TCS fields,tax,must,yes,partial,"zoho TDS settings; bible v1; library done; no UI yet; library, database and totals done; no field in the editor yet"
+TDS and TCS fields,tax,must,yes,yes,"TCS and TDS rates in the editor, saved with the draft, shown in totals and on the PDF, carried onto converted estimates; TDS recorded as a payment; unit and browser tested"
 Gapless numbering per series and financial year,numbering,must,no,yes,"not seen at any competitor; bible rule; DB trigger done and tested, no UI yet; step 3 done and tested"
 Template editor with locked statutory fields,templates,must,yes,partial,"zoho gallery and item-table styling; mbb themes and thermal/A4/A5; colour, font, layout, paper, logo, optional sections and locked fields done; no block layout or per-customer templates"
 Thermal and A5 print layouts,templates,could,yes,no,mbb; shop counter use
@@ -33,7 +33,7 @@ Receivables ageing report,reports,must,yes,yes,"built and e2e tested, with CSV"
 Sales report,reports,must,yes,yes,"sales register, by customer, payments received and statements, with safe CSV"
 GST summary report,reports,must,yes,yes,GSTR-3B 3.1 style summary net of credit notes; CA review pending
 GSTR-1 JSON export,reports,must,yes,yes,sections reconcile to the ledger; schema must be checked by a CA against the offline utility
-GSTR-3B summary,reports,should,yes,no,mbb sag
+GSTR-3B summary,reports,should,yes,partial,"tables 3.1 and 3.2 and offline-style JSON from the invoices; no input tax credit, inward supplies or interest because there are no purchases yet; JSON layout needs CA check"
 Direct GST return filing from product,compliance,could,yes,no,zoho online filing; sag e-filing. Bible does not include filing
 E-invoice IRN and QR via partner adapter,compliance,must,yes,yes,built against a mock partner that validates IRP v1.1 rules; real partner needs credentials
 E-invoice cancel within window and credit-note steer,compliance,must,yes,yes,"24 hour window enforced, then steers to a credit note"

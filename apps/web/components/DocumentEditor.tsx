@@ -10,7 +10,17 @@ type Line = { key: number; itemId: string | null; name: string; hsnSac: string; 
 type Party = PartyFacts & { phone: string | null };
 type Item = { id: string; name: string; kind: 'goods' | 'service'; hsn_sac: string | null; default_rate_bp: number; price_paise: string };
 type Totals = { supply: 'intra' | 'inter'; placeOfSupply: string; warnings: string[]; taxable: string; cgst: string; sgst: string; igst: string; cess: string;
-  tcs: string; roundOff: string; grandTotal: string; recommendedDocType: string; lines: { total: string }[] };
+  tcs: string; tds: string; netReceivable: string; roundOff: string; grandTotal: string; recommendedDocType: string; lines: { total: string }[] };
+
+/** "0.1" -> 10 basis points. Two decimals at most, 0 to 100. Returns null when the text is not a percentage. */
+const pctToBp = (v: string): number | null => {
+  const t = v.trim();
+  if (t === '') return 0;
+  if (!/^\d{1,3}(\.\d{1,2})?$/.test(t)) return null;
+  const n = Math.round(parseFloat(t) * 100);
+  return n >= 0 && n <= 10000 ? n : null;
+};
+const bpToPct = (bp: number | null | undefined) => (bp ? String(bp / 100) : '');
 
 let seq = 1;
 const blankLine = (): Line => ({ key: seq++, itemId: null, name: '', hsnSac: '', quantity: '1', rate: '', discount: '', taxRateBp: 1800, kind: 'goods' });
@@ -30,6 +40,8 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
   const [notes, setNotes] = useState('');
   const [terms, setTerms] = useState('');
   const [reverseCharge, setRcm] = useState(false);
+  const [tcsPct, setTcsPct] = useState('');
+  const [tdsPct, setTdsPct] = useState('');
   const [lines, setLines] = useState<Line[]>([blankLine()]);
   const [original, setOriginal] = useState<string | null>(null);
   const [parties, setParties] = useState<Party[]>([]);
@@ -61,7 +73,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
 
   const fill = (p: Record<string, any>) => {
     setDocType(p.docType); setPartyId(p.partyId ?? ''); setDocDate(p.docDate ?? ''); setDueDate(p.dueDate ?? ''); setNotes(p.notes ?? ''); setTerms(p.terms ?? '');
-    setRcm(!!p.reverseCharge); setOriginal(p.originalDocumentId ?? null);
+    setRcm(!!p.reverseCharge); setOriginal(p.originalDocumentId ?? null); setTcsPct(bpToPct(p.tcsBp)); setTdsPct(bpToPct(p.tdsBp));
     setLines((p.lines as any[]).map((l) => ({ key: seq++, itemId: l.itemId ?? null, name: l.name, hsnSac: l.hsnSac ?? '', quantity: String(l.quantity), rate: String(l.rate),
       discount: l.discount ?? '', taxRateBp: l.taxRateBp, kind: l.kind ?? 'goods' })));
   };
@@ -81,7 +93,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
             const { document: d, lines: ls } = await api(`/api/documents/${draftId}`);
             setClientRef(d.client_ref ?? newId()); setBaseRev(Number(d.rev));
             setDocType(d.doc_type); setPartyId(d.party_id ?? ''); setDocDate(d.doc_date); setDueDate(d.due_date ?? ''); setNotes(d.notes ?? ''); setTerms(d.terms ?? '');
-            setRcm(d.reverse_charge); setOriginal(d.original_document_id);
+            setRcm(d.reverse_charge); setOriginal(d.original_document_id); setTcsPct(bpToPct(d.tcs_bp)); setTdsPct(bpToPct(d.tds_bp));
             setLines(ls.map((l: any) => ({ key: seq++, itemId: l.item_id, name: l.item_name, hsnSac: l.hsn_sac ?? '', quantity: String(l.quantity).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '') || '1',
               rate: rs(l.rate_paise), discount: BigInt(l.discount_paise) > 0n ? rs(l.discount_paise) : '', taxRateBp: l.tax_rate_bp, kind: 'goods' })));
           } catch (e) {
@@ -95,10 +107,10 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
 
   const payload = useMemo(() => ({
     docType, partyId: partyId || null, docDate: docDate || undefined, dueDate: dueDate || null, notes, terms, reverseCharge,
-    originalDocumentId: original,
+    originalDocumentId: original, tcsBp: pctToBp(tcsPct) ?? 0, tdsBp: pctToBp(tdsPct) ?? 0,
     lines: lines.filter((l) => l.name.trim() || l.rate).map((l) => ({ itemId: l.itemId, name: l.name, hsnSac: l.hsnSac || null, quantity: l.quantity || '0',
       rate: l.rate || '0', discount: l.discount || undefined, taxRateBp: l.taxRateBp, kind: l.kind })),
-  }), [docType, partyId, docDate, dueDate, notes, terms, reverseCharge, lines, original]);
+  }), [docType, partyId, docDate, dueDate, notes, terms, reverseCharge, lines, original, tcsPct, tdsPct]);
 
   // Live totals. The server is the authority; offline, the same tax library runs on this device.
   useEffect(() => {
@@ -148,6 +160,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
 
   const save = async (issue: boolean) => {
     if (inFlight.current) return;
+    if (pctToBp(tcsPct) === null || pctToBp(tdsPct) === null) { setErr('Enter TCS and TDS as a percentage between 0 and 100, with at most two decimals.'); return; }
     if (issue && !online) { setErr('Issuing needs a connection. Save the draft now and issue it when you are back online.'); return; }
     inFlight.current = true;
     setErr(''); setBusy(true); setSavedLocally(false);
@@ -294,14 +307,22 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
           <label htmlFor="nt">Notes</label><textarea id="nt" value={notes} onChange={(e) => setNotes(e.target.value)} />
           <label htmlFor="tm">Terms</label><textarea id="tm" value={terms} onChange={(e) => setTerms(e.target.value)} />
           <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" style={{ width: 'auto', height: 'auto' }} checked={reverseCharge} onChange={(e) => setRcm(e.target.checked)} /> Tax is payable by the recipient (reverse charge)</label>
+          {['tax_invoice', 'bill_of_supply', 'debit_note'].includes(docType) && (
+            <div className="row" style={{ marginTop: 8 }}>
+              <div><label htmlFor="tcs">TCS rate (%)</label><input id="tcs" inputMode="decimal" placeholder="0" value={tcsPct} onChange={(e) => setTcsPct(e.target.value)} aria-invalid={pctToBp(tcsPct) === null} /></div>
+              <div><label htmlFor="tds">TDS rate (%)</label><input id="tds" inputMode="decimal" placeholder="0" value={tdsPct} onChange={(e) => setTdsPct(e.target.value)} aria-invalid={pctToBp(tdsPct) === null} /></div>
+            </div>)}
+          {(pctToBp(tcsPct) === null || pctToBp(tdsPct) === null) && <p className="error" role="alert">Enter TCS and TDS as a percentage between 0 and 100, with at most two decimals.</p>}
         </div>
         <div className="totals" aria-live="polite" aria-label="Totals">
           {totals ? (<>
             <div><span>Taxable value</span><span>{rupees(totals.taxable)}</span></div>
             {totals.supply === 'intra' ? (<><div><span>CGST</span><span>{rupees(totals.cgst)}</span></div><div><span>SGST</span><span>{rupees(totals.sgst)}</span></div></>) : <div><span>IGST</span><span>{rupees(totals.igst)}</span></div>}
             {BigInt(totals.cess) > 0n && <div><span>Cess</span><span>{rupees(totals.cess)}</span></div>}
+            {BigInt(totals.tcs) > 0n && <div><span>TCS</span><span data-testid="tcs-amount">{rupees(totals.tcs)}</span></div>}
             {BigInt(totals.roundOff) !== 0n && <div><span>Round off</span><span>{BigInt(totals.roundOff) < 0n ? '-' : ''}{rupees(BigInt(totals.roundOff) < 0n ? -BigInt(totals.roundOff) : totals.roundOff)}</span></div>}
             <div className="grand"><span>Total</span><span data-testid="grand-total">{rupees(totals.grandTotal)}</span></div>
+            {BigInt(totals.tds) > 0n && <div className="muted" data-testid="tds-note">Customer deducts {rupees(totals.tds)} as TDS, so they pay <b>{rupees(totals.netReceivable)}</b>. Record the TDS as a payment when it arrives.</div>}
             <div className="muted">Place of supply: {STATE_NAMES[totals.placeOfSupply]} ({totals.supply === 'intra' ? 'within state' : 'other state'})</div>
             {totals.recommendedDocType === 'bill_of_supply' && docType === 'tax_invoice' && <div className="warn">Every line is at 0%. A bill of supply may be the right document.</div>}
             {totals.warnings.map((w) => <div key={w} className="warn">{w}</div>)}

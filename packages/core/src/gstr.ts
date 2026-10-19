@@ -218,3 +218,61 @@ export async function gstSummary(sql: Sql, t: TenantSession, period: string) {
     ],
   };
 }
+
+/**
+ * GSTR-3B for one month: table 3.1 (outward supplies) and 3.2 (inter-state supplies to unregistered buyers) from the
+ * invoices, with the same figures laid out as the offline tool's JSON. Input tax credit (table 4), inward supplies (5)
+ * and interest or late fee (5.1) are not tracked because Kora has no purchases yet, so they are left for the owner.
+ *
+ * Field names follow the GSTR-3B JSON as I know it and have not been checked against the current offline utility.
+ * A CA must check the file before it is used. Kora prepares the data; the owner remains responsible for the return.
+ */
+export async function gstr3b(sql: Sql, t: TenantSession, period: string) {
+  const s = await gstSummary(sql, t, period);
+  const { fp } = periodBounds(period);
+  const [biz] = await inTenant(sql, t, 'report.export', (tx) => tx`select gstin from business where id = ${t.businessId}`);
+  const r = (p: string | bigint) => rupees(p.toString());
+  const a = s.outwardTaxable;
+  const nilExempt = BigInt(s.nilRated) + BigInt(s.exempt);
+  const row = (label: string, x: { taxable: string; igst: string; cgst: string; sgst: string; cess: string }) => ({ label, ...x });
+  const none = { taxable: '0', igst: '0', cgst: '0', sgst: '0', cess: '0' };
+
+  const table31 = [
+    row('(a) Outward taxable supplies (other than zero rated, nil rated and exempted)', a),
+    row('(b) Outward taxable supplies (zero rated)', none),
+    row('(c) Other outward supplies (nil rated, exempted)', { ...none, taxable: nilExempt.toString() }),
+    row('(d) Inward supplies (liable to reverse charge)', none),
+    row('(e) Non-GST outward supplies', none),
+  ];
+  const liability = {
+    igst: a.igst, cgst: a.cgst, sgst: a.sgst, cess: a.cess,
+    total: (BigInt(a.igst) + BigInt(a.cgst) + BigInt(a.sgst) + BigInt(a.cess)).toString(),
+  };
+  const json = {
+    gstin: (biz?.gstin as string | null) ?? '',
+    ret_period: fp,
+    sup_details: {
+      osup_det: { txval: r(a.taxable), iamt: r(a.igst), camt: r(a.cgst), samt: r(a.sgst), csamt: r(a.cess) },
+      osup_zero: { txval: r(0n), iamt: r(0n), csamt: r(0n) },
+      osup_nil_exmp: { txval: r(nilExempt) },
+      isup_rev: { txval: r(0n), iamt: r(0n), camt: r(0n), samt: r(0n), csamt: r(0n) },
+      osup_nongst: { txval: r(0n) },
+    },
+    inter_sup: {
+      unreg_details: s.interStateToUnregistered.map((x) => ({ pos: x.pos, txval: r(x.taxable), iamt: r(x.igst) })),
+      comp_details: [] as unknown[],
+      uin_details: [] as unknown[],
+    },
+  };
+  return {
+    period, gstin: json.gstin, table31, table32: s.interStateToUnregistered, liability, json,
+    notes: [
+      'Outward supplies are net of credit notes and include debit notes. Cancelled documents are left out.',
+      'Table 4 (input tax credit), table 5 (inward exempt and nil supplies) and 5.1 (interest and late fee) are not filled: Kora does not record purchases yet. Add them in the GST offline tool or portal.',
+      'Table 3.1(a) here is the tax you owe before any input tax credit.',
+      'Supplies where the recipient pays the tax are not in 3.1(a); they appear on the GST summary, and your CA should decide where they go.',
+      'Table 3.2 lists inter-state supplies to buyers without a GSTIN. Supplies to composition dealers and UIN holders are not separated yet.',
+      'The file layout has not been checked against the latest GST offline utility. Have your CA check it before use.',
+    ],
+  };
+}

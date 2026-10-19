@@ -27,7 +27,7 @@ export async function decideEstimate(sql: Sql, t: TenantSession, documentId: str
  */
 export async function convertEstimate(sql: Sql, t: TenantSession, documentId: string) {
   return inTenant(sql, t, 'document.write', async (tx) => {
-    const [d] = await tx`select d.doc_type, d.status, d.party_id, d.place_of_supply, d.reverse_charge, d.notes, d.terms,
+    const [d] = await tx`select d.doc_type, d.status, d.party_id, d.place_of_supply, d.reverse_charge, d.notes, d.terms, d.tcs_bp, d.tds_bp,
                                 estimate_status(d.status, d.due_date, b.timezone, es.decision, es.converted_to_id) as est,
                                 b.registration_type
                            from document d join business b on b.id = d.business_id left join estimate_state es on es.document_id = d.id
@@ -46,6 +46,7 @@ export async function convertEstimate(sql: Sql, t: TenantSession, documentId: st
       docType: d.registration_type === 'regular' ? 'tax_invoice' : 'bill_of_supply',
       partyId: d.party_id as string | null, placeOfSupply: d.place_of_supply as string, reverseCharge: d.reverse_charge as boolean,
       notes: d.notes as string | null, terms: d.terms as string | null, lines: linesToInput(lines),
+      tcsBp: d.tcs_bp as number, tdsBp: d.tds_bp as number,
     };
     const made = await persist(tx, t, null, input);
     await tx`update estimate_state set converted_to_id = ${made.id}, decision = coalesce(decision, 'accepted'),

@@ -40,6 +40,8 @@ One library computes everything, in integer paise, with these rules:
 ### Returns data
 - **GSTR-1 JSON** for a month: B2B, B2CL, B2CS, credit and debit notes (registered and unregistered), nil and exempt supplies, HSN summary, and the document series summary. Kora proves that the sections add up to the sales ledger to the paisa and warns if they do not.
 - **GST summary** laid out like GSTR-3B table 3.1 (outward supplies), net of credit notes, with reverse-charge, nil-rated and exempt supplies shown apart.
+- **GSTR-3B data**: tables 3.1 and 3.2 from the invoices, as screen tables and as a JSON file in the shape of the offline tool. Input tax credit (table 4), inward supplies (5) and interest and late fee (5.1) are left empty because Kora has no purchases. The file layout has not been checked against the current offline utility, and a CA must check it before it is used.
+- **TCS and TDS** are entered as percentages on an invoice. TCS is added to the total (on taxable value plus tax). TDS is not part of the total: it is shown as what the customer will deduct, and recorded as a payment of method TDS when it arrives, so the invoice closes. Whether TCS or TDS applies, and at what rate, is the owner's decision; Kora does not suggest rates.
 - Both are **data to prepare a return**. Aggregate turnover is left at 0 in the GSTR-1 file for the owner to enter.
 
 ### Records
@@ -63,7 +65,8 @@ One library computes everything, in integer paise, with these rules:
 2. The HSN length rule: today, a tax invoice for a business above Rs 5 crore needs at least 6 digits (blocked), and below that at least 4 digits (a warning).
 3. How nil-rated, exempt and non-GST supplies should appear. Today every 0% line in a tax invoice is reported as nil-rated, and every bill of supply as exempt.
 4. The GSTR-1 JSON structure against the current GST offline utility, including the section and field names.
-5. TCS applicability and rates, and how TDS deductions should be recorded.
+5. TCS applicability and rates, how TDS deductions should be recorded, and whether TCS should be charged on taxable value plus tax as Kora does.
+5a. The GSTR-3B JSON field names and which table outward supplies with reverse charge belong in.
 6. The partner's error codes. Kora's plain-words messages are keyed to the mock partner's codes and must be mapped to the real partner's list.
 7. Whether reverse-charge outward supplies need an e-invoice and how.
 

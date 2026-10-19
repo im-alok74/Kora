@@ -1,9 +1,10 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
+import { STATE_NAMES } from '@kora/tax';
 import { api, rupees } from '../../../lib/client';
 
-type Tab = 'sales' | 'customers' | 'payments' | 'ageing' | 'statement' | 'gst' | 'gstr1';
-const TABS: [Tab, string][] = [['sales', 'Sales register'], ['customers', 'Sales by customer'], ['payments', 'Payments received'], ['ageing', 'Who owes you'], ['statement', 'Customer statement'], ['gst', 'GST summary'], ['gstr1', 'GSTR-1 data']];
+type Tab = 'sales' | 'customers' | 'payments' | 'ageing' | 'statement' | 'gst' | 'gstr3b' | 'gstr1';
+const TABS: [Tab, string][] = [['sales', 'Sales register'], ['customers', 'Sales by customer'], ['payments', 'Payments received'], ['ageing', 'Who owes you'], ['statement', 'Customer statement'], ['gst', 'GST summary'], ['gstr3b', 'GSTR-3B data'], ['gstr1', 'GSTR-1 data']];
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
 export default function Reports() {
@@ -28,6 +29,7 @@ export default function Reports() {
       case 'ageing': return `/api/reports/ageing?asOf=${to}`;
       case 'statement': return party ? `/api/reports/statement?${range}&party=${party}` : '';
       case 'gst': return `/api/reports/gst-summary?period=${month}`;
+      case 'gstr3b': return `/api/reports/gstr3b?period=${month}`;
       case 'gstr1': return `/api/reports/gstr1?period=${month}`;
     }
   }, [tab, from, to, month, party]);
@@ -42,7 +44,7 @@ export default function Reports() {
   // Only ever show data that belongs to the tab on screen: the previous tab's rows have a different shape.
   const data = loaded && loaded.query === query ? loaded.body : null;
 
-  const monthly = tab === 'gst' || tab === 'gstr1';
+  const monthly = tab === 'gst' || tab === 'gstr3b' || tab === 'gstr1';
   const csvHref = query && ['sales', 'customers', 'payments', 'ageing', 'statement'].includes(tab) ? `${query}${query.includes('?') ? '&' : '?'}format=csv` : '';
 
   return (
@@ -51,6 +53,7 @@ export default function Reports() {
         <div className="row" style={{ flex: 'none' }}>
           {csvHref && canExport && <a className="btn secondary" href={csvHref}>Download CSV</a>}
           {tab === 'gstr1' && canExport && <a className="btn secondary" href={`/api/reports/gstr1?period=${month}&download=1`}>Download GSTR-1 JSON</a>}
+          {tab === 'gstr3b' && canExport && <a className="btn secondary" href={`/api/reports/gstr3b?period=${month}&download=1`}>Download GSTR-3B JSON</a>}
         </div>
       </div>
       <div role="tablist" className="row" style={{ marginBottom: 12, justifyContent: 'flex-start' }}>
@@ -101,6 +104,18 @@ export default function Reports() {
               <tr><td>Exempt (bills of supply)</td><td className="n">{rupees(data.exempt)}</td><td colSpan={4} /></tr>
               <tr><td><b>Total tax</b></td><td /><td className="n" colSpan={4}><b>{rupees(data.totalTax)}</b></td></tr>
             </tbody></table>
+          <ul className="muted">{data.notes.map((n: string) => <li key={n}>{n}</li>)}</ul>
+        </>
+      )}
+      {tab === 'gstr3b' && data && (
+        <>
+          <table className="t"><thead><tr><th>3.1 Outward supplies</th><th className="n">Taxable value</th><th className="n">IGST</th><th className="n">CGST</th><th className="n">SGST</th><th className="n">Cess</th></tr></thead>
+            <tbody>{data.table31.map((r: any) => <tr key={r.label}><td>{r.label}</td><td className="n">{rupees(r.taxable)}</td><td className="n">{rupees(r.igst)}</td><td className="n">{rupees(r.cgst)}</td><td className="n">{rupees(r.sgst)}</td><td className="n">{rupees(r.cess)}</td></tr>)}
+              <tr><td><b>Tax payable before input credit</b></td><td /><td className="n"><b>{rupees(data.liability.igst)}</b></td><td className="n"><b>{rupees(data.liability.cgst)}</b></td><td className="n"><b>{rupees(data.liability.sgst)}</b></td><td className="n"><b>{rupees(data.liability.cess)}</b></td></tr></tbody></table>
+          <h3 style={{ marginTop: 16 }}>3.2 Inter-state supplies to buyers without a GSTIN</h3>
+          {data.table32.length === 0 ? <p className="muted">None this month.</p> : (
+            <table className="t"><thead><tr><th>Place of supply</th><th className="n">Taxable value</th><th className="n">IGST</th></tr></thead>
+              <tbody>{data.table32.map((r: any) => <tr key={r.pos}><td>{STATE_NAMES[r.pos] ?? r.pos}</td><td className="n">{rupees(r.taxable)}</td><td className="n">{rupees(r.igst)}</td></tr>)}</tbody></table>)}
           <ul className="muted">{data.notes.map((n: string) => <li key={n}>{n}</li>)}</ul>
         </>
       )}

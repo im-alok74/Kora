@@ -118,7 +118,8 @@ ${d.original_number ? `<tr><td>Against</td><td>${esc(d.original_number)}</td></t
 ${rcm ? '<div class="rcm">Tax is payable on reverse charge.</div>' : ''}
 ${bankBlock}${upiBlock}${optional(t.showNotes, 'Notes', d.notes)}${optional(t.showTerms, 'Terms', d.terms)}</div>
 <div><table class="tot">${totalRows}<tr class="g"><td>${rcm ? 'Amount due' : 'Total'}</td><td class="n">${money(d.grand_total_paise)}</td></tr>
-${rcm && showTax ? `<tr><td colspan="2" style="color:#55605b;font-size:.9em">Tax shown above is payable by the recipient.</td></tr>` : ''}</table></div></div>
+${rcm && showTax ? `<tr><td colspan="2" style="color:#55605b;font-size:.9em">Tax shown above is payable by the recipient.</td></tr>` : ''}
+${BigInt(d.tds_paise ?? 0) > 0n ? `<tr><td style="color:#55605b">Less: TDS to be deducted</td><td class="n" style="color:#55605b">${money(d.tds_paise)}</td></tr><tr><td style="color:#55605b">Net payable by customer</td><td class="n" style="color:#55605b">${money(BigInt(d.grand_total_paise) - BigInt(d.tds_paise))}</td></tr>` : ''}</table></div></div>
 ${irnBlock}${t.showSignature ? `<div class="sign"><div>Authorised signatory<br>${esc(supplierName)}</div></div>` : ''}
 ${t.footerText ? `<div class="foot">${esc(t.footerText)}</div>` : ''}
 </div></body></html>`;

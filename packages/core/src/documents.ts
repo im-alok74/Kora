@@ -162,7 +162,7 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
     taxable: s(r.taxablePaise), cgst: s(r.cgstPaise), sgst: s(r.sgstPaise), igst: s(r.igstPaise), cess: s(r.cessPaise),
     tcs: s(r.tcsPaise), tds: s(r.tdsPaise), round_off: s(r.roundOffPaise), grand: s(r.grandTotalPaise),
     notes: str(input.notes, 'Notes', { max: 2000 }), terms: str(input.terms, 'Terms', { max: 2000 }),
-    original: input.originalDocumentId ?? null,
+    original: input.originalDocumentId ?? null, tcs_bp: input.tcsBp ?? 0, tds_bp: input.tdsBp ?? 0,
   };
   let docId = id;
   if (id) {
@@ -174,16 +174,17 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
              reverse_charge = ${fields.reverse_charge}, doc_date = ${fields.doc_date}, due_date = ${fields.due_date},
              taxable_paise = ${fields.taxable}, cgst_paise = ${fields.cgst}, sgst_paise = ${fields.sgst}, igst_paise = ${fields.igst},
              cess_paise = ${fields.cess}, tcs_paise = ${fields.tcs}, tds_paise = ${fields.tds}, round_off_paise = ${fields.round_off},
-             grand_total_paise = ${fields.grand}, notes = ${fields.notes}, terms = ${fields.terms}, original_document_id = ${fields.original}
+             grand_total_paise = ${fields.grand}, notes = ${fields.notes}, terms = ${fields.terms}, original_document_id = ${fields.original},
+             tcs_bp = ${fields.tcs_bp}, tds_bp = ${fields.tds_bp}
              where id = ${id}`;
   } else {
     const [row] = await tx`
       insert into document (business_id, doc_type, party_id, place_of_supply, reverse_charge, doc_date, due_date, taxable_paise, cgst_paise,
                             sgst_paise, igst_paise, cess_paise, tcs_paise, tds_paise, round_off_paise, grand_total_paise, notes, terms,
-                            original_document_id, created_by, client_ref)
+                            original_document_id, created_by, client_ref, tcs_bp, tds_bp)
       values (${t.businessId}, ${fields.doc_type}, ${fields.party_id}, ${fields.place_of_supply}, ${fields.reverse_charge}, ${fields.doc_date},
               ${fields.due_date}, ${fields.taxable}, ${fields.cgst}, ${fields.sgst}, ${fields.igst}, ${fields.cess}, ${fields.tcs}, ${fields.tds},
-              ${fields.round_off}, ${fields.grand}, ${fields.notes}, ${fields.terms}, ${fields.original}, ${t.userId}, ${clientRef})
+              ${fields.round_off}, ${fields.grand}, ${fields.notes}, ${fields.terms}, ${fields.original}, ${t.userId}, ${clientRef}, ${fields.tcs_bp}, ${fields.tds_bp})
       returning id`;
     docId = row!.id as string;
   }
