@@ -19,9 +19,10 @@ Kora issues legally correct GST documents, sends them on WhatsApp, collects by U
 | Client portal | A private link per customer where they see what they owe, pay, answer estimates and read their statement, with no account. The business can replace or stop the link any time. |
 | Expenses | Record what the business spends, with a receipt photo or PDF, totals by category and a CSV. |
 | Late fees and other currencies | Overdue invoices offer a draft late fee debit note that you issue. Estimates and proforma invoices can be quoted in another currency and convert to a rupee invoice. |
+| Data and integrations | Export to Excel, a full backup (ZIP with CSV and JSON), and a Tally import file. Import customers and items from a spreadsheet. A JSON API with keys and signed, retrying webhooks. See [docs/api.md](docs/api.md). |
 | Reports | Sales register, sales by customer, payments received, ageing, customer statement, with CSV export that is safe to open in a spreadsheet. |
 
-What is **not** in v1: filing returns, purchases and input tax credit, e-way bills, exports and SEZ, customer login accounts, inventory. See [docs/compliance.md](docs/compliance.md).
+What is **not** in v1: filing returns, purchases and input tax credit, e-way bills, exports and SEZ, customer login accounts, inventory, importing invoices. See [docs/compliance.md](docs/compliance.md).
 
 ## Run it locally
 
@@ -52,6 +53,8 @@ Copy `.env.example`. Never commit `.env`.
 | `APP_URL` | web, worker | Public base URL, used in message links and payment links. |
 | `SESSION_TTL_DAYS` | web | Sign-in lifetime, default 30. |
 | `KORA_ALLOW_MOCKS` | web, worker | Set to `1` only for a staging demo. In production every mock adapter refuses to start without it. |
+| `API_RATE_LIMIT` | web | Requests a minute for each API key (default 120), counted in each server process. |
+| `KORA_WEBHOOK_ALLOW_PRIVATE` | web, worker | Set to `1` only in development or tests so webhooks may go to `localhost` over http. **Never set it in production.** |
 | `WORKER_HEALTH_PORT`, `REMINDER_TICK_MS`, `RECURRING_TICK_MS` | worker | Liveness endpoint port, and how often reminders (30s) and recurring invoices (60s) are checked. |
 
 ## Tests
@@ -100,7 +103,7 @@ Playwright needs Chromium once: `pnpm --filter @kora/pdf exec playwright install
 | `apps/mock-gsp` | The mock GST partner as a runnable server |
 | `e2e` | Playwright suite |
 | `replica/` | Research, plan, schema record, tax cases, design tokens, brand, final report |
-| `docs/` | Compliance and deployment |
+| `docs/` | Compliance, deployment, and the API and webhooks guide |
 
 ## Licence and clean-room note
 

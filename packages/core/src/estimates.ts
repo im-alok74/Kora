@@ -1,5 +1,6 @@
 import { SYSTEM_USER, type Sql } from '@kora/db';
 import { getDocumentTx, linesToInput, persist, type DocIn } from './documents.js';
+import { emitEvent } from './webhooks.js';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { ValidationError } from './validation.js';
 
@@ -20,6 +21,8 @@ export async function decideEstimate(sql: Sql, t: TenantSession, documentId: str
              values (${t.businessId}, ${documentId}, ${decision}, now(), ${by}, ${via})
              on conflict (document_id) do update set decision = excluded.decision, decided_at = excluded.decided_at,
                                                      decided_by = excluded.decided_by, decided_via = excluded.decided_via`;
+    const [num] = await tx`select number from document where id = ${documentId}`;
+    await emitEvent(tx, t.businessId, decision === 'accepted' ? 'estimate.accepted' : 'estimate.declined', { id: documentId, number: num!.number, answered_by: via });
     return (await getDocumentTx(tx, documentId))!;
   });
 }

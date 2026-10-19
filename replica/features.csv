@@ -47,10 +47,10 @@ Auto-charge with saved mandate,recurring,should,yes,no,zoho saved cards; bible v
 Client portal,portal,should,yes,yes,"private link per customer: balance and overdue, invoices, pay, answer estimates, statement with CSV and print; hash-only token, replace or stop anytime; unit and browser tested. Customer login accounts and saved payment methods are not built"
 Inventory with batches serials barcodes,inventory,should,yes,no,mbb deep; zoho SKU only; bible v2
 Expenses and receipts,expenses,should,yes,yes,"record, edit, filter, totals by category, CSV, receipt photo or PDF (checked and size limited); no billable expenses or input tax credit yet; unit and browser tested"
-Tally and Excel import and export,integrations,should,yes,no,mbb Tally export; zoho Tally XML extension; bible v2
-Public API and webhooks,integrations,should,yes,no,zoho; bible v2
+Tally and Excel import and export,integrations,should,yes,partial,"Excel workbook export, Tally voucher export (not tried against a live Tally), CSV import of customers and items; no Tally import, no invoice import, no .xlsx import"
+Public API and webhooks,integrations,should,yes,yes,"keys with read or write access, /api/v1 with idempotency and rate limits, OpenAPI file; signed outbound webhooks with retries, SSRF checks and auto-disable; unit and browser tested"
 Installable app with offline drafts and sync,platform,must,unknown,yes,"IndexedDB drafts, service worker, conflict handling; e2e tested offline, reload and sync"
-Data backup and export,platform,should,yes,no,zoho backup setting
+Data backup and export,platform,should,yes,yes,"ZIP of CSV files plus JSON and a README, each export logged; no PDFs or receipt photos in it"
 Time tracking and project billing,projects,could,yes,no,zoho; bible v3
 POS billing and barcode counter,pos,could,yes,no,mbb; bible v3
 Zoho marketplace and ecosystem integrations,network,could,yes,skip,partner network not a feature

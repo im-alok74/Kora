@@ -13,7 +13,7 @@ export interface ItemInput {
   price?: string; // rupees
 }
 
-function clean(i: ItemInput) {
+export function validateItem(i: ItemInput) {
   const name = str(i.name, 'Item name', { required: true })!;
   const kind = i.kind ?? 'goods';
   if (!['goods', 'service'].includes(kind)) throw new ValidationError('Choose goods or service.', 'kind');
@@ -29,7 +29,7 @@ function clean(i: ItemInput) {
 }
 
 export async function createItem(sql: Sql, t: TenantSession, input: ItemInput): Promise<string> {
-  const c = clean(input);
+  const c = validateItem(input);
   return inTenant(sql, t, 'item.write', async (tx) => {
     try {
       const [r] = await tx`insert into item (business_id, name, kind, hsn_sac, unit, default_rate_bp, cess_rate_bp, price_paise)
@@ -43,7 +43,7 @@ export async function createItem(sql: Sql, t: TenantSession, input: ItemInput): 
 }
 
 export async function updateItem(sql: Sql, t: TenantSession, id: string, input: ItemInput): Promise<void> {
-  const c = clean(input);
+  const c = validateItem(input);
   await inTenant(sql, t, 'item.write', async (tx) => {
     const r = await tx`update item set name = ${c.name}, kind = ${c.kind}, hsn_sac = ${c.hsn}, unit = ${c.unit},
                               default_rate_bp = ${c.rate}, cess_rate_bp = ${c.cess}, price_paise = ${c.price}
@@ -52,11 +52,11 @@ export async function updateItem(sql: Sql, t: TenantSession, id: string, input: 
   });
 }
 
-export async function listItems(sql: Sql, t: TenantSession, f: { q?: string; limit?: number } = {}) {
+export async function listItems(sql: Sql, t: TenantSession, f: { q?: string; limit?: number; offset?: number } = {}) {
   return inTenant(sql, t, 'item.read', (tx) => tx`
     select id, name, kind, hsn_sac, unit, default_rate_bp, cess_rate_bp, price_paise
       from item where archived_at is null and (${f.q ?? null}::text is null or name ilike ${'%' + (f.q ?? '') + '%'})
-     order by name limit ${Math.min(f.limit ?? 100, 500)}`);
+     order by name limit ${Math.min(f.limit ?? 100, 500)} offset ${f.offset ?? 0}`);
 }
 
 export async function archiveItem(sql: Sql, t: TenantSession, id: string): Promise<void> {

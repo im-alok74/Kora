@@ -7,6 +7,7 @@ import { inTenant, type TenantSession } from './tenancy.js';
 import { ConflictError, isDate, str, todayIn, ValidationError } from './validation.js';
 import { scheduleReminders } from './reminders.js';
 import { queueEinvoiceIfRequired } from './einvoice.js';
+import { emitEvent } from './webhooks.js';
 
 export const DOC_TYPES: readonly DocType[] =
   ['tax_invoice', 'bill_of_supply', 'estimate', 'proforma', 'delivery_challan', 'credit_note', 'debit_note'];
@@ -352,6 +353,9 @@ export async function issueTx(tx: Tx, t: TenantSession, id: string) {
     const [issued] = await tx`select id, business_id, doc_type, due_date, einvoice_required from document where id = ${id}`;
     await scheduleReminders(tx, issued as never);
     await queueEinvoiceIfRequired(tx, issued as never);
+    const [ev] = await tx`select d.number, d.doc_type, d.doc_date::text as doc_date, d.due_date::text as due_date, d.currency, d.grand_total_paise::text as total_paise, d.party_id, p.name as party_name
+                            from document d left join party p on p.id = d.party_id where d.id = ${id}`;
+    await emitEvent(tx, t.businessId, 'document.issued', { id, ...ev });
     return (await getDocumentTx(tx, id))!;
   }
 }
@@ -363,6 +367,8 @@ export async function cancelDocument(sql: Sql, t: TenantSession, id: string, rea
       const r = await tx`update document set status = 'cancelled', cancel_reason = ${why} where id = ${id} and status = 'issued' returning id`;
       if (r.length === 0) throw new ValidationError('Only an issued document can be cancelled.');
     } catch (e) { if (e instanceof ValidationError) throw e; mapDbError(e); }
+    const [ev] = await tx`select number, doc_type from document where id = ${id}`;
+    await emitEvent(tx, t.businessId, 'document.cancelled', { id, number: ev!.number, doc_type: ev!.doc_type, reason: why });
     return (await getDocumentTx(tx, id))!;
   });
 }

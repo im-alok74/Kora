@@ -71,6 +71,14 @@ pnpm --filter @kora/worker start   # worker (uses tsx; bundle with esbuild if yo
 - The handler returns 200 for valid events, including duplicates, 400 for a bad signature, and 500 if it could not apply the event, so the gateway retries.
 - Allow-list the gateway's IP ranges at the edge if the gateway publishes them.
 
+## API, webhooks and exports
+
+- Webhooks are sent by the **worker**, from the same job queue as messages, so the worker must be running. Every request goes through a check that the address connected to is public; do not set `KORA_WEBHOOK_ALLOW_PRIVATE` in production.
+- The API rate limit is counted per server process. With several web instances the effective limit is the limit times the number of instances. Put a rate limit at the edge as well if the API is exposed widely.
+- API keys are stored as hashes and webhook signing secrets in the `webhook_endpoint` table (they must be readable to sign). That table is excluded from the activity log. Treat database backups as sensitive.
+- Excel, backup and Tally exports are built in memory and limited to 200,000 rows a data set. Each one writes a row in `data_export`.
+- The Tally file has not been tried against a live Tally. Have an accountant import it into a test company before anyone relies on it.
+
 ## Monitoring
 
 Alert on:
@@ -80,6 +88,7 @@ Alert on:
 | `job` rows with `status = 'failed'`, and queued jobs older than 10 minutes | Messages or e-invoices are not going out. |
 | `einvoice` rows with `status in ('rejected', 'failed')` older than a day | An invoice is not legally complete. Contact the owner. |
 | `webhook_event` rows with `processed_at is null` | A payment was received but not applied. |
+| `webhook_delivery` rows with `status = 'failed'`, or `webhook_endpoint` rows with `active = false` and `consecutive_failures >= 20` | A customer's system is not getting events. Tell the owner; they fix the address and switch it back on. |
 | `recurring_run` rows with `status = 'failed'`, or `recurring_profile` rows active with `next_run_date` more than a day in the past | A scheduled invoice was not made. The note on the run says why. |
 | Worker `/healthz` returns 503 | The loop has stalled. |
 | 5xx rate on `/api/*` | Application errors. |

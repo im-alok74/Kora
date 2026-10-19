@@ -27,6 +27,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <a className="nav" href="/app/customers">Customers</a>
         <a className="nav" href="/app/items">Items</a>
         <a className="nav" href="/app/reports">Reports</a>
+        <a className="nav" href="/app/data">Data</a>
+        {active.role === 'owner' && <a className="nav" href="/app/developers">Developers</a>}
         {active.role === 'owner' && <a className="nav" href="/app/team">Team</a>}
         {active.role !== 'staff' && <a className="nav" href="/app/activity">Activity</a>}
         <a className="nav" href="/app/settings">Settings</a>

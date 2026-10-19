@@ -37,6 +37,13 @@ One library computes everything, in integer paise, with these rules:
 - A recurring invoice set to issue automatically issues a real tax invoice on each date, with the next number in sequence, and queues its e-invoice if one is required. The owner is responsible for what the template says. Draft mode leaves each invoice for review first.
 - Each scheduled date makes at most one invoice, even if two workers run at once or the worker was down and catches up.
 
+### Data export, import and integrations
+- A full backup, an Excel workbook and a Tally file are available to the owner and the accountant. Each one is recorded (who, what, how many rows). Staff cannot take the business's data out.
+- Imports add customers and items only. Every row is checked as if it had been typed in, rows that already exist are skipped, and nothing is changed or deleted. An import cannot create or alter an invoice.
+- API keys act as staff (write) or accountant (read) and can never cancel, change settings or manage people. Issued documents stay immutable through the API; corrections are still credit and debit notes. Whatever totals a caller sends are ignored: Kora always works them out.
+- Webhooks carry identifiers and amounts, signed with the endpoint's secret. They are sent only to public addresses.
+- The Tally file follows Tally's import format as understood, and has not been tried against a live Tally. An accountant should check it in a test company.
+
 ### Late fees
 - Kora never adds a late fee by itself. With late fees switched on, an overdue invoice shows what has built up (a percentage a month, pro rata by the day, or a flat amount once, after the grace days) and offers a draft debit note that points at the invoice. The owner reads it and issues it like any other debit note, with its own number.
 - The fee carries GST at the rate the owner chooses (18% by default) under SAC 999799. Whether GST applies to a late payment charge, and under which code, is for the owner's CA to confirm.

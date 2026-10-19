@@ -19,7 +19,7 @@ export interface PartyInput {
   currency?: string;
 }
 
-function clean(i: PartyInput) {
+export function validateParty(i: PartyInput) {
   const kind = i.kind ?? 'customer';
   if (!['customer', 'vendor', 'both'].includes(kind)) throw new ValidationError('Choose customer, vendor or both.', 'kind');
   const name = str(i.name, 'Name', { required: true, max: 200 })!;
@@ -40,7 +40,7 @@ function clean(i: PartyInput) {
 }
 
 export async function createParty(sql: Sql, t: TenantSession, input: PartyInput): Promise<string> {
-  const p = clean(input);
+  const p = validateParty(input);
   return inTenant(sql, t, 'party.write', async (tx) => {
     const [r] = await tx`
       insert into party (business_id, kind, name, gstin, phone, email, billing_address, shipping_address, state_code, currency)
@@ -52,7 +52,7 @@ export async function createParty(sql: Sql, t: TenantSession, input: PartyInput)
 }
 
 export async function updateParty(sql: Sql, t: TenantSession, id: string, input: PartyInput): Promise<void> {
-  const p = clean(input);
+  const p = validateParty(input);
   await inTenant(sql, t, 'party.write', async (tx) => {
     const r = await tx`
       update party set kind = ${p.kind}, name = ${p.name}, gstin = ${p.gstin}, phone = ${p.phone}, email = ${p.email},
@@ -63,14 +63,14 @@ export async function updateParty(sql: Sql, t: TenantSession, id: string, input:
   });
 }
 
-export async function listParties(sql: Sql, t: TenantSession, f: { q?: string; kind?: string; limit?: number } = {}) {
+export async function listParties(sql: Sql, t: TenantSession, f: { q?: string; kind?: string; limit?: number; offset?: number } = {}) {
   return inTenant(sql, t, 'party.read', (tx) => tx`
     select id, kind, name, gstin, phone, email, state_code, currency, billing_address, shipping_address
       from party
      where archived_at is null
        and (${f.q ?? null}::text is null or name ilike ${'%' + (f.q ?? '') + '%'} or gstin ilike ${'%' + (f.q ?? '') + '%'})
        and (${f.kind ?? null}::text is null or kind = ${f.kind ?? ''} or kind = 'both')
-     order by name limit ${Math.min(f.limit ?? 100, 500)}`);
+     order by name limit ${Math.min(f.limit ?? 100, 500)} offset ${f.offset ?? 0}`);
 }
 
 export async function getParty(sql: Sql, t: TenantSession, id: string) {

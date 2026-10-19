@@ -1,3 +1,4 @@
+import { emitEvent } from './webhooks.js';
 import { parseRupees } from '@kora/tax';
 import { SYSTEM_USER, setTenant, type Sql } from '@kora/db';
 import type { GatewayEvent, PaymentGateway } from '@kora/adapters';
@@ -33,6 +34,8 @@ export async function recordPayment(
     await tx`insert into payment_allocation (business_id, payment_id, document_id, amount_paise)
              values (${t.businessId}, ${p!.id}, ${i.documentId}, ${amount.toString()})`;
     const [after] = await tx`select amount_settled_paise, payment_status from document where id = ${i.documentId}`;
+    const [num] = await tx`select number from document where id = ${i.documentId}`;
+    await emitEvent(tx, t.businessId, 'payment.received', { payment_id: p!.id, document_id: i.documentId, number: num!.number, amount_paise: amount.toString(), method: i.method, status: after!.payment_status });
     return { paymentId: p!.id as string, paymentStatus: after!.payment_status as string, settledPaise: after!.amount_settled_paise as string };
   });
 }
@@ -135,6 +138,8 @@ export async function applyGatewayEvent(sql: Sql, gateway: string, evt: GatewayE
                values (${link.business_id}, ${p!.id}, ${link.document_id}, ${allocate.toString()})`;
     }
     await tx`update payment_link set status = 'paid' where id = ${link.link_id}`;
+    const [after] = await tx`select number, payment_status from document where id = ${link.document_id}`;
+    await emitEvent(tx, link.business_id as string, 'payment.received', { payment_id: p!.id, document_id: link.document_id, number: after!.number, amount_paise: amount.toString(), method: evt.method, gateway, status: after!.payment_status });
     await done();
     return { duplicate: false, applied: { paymentId: p!.id as string, allocatedPaise: allocate.toString(), unallocatedPaise: (amount - allocate).toString() } } as GatewayResult;
   }) as Promise<GatewayResult>;
