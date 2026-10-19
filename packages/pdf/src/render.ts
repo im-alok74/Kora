@@ -60,6 +60,10 @@ export function renderDocumentHtml(i: RenderInput): string {
       <td class="n">${disc}</td><td class="n">${money(l.taxable_paise)}</td>${taxCells}</tr>`;
   }).join('');
 
+  // A quote in another currency: amounts are in that currency and no rupee rounding or words are shown.
+  const foreign = !!d.currency && d.currency !== 'INR';
+  const rateMicro = BigInt(String(d.exchange_rate_micro ?? 1_000_000));
+  const rateText = `${rateMicro / 1_000_000n}.${(rateMicro % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '').padEnd(2, '0')}`;
   const totals: [string, string][] = [['Taxable value', money(d.taxable_paise)]];
   if (showTax) {
     if (BigInt(d.cgst_paise) > 0n || intra) { totals.push(['CGST', money(d.cgst_paise)], ['SGST', money(d.sgst_paise)]); }
@@ -114,11 +118,12 @@ ${d.original_number ? `<tr><td>Against</td><td>${esc(d.original_number)}</td></t
 <div class="parties"><div><div class="lbl">Bill to</div>${r ? `<b>${esc(r.name)}</b><br>${addr(r.billing_address)}${r.gstin ? `<br><b>GSTIN:</b> ${esc(r.gstin)}` : ''}${r.phone ? `<br>Ph: ${esc(r.phone)}` : ''}` : 'Walk-in customer'}</div>
 <div><div class="lbl">Place of supply</div><b>${place}</b>${r?.shipping_address && Object.keys(r.shipping_address).length ? `<div class="lbl" style="margin-top:8px">Ship to</div>${addr(r.shipping_address)}` : ''}</div></div>
 <table class="items"><thead><tr><th>#</th><th>Description</th><th>HSN/SAC</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Disc.</th><th class="n">Taxable</th>${taxHead}</tr></thead><tbody>${rows}</tbody></table>
-<div class="bottom"><div>${t.showAmountInWords ? `<div class="words">${esc(rupeesInWords(BigInt(d.grand_total_paise)))}</div>` : ''}
+<div class="bottom"><div>${t.showAmountInWords && !foreign ? `<div class="words">${esc(rupeesInWords(BigInt(d.grand_total_paise)))}</div>` : ''}
 ${rcm ? '<div class="rcm">Tax is payable on reverse charge.</div>' : ''}
 ${bankBlock}${upiBlock}${optional(t.showNotes, 'Notes', d.notes)}${optional(t.showTerms, 'Terms', d.terms)}</div>
-<div><table class="tot">${totalRows}<tr class="g"><td>${rcm ? 'Amount due' : 'Total'}</td><td class="n">${money(d.grand_total_paise)}</td></tr>
+<div><table class="tot">${totalRows}<tr class="g"><td>${rcm ? 'Amount due' : 'Total'}${foreign ? ` (${esc(d.currency)})` : ''}</td><td class="n">${money(d.grand_total_paise)}</td></tr>
 ${rcm && showTax ? `<tr><td colspan="2" style="color:#55605b;font-size:.9em">Tax shown above is payable by the recipient.</td></tr>` : ''}
+${foreign ? `<tr><td colspan="2" style="color:#55605b;font-size:.9em">All amounts are in ${esc(d.currency)}. Exchange rate used: 1 ${esc(d.currency)} = Rs ${rateText}. This is not a tax invoice.</td></tr>` : ''}
 ${BigInt(d.tds_paise ?? 0) > 0n ? `<tr><td style="color:#55605b">Less: TDS to be deducted</td><td class="n" style="color:#55605b">${money(d.tds_paise)}</td></tr><tr><td style="color:#55605b">Net payable by customer</td><td class="n" style="color:#55605b">${money(BigInt(d.grand_total_paise) - BigInt(d.tds_paise))}</td></tr>` : ''}</table></div></div>
 ${irnBlock}${t.showSignature ? `<div class="sign"><div>Authorised signatory<br>${esc(supplierName)}</div></div>` : ''}
 ${t.footerText ? `<div class="foot">${esc(t.footerText)}</div>` : ''}

@@ -1,9 +1,10 @@
 'use client';
 import { use, useCallback, useEffect, useState } from 'react';
+import { formatMoney } from '@kora/tax';
 import { api, DOC_LABEL, rupees } from '../../../lib/client';
 
 type Invoice = { id: string; doc_type: string; number: string; doc_date: string; due_date: string | null; grand_total_paise: string; outstanding_paise: string; payment_status: string; overdue: boolean };
-type Estimate = { id: string; number: string; doc_date: string; valid_until: string | null; grand_total_paise: string; status: string };
+type Estimate = { id: string; number: string; doc_date: string; valid_until: string | null; grand_total_paise: string; status: string; currency: string };
 type Overview = {
   business: { name: string; gstin: string | null; phone: string | null; email: string | null }; customer: { name: string };
   totals: { outstanding: string; overdue: string }; invoices: Invoice[]; estimates: Estimate[]; payments: { method: string; amount_paise: string; received_on: string }[];
@@ -76,7 +77,7 @@ export default function Portal({ params }: { params: Promise<{ token: string }> 
             <tbody>{data.estimates.filter((e) => e.status === 'open').map((e) => (
               <tr key={e.id}>
                 <td><a href={`/portal/${token}/open/${e.id}`} target="_blank" rel="noreferrer">{e.number}</a></td><td>{e.doc_date}</td><td>{e.valid_until ?? ''}</td>
-                <td className="n">{rupees(e.grand_total_paise)}</td>
+                <td className="n">{e.currency === 'INR' ? rupees(e.grand_total_paise) : formatMoney(BigInt(e.grand_total_paise), e.currency)}</td>
                 <td className="n">
                   <button disabled={!!busy} onClick={() => act(`a${e.id}`, async () => { await api(`/api/portal/${token}/estimate/${e.id}`, { body: { action: 'accept' } }); await load(); setMsg(`Thank you. ${e.number} is accepted.`); })}>Accept</button>{' '}
                   <button className="secondary" disabled={!!busy} onClick={() => act(`d${e.id}`, async () => { await api(`/api/portal/${token}/estimate/${e.id}`, { body: { action: 'decline' } }); await load(); setMsg(`${e.number} is declined.`); })}>Decline</button>
@@ -108,7 +109,7 @@ export default function Portal({ params }: { params: Promise<{ token: string }> 
           <h2>Earlier estimates</h2>
           <table className="t"><thead><tr><th>Estimate</th><th>Date</th><th className="n">Amount</th><th>Status</th></tr></thead>
             <tbody>{data.estimates.filter((e) => e.status !== 'open').map((e) => (
-              <tr key={e.id}><td><a href={`/portal/${token}/open/${e.id}`} target="_blank" rel="noreferrer">{e.number}</a></td><td>{e.doc_date}</td><td className="n">{rupees(e.grand_total_paise)}</td><td>{EST[e.status] ?? e.status}</td></tr>))}</tbody></table>
+              <tr key={e.id}><td><a href={`/portal/${token}/open/${e.id}`} target="_blank" rel="noreferrer">{e.number}</a></td><td>{e.doc_date}</td><td className="n">{e.currency === 'INR' ? rupees(e.grand_total_paise) : formatMoney(BigInt(e.grand_total_paise), e.currency)}</td><td>{EST[e.status] ?? e.status}</td></tr>))}</tbody></table>
         </section>)}
 
       {data.payments.length > 0 && (

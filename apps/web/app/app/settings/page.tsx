@@ -1,4 +1,5 @@
 'use client';
+import LateFeeSettings from '../../../components/LateFeeSettings';
 import { useEffect, useState } from 'react';
 import { api } from '../../../lib/client';
 
@@ -122,6 +123,8 @@ export default function Settings() {
           </fieldset>
         </form>
       )}
+
+      <LateFeeSettings readOnly={readOnly} />
 
       {tpl && (
         <div className="panel">

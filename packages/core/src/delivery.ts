@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { formatRupees } from '@kora/tax';
+import { formatMoney } from '@kora/tax';
 import type { Messenger } from '@kora/adapters';
 import { SYSTEM_USER, withTenant, type Sql } from '@kora/db';
 import { normaliseIdentifier } from './identifier.js';
@@ -50,11 +50,11 @@ export async function getDelivery(sql: Sql, t: TenantSession, deliveryId: string
   return rows[0] ?? null;
 }
 
-export function messageText(o: { label: string; number: string; total: bigint; from: string; url: string; reminder?: { outstanding: bigint; dueDate: string | null } }): string {
+export function messageText(o: { label: string; number: string; total: bigint; currency?: string; from: string; url: string; reminder?: { outstanding: bigint; dueDate: string | null } }): string {
   if (o.reminder) {
-    return `Reminder: ${o.label} ${o.number} from ${o.from}, ${formatRupees(o.reminder.outstanding)} still due${o.reminder.dueDate ? ` (due ${o.reminder.dueDate})` : ''}. View and pay: ${o.url}`;
+    return `Reminder: ${o.label} ${o.number} from ${o.from}, ${formatMoney(o.reminder.outstanding, o.currency)} still due${o.reminder.dueDate ? ` (due ${o.reminder.dueDate})` : ''}. View and pay: ${o.url}`;
   }
-  return `${o.label} ${o.number} for ${formatRupees(o.total)} from ${o.from}. View and download: ${o.url}`;
+  return `${o.label} ${o.number} for ${formatMoney(o.total, o.currency)} from ${o.from}. View and download: ${o.url}`;
 }
 
 /** Worker side of 'delivery.send'. Safe to run twice for the same delivery. */
@@ -68,7 +68,7 @@ export async function processDeliveryJob(sql: Sql, deps: { messenger: Messenger;
     const [del] = await tx`select id, status from delivery where id = ${p.deliveryId} for update`;
     if (!del) throw new PermanentJobError('Delivery not found.');
     if (del.status === 'sent') return null;
-    const [d] = await tx`select d.status, d.doc_type, d.number, d.due_date, d.grand_total_paise, d.amount_settled_paise, b.legal_name, b.trade_name
+    const [d] = await tx`select d.status, d.doc_type, d.number, d.due_date, d.currency, d.grand_total_paise, d.amount_settled_paise, b.legal_name, b.trade_name
                            from document d join business b on b.id = d.business_id where d.id = ${p.documentId}`;
     const stop = async (why: string) => {
       await tx`update delivery set status = 'failed', error_message = ${why} where id = ${p.deliveryId}`;
@@ -83,7 +83,7 @@ export async function processDeliveryJob(sql: Sql, deps: { messenger: Messenger;
     const url = `${deps.appUrl.replace(/\/$/, '')}/i/${token}`;
     const from = (d.trade_name ?? d.legal_name) as string;
     const text = messageText({
-      label: docLabel(d.doc_type as string), number: d.number as string, total: BigInt(d.grand_total_paise as string), from, url,
+      label: docLabel(d.doc_type as string), number: d.number as string, total: BigInt(d.grand_total_paise as string), currency: d.currency as string, from, url,
       reminder: p.reminderId ? { outstanding, dueDate: d.due_date as string | null } : undefined,
     });
     return { url, text, subject: `${docLabel(d.doc_type as string)} ${d.number} from ${from}` };

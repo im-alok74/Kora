@@ -1,10 +1,10 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { gstinValid, STATE_NAMES } from '@kora/tax';
+import { CURRENCIES, gstinValid, STATE_NAMES } from '@kora/tax';
 import { api } from '../../../lib/client';
 
-type Party = { id: string; name: string; gstin: string | null; state_code: string; phone: string | null; email: string | null; billing_address?: Record<string, string> };
-const EMPTY = { name: '', gstin: '', stateCode: '', phone: '', email: '', line1: '', city: '', pincode: '' };
+type Party = { id: string; name: string; gstin: string | null; state_code: string; phone: string | null; email: string | null; currency?: string; billing_address?: Record<string, string> };
+const EMPTY = { name: '', gstin: '', stateCode: '', phone: '', email: '', currency: 'INR', line1: '', city: '', pincode: '' };
 
 export default function Customers() {
   const [rows, setRows] = useState<Party[]>([]);
@@ -48,7 +48,7 @@ export default function Customers() {
       <form className="panel" onSubmit={async (e) => {
         e.preventDefault(); setErr('');
         try {
-          const body = { kind: 'customer', name: form.name, gstin: g || null, stateCode: state || null, phone: form.phone || null, email: form.email || null,
+          const body = { kind: 'customer', name: form.name, gstin: g || null, stateCode: state || null, phone: form.phone || null, email: form.email || null, currency: form.currency,
             billingAddress: { line1: form.line1, city: form.city, pincode: form.pincode } };
           await api(editing ? `/api/parties/${editing}` : '/api/parties', { method: editing ? 'PUT' : 'POST', body });
           setForm(EMPTY); setEditing(null); await load();
@@ -62,12 +62,14 @@ export default function Customers() {
           <div><label htmlFor="cs">State</label>
             <select id="cs" value={state} disabled={!!stateFromGstin} onChange={(e) => setForm({ ...form, stateCode: e.target.value })}>
               <option value="">Choose a state</option>
-              {Object.entries(STATE_NAMES).filter(([c]) => !['96', '97', '99'].includes(c)).map(([c, n]) => <option key={c} value={c}>{n}</option>)}
+              {Object.entries(STATE_NAMES).filter(([c]) => !['97', '99'].includes(c)).map(([c, n]) => <option key={c} value={c}>{c === '96' ? 'Outside India (quotes only)' : n}</option>)}
             </select></div>
         </div>
         <div className="row">
           <div><label htmlFor="cp">Mobile</label><input id="cp" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
           <div><label htmlFor="ce">Email</label><input id="ce" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+          <div><label htmlFor="cur">Usual quote currency</label>
+            <select id="cur" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>{CURRENCIES.map((c) => <option key={c} value={c}>{c === 'INR' ? 'INR (rupees)' : c}</option>)}</select></div>
         </div>
         <p className="muted">Address is needed for e-invoices to businesses.</p>
         <div className="row">
@@ -114,8 +116,8 @@ export default function Customers() {
       <table className="t">
         <thead><tr><th>Name</th><th>GSTIN</th><th>State</th><th>Mobile</th><th /></tr></thead>
         <tbody>{rows.map((p) => (
-          <tr key={p.id}><td>{p.name}</td><td>{p.gstin ?? ''}</td><td>{STATE_NAMES[p.state_code]}</td><td>{p.phone ?? ''}</td>
-            <td className="n"><button className="link" onClick={() => { setEditing(p.id); setForm({ name: p.name, gstin: p.gstin ?? '', stateCode: p.state_code, phone: p.phone ?? '', email: p.email ?? '', line1: p.billing_address?.line1 ?? '', city: p.billing_address?.city ?? '', pincode: p.billing_address?.pincode ?? '' }); window.scrollTo(0, 0); }}>Edit</button>{' '}
+          <tr key={p.id}><td>{p.name}{p.currency && p.currency !== 'INR' ? <span className="muted"> ({p.currency})</span> : null}</td><td>{p.gstin ?? ''}</td><td>{p.state_code === '96' ? 'Outside India' : STATE_NAMES[p.state_code]}</td><td>{p.phone ?? ''}</td>
+            <td className="n"><button className="link" onClick={() => { setEditing(p.id); setForm({ name: p.name, gstin: p.gstin ?? '', stateCode: p.state_code, phone: p.phone ?? '', email: p.email ?? '', currency: p.currency ?? 'INR', line1: p.billing_address?.line1 ?? '', city: p.billing_address?.city ?? '', pincode: p.billing_address?.pincode ?? '' }); window.scrollTo(0, 0); }}>Edit</button>{' '}
               {canPortal && <button className="link" onClick={() => void openPortal(p)}>Portal</button>}{' '}
               <button className="link" onClick={async () => { await api(`/api/parties/${p.id}`, { method: 'DELETE' }); await load(); }}>Archive</button></td></tr>))}</tbody>
       </table>

@@ -16,6 +16,8 @@ export * from './reminders.js';
 export * from './estimates.js';
 export * from './recurring.js';
 export * from './portal.js';
+export * from './expenses.js';
+export * from './latefee.js';
 export * from './reports.js';
 export * from './handlers.js';
 export * from './einvoice.js';

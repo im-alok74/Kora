@@ -13,13 +13,14 @@ export function localTotals(a: { business: BusinessFacts; party: PartyFacts | nu
   const lines = (payload.lines ?? []) as { name: string; quantity: string; rate: string; discount?: string; taxRateBp: number; cessRateBp?: number; kind?: string }[];
   if (!lines.length) return null;
   const allServices = lines.every((l) => l.kind === 'service');
-  const place = payload.placeOfSupply || resolvePlaceOfSupply({
+  const foreign = !!payload.currency && payload.currency !== 'INR';   // a quote abroad is not a tax document, so place 96 is fine
+  const place = payload.placeOfSupply || (foreign ? (party?.state_code ?? business.state_code) : resolvePlaceOfSupply({
     kind: allServices ? 'service' : 'goods', billToState: party?.state_code ?? business.state_code,
     shipToState: payload.shipToState ?? party?.shipping_address?.stateCode ?? null, recipientRegisteredState: party?.state_code,
-  });
+  }));
   const r = computeDocument({
     docType: payload.docType as DocType, registrationType: business.registration_type as never, supplierState: business.state_code, placeOfSupply: place,
-    reverseCharge: !!payload.reverseCharge, tcsBp: payload.tcsBp ?? 0, tdsBp: payload.tdsBp ?? 0,
+    reverseCharge: !!payload.reverseCharge, tcsBp: payload.tcsBp ?? 0, tdsBp: payload.tdsBp ?? 0, roundTotal: !payload.currency || payload.currency === 'INR',
     lines: lines.map((l) => ({ quantityMilli: parseQuantity(String(l.quantity)), ratePaise: parseRupees(String(l.rate)), discountPaise: l.discount ? parseRupees(String(l.discount)) : 0n,
       taxRateBp: l.taxRateBp, cessRateBp: l.cessRateBp ?? 0 })),
   });

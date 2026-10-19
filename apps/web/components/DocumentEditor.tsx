@@ -1,13 +1,13 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { gstinValid, STATE_NAMES } from '@kora/tax';
-import { api, ApiError, DOC_LABEL, rupees, TAX_RATES } from '../lib/client';
+import { CURRENCIES, formatMoney, gstinValid, STATE_NAMES } from '@kora/tax';
+import { api, ApiError, DOC_LABEL, rupees as rupeesInr, TAX_RATES } from '../lib/client';
 import { cacheGet, cacheSet, getDraft, isNetworkError, newId, putDraft, removeDraft, type LocalDraft } from '../lib/offline';
 import { localTotals, type BusinessFacts, type PartyFacts } from '../lib/localTotals';
 import { syncDrafts } from '../lib/sync';
 
 type Line = { key: number; itemId: string | null; name: string; hsnSac: string; quantity: string; rate: string; discount: string; taxRateBp: number; kind: 'goods' | 'service' };
-type Party = PartyFacts & { phone: string | null };
+type Party = PartyFacts & { phone: string | null; currency?: string };
 type Item = { id: string; name: string; kind: 'goods' | 'service'; hsn_sac: string | null; default_rate_bp: number; price_paise: string };
 type Totals = { supply: 'intra' | 'inter'; placeOfSupply: string; warnings: string[]; taxable: string; cgst: string; sgst: string; igst: string; cess: string;
   tcs: string; tds: string; netReceivable: string; roundOff: string; grandTotal: string; recommendedDocType: string; lines: { total: string }[] };
@@ -21,6 +21,9 @@ const pctToBp = (v: string): number | null => {
   return n >= 0 && n <= 10000 ? n : null;
 };
 const bpToPct = (bp: number | null | undefined) => (bp ? String(bp / 100) : '');
+
+/** 83250000 -> "83.25". The rate is stored in millionths of a rupee per unit. */
+const microToText = (m: string | number) => { const n = BigInt(m); return `${n / 1_000_000n}.${(n % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '').padEnd(2, '0')}`; };
 
 let seq = 1;
 const blankLine = (): Line => ({ key: seq++, itemId: null, name: '', hsnSac: '', quantity: '1', rate: '', discount: '', taxRateBp: 1800, kind: 'goods' });
@@ -40,8 +43,12 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
   const [notes, setNotes] = useState('');
   const [terms, setTerms] = useState('');
   const [reverseCharge, setRcm] = useState(false);
+  const [currency, setCurrency] = useState('INR');
+  const [rate, setRate] = useState('');
   const [tcsPct, setTcsPct] = useState('');
   const [tdsPct, setTdsPct] = useState('');
+  const quote = docType === 'estimate' || docType === 'proforma';
+  const rupees = (p: string | bigint | null | undefined) => (currency === 'INR' ? rupeesInr(p) : formatMoney(BigInt(p ?? 0), currency));
   const [lines, setLines] = useState<Line[]>([blankLine()]);
   const [original, setOriginal] = useState<string | null>(null);
   const [parties, setParties] = useState<Party[]>([]);
@@ -73,7 +80,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
 
   const fill = (p: Record<string, any>) => {
     setDocType(p.docType); setPartyId(p.partyId ?? ''); setDocDate(p.docDate ?? ''); setDueDate(p.dueDate ?? ''); setNotes(p.notes ?? ''); setTerms(p.terms ?? '');
-    setRcm(!!p.reverseCharge); setOriginal(p.originalDocumentId ?? null); setTcsPct(bpToPct(p.tcsBp)); setTdsPct(bpToPct(p.tdsBp));
+    setRcm(!!p.reverseCharge); setOriginal(p.originalDocumentId ?? null); setTcsPct(bpToPct(p.tcsBp)); setTdsPct(bpToPct(p.tdsBp)); setCurrency(p.currency ?? 'INR'); setRate(p.exchangeRate ?? '');
     setLines((p.lines as any[]).map((l) => ({ key: seq++, itemId: l.itemId ?? null, name: l.name, hsnSac: l.hsnSac ?? '', quantity: String(l.quantity), rate: String(l.rate),
       discount: l.discount ?? '', taxRateBp: l.taxRateBp, kind: l.kind ?? 'goods' })));
   };
@@ -93,7 +100,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
             const { document: d, lines: ls } = await api(`/api/documents/${draftId}`);
             setClientRef(d.client_ref ?? newId()); setBaseRev(Number(d.rev));
             setDocType(d.doc_type); setPartyId(d.party_id ?? ''); setDocDate(d.doc_date); setDueDate(d.due_date ?? ''); setNotes(d.notes ?? ''); setTerms(d.terms ?? '');
-            setRcm(d.reverse_charge); setOriginal(d.original_document_id); setTcsPct(bpToPct(d.tcs_bp)); setTdsPct(bpToPct(d.tds_bp));
+            setRcm(d.reverse_charge); setOriginal(d.original_document_id); setTcsPct(bpToPct(d.tcs_bp)); setTdsPct(bpToPct(d.tds_bp)); setCurrency(d.currency ?? 'INR'); setRate(d.currency && d.currency !== 'INR' ? microToText(d.exchange_rate_micro) : '');
             setLines(ls.map((l: any) => ({ key: seq++, itemId: l.item_id, name: l.item_name, hsnSac: l.hsn_sac ?? '', quantity: String(l.quantity).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '') || '1',
               rate: rs(l.rate_paise), discount: BigInt(l.discount_paise) > 0n ? rs(l.discount_paise) : '', taxRateBp: l.tax_rate_bp, kind: 'goods' })));
           } catch (e) {
@@ -108,9 +115,10 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
   const payload = useMemo(() => ({
     docType, partyId: partyId || null, docDate: docDate || undefined, dueDate: dueDate || null, notes, terms, reverseCharge,
     originalDocumentId: original, tcsBp: pctToBp(tcsPct) ?? 0, tdsBp: pctToBp(tdsPct) ?? 0,
+    ...(currency !== 'INR' && quote ? { currency, exchangeRate: rate } : {}),
     lines: lines.filter((l) => l.name.trim() || l.rate).map((l) => ({ itemId: l.itemId, name: l.name, hsnSac: l.hsnSac || null, quantity: l.quantity || '0',
       rate: l.rate || '0', discount: l.discount || undefined, taxRateBp: l.taxRateBp, kind: l.kind })),
-  }), [docType, partyId, docDate, dueDate, notes, terms, reverseCharge, lines, original, tcsPct, tdsPct]);
+  }), [docType, partyId, docDate, dueDate, notes, terms, reverseCharge, lines, original, tcsPct, tdsPct, currency, rate, quote]);
 
   // Live totals. The server is the authority; offline, the same tax library runs on this device.
   useEffect(() => {
@@ -236,16 +244,24 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
         <div className="grid2">
           <div>
             <label htmlFor="dt">Document type</label>
-            <select id="dt" value={docType} onChange={(e) => setDocType(e.target.value)} disabled={!!original}>
+            <select id="dt" value={docType} onChange={(e) => { setDocType(e.target.value); if (!['estimate', 'proforma'].includes(e.target.value)) setCurrency('INR'); }} disabled={!!original}>
               {Object.entries(DOC_LABEL).filter(([k]) => original ? k === docType : !['credit_note', 'debit_note'].includes(k)).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
             <label htmlFor="cu">Customer</label>
-            <select id="cu" value={newCust ? '__new' : partyId} onChange={(e) => { if (e.target.value === '__new') setNewCust(true); else { setNewCust(false); setPartyId(e.target.value); } }} disabled={!!original}>
+            <select id="cu" value={newCust ? '__new' : partyId} onChange={(e) => { if (e.target.value === '__new') setNewCust(true); else { setNewCust(false); setPartyId(e.target.value); const pc = parties.find((x) => x.id === e.target.value)?.currency; if (quote && pc && pc !== 'INR' && currency === 'INR') setCurrency(pc); } }} disabled={!!original}>
               <option value="">Walk-in customer</option>
               {parties.map((p) => <option key={p.id} value={p.id}>{p.name}{p.gstin ? ` (${p.gstin})` : ''}</option>)}
               {online && <option value="__new">+ New customer</option>}
             </select>
             {!online && <p className="muted">New customers can be added when you are back online.</p>}
+            {quote && (
+              <div className="row" style={{ marginTop: 8 }}>
+                <div><label htmlFor="cur">Currency</label>
+                  <select id="cur" value={currency} onChange={(e) => setCurrency(e.target.value)}>{CURRENCIES.map((c) => <option key={c} value={c}>{c === 'INR' ? 'INR (rupees)' : c}</option>)}</select></div>
+                {currency !== 'INR' && (
+                  <div><label htmlFor="fx">Exchange rate (Rs for 1 {currency})</label><input id="fx" inputMode="decimal" placeholder="83.25" value={rate} onChange={(e) => setRate(e.target.value)} /></div>)}
+              </div>)}
+            {quote && currency !== 'INR' && <p className="muted">This is a quote, not a tax invoice. When the customer accepts, it turns into an invoice in rupees at this rate.</p>}
           </div>
           <div className="grid2">
             <div><label htmlFor="dd">Date</label><input id="dd" type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} /></div>
@@ -279,7 +295,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
       </div>
 
       <table className="t" aria-label="Line items">
-        <thead><tr><th>Description</th><th>HSN/SAC</th><th className="n">Qty</th><th className="n">Rate</th><th className="n">Discount</th><th>GST</th><th className="n">Amount</th><th /></tr></thead>
+        <thead><tr><th>Description</th><th>HSN/SAC</th><th className="n">Qty</th><th className="n">Rate{currency !== 'INR' ? ` (${currency})` : ''}</th><th className="n">Discount</th><th>GST</th><th className="n">Amount</th><th /></tr></thead>
         <tbody>
           {lines.map((l, i) => {
             const idx = lines.filter((x) => x.name.trim() || x.rate).findIndex((x) => x.key === l.key);

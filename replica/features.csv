@@ -28,7 +28,7 @@ Payment link via gateway,collections,must,yes,yes,built against the mock gateway
 Partial payments and allocation,collections,must,yes,yes,"built and e2e tested, including overpayment refusal and credit-note allocation"
 Automatic reconciliation of gateway payments,collections,must,unknown,yes,idempotent webhooks match payments to invoices and settle them; mock gateway only
 Automated reminders,collections,must,yes,yes,"scheduled at issue, 10:00 IST, cancelled when paid; sends via the mock messenger"
-Late fee,collections,should,unknown,no,bible v1; not seen at competitors
+Late fee,collections,should,unknown,yes,"percentage a month or flat, with grace days and a GST rate; works out what has built up and makes a draft debit note the owner issues; never charged automatically; unit and browser tested"
 Receivables ageing report,reports,must,yes,yes,"built and e2e tested, with CSV"
 Sales report,reports,must,yes,yes,"sales register, by customer, payments received and statements, with safe CSV"
 GST summary report,reports,must,yes,yes,GSTR-3B 3.1 style summary net of credit notes; CA review pending
@@ -41,12 +41,12 @@ Plain-words IRP rejection errors with retry,compliance,must,unknown,yes,"pre-che
 E-way bill generate extend cancel bulk,compliance,should,yes,no,mbb sag; bible v1.5
 Team roles owner staff accountant,team,should,yes,yes,"zoho roles and per-customer restriction; permission table + DB functions done, no UI yet; UI, DB-enforced roles and audit log built and e2e tested"
 Multi-factor login,security,should,yes,partial,zoho MFA; kora uses OTP then passkeys; OTP login done (mock sender); passkeys later
-Multi-business and per-document currency,business,should,yes,no,zoho multi-currency basic; bible v1.5
+Multi-business and per-document currency,business,should,yes,partial,"several businesses per login done; estimates and proforma can be quoted in USD, EUR, GBP, AED, SGD, AUD or CAD at a stated rate and convert to a rupee invoice at that rate; tax invoices stay in rupees and exports are not supported"
 Recurring invoices with auto-send,recurring,should,yes,yes,"weekly, monthly or yearly; draft, issue, or issue and send; worker makes each date exactly once, catches up, pauses without backfill; unit and browser tested"
 Auto-charge with saved mandate,recurring,should,yes,no,zoho saved cards; bible v2
 Client portal,portal,should,yes,yes,"private link per customer: balance and overdue, invoices, pay, answer estimates, statement with CSV and print; hash-only token, replace or stop anytime; unit and browser tested. Customer login accounts and saved payment methods are not built"
 Inventory with batches serials barcodes,inventory,should,yes,no,mbb deep; zoho SKU only; bible v2
-Expenses and receipts,expenses,should,yes,no,zoho; mbb; bible v2
+Expenses and receipts,expenses,should,yes,yes,"record, edit, filter, totals by category, CSV, receipt photo or PDF (checked and size limited); no billable expenses or input tax credit yet; unit and browser tested"
 Tally and Excel import and export,integrations,should,yes,no,mbb Tally export; zoho Tally XML extension; bible v2
 Public API and webhooks,integrations,should,yes,no,zoho; bible v2
 Installable app with offline drafts and sync,platform,must,unknown,yes,"IndexedDB drafts, service worker, conflict handling; e2e tested offline, reload and sync"

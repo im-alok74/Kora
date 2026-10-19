@@ -82,3 +82,26 @@ function rupeesInWordsCrore(c: bigint): string {
   const n = Number(c);
   return n < 100 ? below100(n) : below1000(n);
 }
+
+/** Currencies a business can quote in besides rupees. All have two decimal places. */
+export const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'AUD', 'CAD'] as const;
+export type Currency = (typeof CURRENCIES)[number];
+
+/** 123456 -> "INR"-style amounts: rupees keep Indian grouping; other currencies use thousands grouping and a code, "USD 1,234.56". */
+export function formatMoney(minor: Paise, currency: string = 'INR'): string {
+  if (currency === 'INR') return formatRupees(minor);
+  const neg = minor < 0n;
+  const abs = neg ? -minor : minor;
+  const whole = (abs / 100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${neg ? '-' : ''}${currency} ${whole}.${(abs % 100n).toString().padStart(2, '0')}`;
+}
+
+/** "83.25" -> 83_250_000n (millionths of a rupee per unit). At most six decimals, more than zero. */
+export function parseExchangeRate(text: string): bigint {
+  const t = String(text ?? '').trim();
+  if (!/^\d{1,6}(\.\d{1,6})?$/.test(t)) throw new TaxError('negative_amount', 'Enter the exchange rate as a number, for example 83.25.');
+  const [w, f = ''] = t.split('.');
+  const micro = BigInt(w!) * 1_000_000n + BigInt(f.padEnd(6, '0'));
+  if (micro <= 0n) throw new TaxError('negative_amount', 'The exchange rate must be more than zero.');
+  return micro;
+}

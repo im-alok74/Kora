@@ -37,6 +37,20 @@ One library computes everything, in integer paise, with these rules:
 - A recurring invoice set to issue automatically issues a real tax invoice on each date, with the next number in sequence, and queues its e-invoice if one is required. The owner is responsible for what the template says. Draft mode leaves each invoice for review first.
 - Each scheduled date makes at most one invoice, even if two workers run at once or the worker was down and catches up.
 
+### Late fees
+- Kora never adds a late fee by itself. With late fees switched on, an overdue invoice shows what has built up (a percentage a month, pro rata by the day, or a flat amount once, after the grace days) and offers a draft debit note that points at the invoice. The owner reads it and issues it like any other debit note, with its own number.
+- The fee carries GST at the rate the owner chooses (18% by default) under SAC 999799. Whether GST applies to a late payment charge, and under which code, is for the owner's CA to confirm.
+- Days already charged are never charged again. Deleting an unissued late fee draft frees those days. Late fees need a regular GST registration, because the debit note does.
+
+### Quotes in other currencies
+- Estimates and proforma invoices can be in USD, EUR, GBP, AED, SGD, AUD or CAD, at an exchange rate the owner enters. They are not tax documents and carry no rupee rounding. The PDF says so and shows the rate used.
+- A tax invoice, bill of supply or credit and debit note is always in rupees, and the database refuses anything else. Converting a quote to an invoice turns each line into rupees at the quoted rate, rounded to the paisa.
+- Export invoices are still not supported. A quote to a customer outside India can be made, but it cannot be turned into an invoice, and a quote in rupees to such a customer is refused with the same message.
+
+### Expenses
+- Expenses are the owner's own record: date, vendor, category, amount paid, the GST inside it, and how it was paid. They do not feed the GST summary or GSTR-3B, and Kora does not claim input tax credit.
+- A receipt (JPEG, PNG or PDF, up to 2 MB) is stored with the expense after its first bytes are checked against what the file claims to be. Receipts are kept apart from the audit log so file contents never appear there.
+
 ### Client portal
 - Each customer can have one private link. It shows only that customer's issued invoices, estimates, payments and statement, lets them pay and answer estimates, and opens their documents through short-lived public links. It never shows drafts, other customers, or the business's reports.
 - The link's token is long and random and only its hash is stored. The business can make a new link (the old one stops) or stop it at any time. Anyone who has the link can open it, so the page says so; it is not a login.

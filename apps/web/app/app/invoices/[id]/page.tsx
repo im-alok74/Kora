@@ -1,5 +1,7 @@
 'use client';
+import LateFeePanel from '../../../../components/LateFeePanel';
 import { use, useCallback, useEffect, useRef, useState } from 'react';
+import { formatMoney } from '@kora/tax';
 import { api, DOC_LABEL, rupees } from '../../../../lib/client';
 
 type Doc = Record<string, any>;
@@ -87,6 +89,8 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
   if (!data) return <p className="muted">{err || 'Loading'}</p>;
   const d = data.document;
   const label = DOC_LABEL[d.doc_type];
+  const foreignCur = d.currency && d.currency !== 'INR' ? (d.currency as string) : null;
+  const money = (p: string | bigint) => (foreignCur ? formatMoney(BigInt(p), foreignCur) : rupees(p));
   const isDraft = d.status === 'draft', isIssued = d.status === 'issued';
   const canIssue = role === 'owner' || role === 'staff';
   const receivable = RECEIVABLE.includes(d.doc_type);
@@ -102,7 +106,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
           {est ? <span className={`chip ${EST_CHIP[est.status] ?? 'issued'}`} data-testid="estimate-status">{EST_LABEL[est.status] ?? est.status}</span> : (
           <span className={`chip ${d.status === 'issued' && d.payment_status === 'paid' ? 'paid' : d.status}`}>
             {d.status === 'draft' ? 'Draft' : d.status === 'cancelled' ? 'Cancelled' : d.payment_status === 'paid' ? 'Paid' : d.payment_status === 'part_paid' ? 'Part paid' : 'Issued'}</span>)}{' '}
-          <span className="muted">{d.party_name ?? 'Walk-in customer'} · {d.doc_date} · {rupees(d.grand_total_paise)}{est && d.due_date ? ` · valid until ${d.due_date}` : ''}{outstanding > 0n && outstanding !== BigInt(d.grand_total_paise) ? ` · ${rupees(outstanding)} due` : ''}</span>
+          <span className="muted">{d.party_name ?? 'Walk-in customer'} · {d.doc_date} · {money(d.grand_total_paise)}{foreignCur ? ` at 1 ${foreignCur} = Rs ${(Number(d.exchange_rate_micro) / 1_000_000).toString()}` : ''}{est && d.due_date ? ` · valid until ${d.due_date}` : ''}{outstanding > 0n && outstanding !== BigInt(d.grand_total_paise) ? ` · ${rupees(outstanding)} due` : ''}</span>
         </div>
         <div className="row" style={{ flex: 'none' }}>
           <a className="btn secondary" href="/app/invoices">Back</a>
@@ -118,6 +122,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
       </div>
       {err && <p className="error" role="alert">{err}</p>}
       {msg && <p className="ok" role="status">{msg}</p>}
+      {isIssued && ['tax_invoice', 'bill_of_supply'].includes(d.doc_type) && outstanding > 0n && <LateFeePanel invoiceId={id} canWrite={canIssue} />}
 
       {d.einvoice_status && d.einvoice_status !== 'none' && einv?.current && (
         <div className="panel" data-testid="einvoice">

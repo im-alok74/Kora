@@ -1,10 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { formatMoney } from '@kora/tax';
 import { api, DOC_LABEL, rupees } from '../../../lib/client';
 import { isNetworkError, listDrafts, onDraftsChanged, type LocalDraft } from '../../../lib/offline';
 
 type Row = { id: string; doc_type: string; status: string; number: string | null; doc_date: string; grand_total_paise: string;
-  payment_status: string; party_name: string | null; einvoice_status: string; estimate_status?: string | null };
+  payment_status: string; party_name: string | null; einvoice_status: string; estimate_status?: string | null; currency?: string };
 
 const EST_LABEL: Record<string, string> = { draft: 'Draft', open: 'Open', accepted: 'Accepted', declined: 'Declined', expired: 'Expired', invoiced: 'Invoiced', cancelled: 'Cancelled' };
 const EST_CHIP: Record<string, string> = { draft: 'draft', open: 'issued', accepted: 'paid', declined: 'cancelled', expired: 'cancelled', invoiced: 'paid', cancelled: 'cancelled' };
@@ -70,7 +71,7 @@ export default function Documents() {
               <td>{DOC_LABEL[r.doc_type]}</td>
               <td>{r.party_name ?? 'Walk-in'}</td>
               <td>{r.doc_date}</td>
-              <td className="n">{rupees(r.grand_total_paise)}</td>
+              <td className="n">{r.currency && r.currency !== 'INR' ? formatMoney(BigInt(r.grand_total_paise), r.currency) : rupees(r.grand_total_paise)}</td>
               <td>{r.estimate_status ? <span className={`chip ${EST_CHIP[r.estimate_status] ?? 'issued'}`}>{EST_LABEL[r.estimate_status] ?? r.estimate_status}</span> : (
                 <span className={`chip ${r.status === 'issued' && r.payment_status === 'paid' ? 'paid' : r.status}`}>
                 {r.status === 'issued' ? (r.payment_status === 'paid' ? 'Paid' : r.payment_status === 'part_paid' ? 'Part paid' : 'Issued') : r.status === 'draft' ? 'Draft' : 'Cancelled'}</span>)}</td>

@@ -17,6 +17,8 @@ Kora issues legally correct GST documents, sends them on WhatsApp, collects by U
 | Offline | Installable web app. Drafts made offline are kept on the device and sync when the connection returns, with conflict handling. |
 | Team | Owner, staff and accountant roles enforced in the database. Activity log that cannot be edited. Several businesses per login. |
 | Client portal | A private link per customer where they see what they owe, pay, answer estimates and read their statement, with no account. The business can replace or stop the link any time. |
+| Expenses | Record what the business spends, with a receipt photo or PDF, totals by category and a CSV. |
+| Late fees and other currencies | Overdue invoices offer a draft late fee debit note that you issue. Estimates and proforma invoices can be quoted in another currency and convert to a rupee invoice. |
 | Reports | Sales register, sales by customer, payments received, ageing, customer statement, with CSV export that is safe to open in a spreadsheet. |
 
 What is **not** in v1: filing returns, purchases and input tax credit, e-way bills, exports and SEZ, customer login accounts, inventory. See [docs/compliance.md](docs/compliance.md).

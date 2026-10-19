@@ -30,7 +30,7 @@ export async function decideEstimate(sql: Sql, t: TenantSession, documentId: str
  */
 export async function convertEstimate(sql: Sql, t: TenantSession, documentId: string) {
   return inTenant(sql, t, 'document.write', async (tx) => {
-    const [d] = await tx`select d.doc_type, d.status, d.party_id, d.place_of_supply, d.reverse_charge, d.notes, d.terms, d.tcs_bp, d.tds_bp,
+    const [d] = await tx`select d.doc_type, d.status, d.party_id, d.place_of_supply, d.reverse_charge, d.notes, d.terms, d.tcs_bp, d.tds_bp, d.currency, d.exchange_rate_micro,
                                 estimate_status(d.status, d.due_date, b.timezone, es.decision, es.converted_to_id) as est,
                                 b.registration_type
                            from document d join business b on b.id = d.business_id left join estimate_state es on es.document_id = d.id
@@ -47,8 +47,12 @@ export async function convertEstimate(sql: Sql, t: TenantSession, documentId: st
     const lines = await tx`select * from document_line where document_id = ${documentId} order by position`;
     const input: DocIn = {
       docType: d.registration_type === 'regular' ? 'tax_invoice' : 'bill_of_supply',
-      partyId: d.party_id as string | null, placeOfSupply: d.place_of_supply as string, reverseCharge: d.reverse_charge as boolean,
-      notes: d.notes as string | null, terms: d.terms as string | null, lines: linesToInput(lines),
+      partyId: d.party_id as string | null, reverseCharge: d.reverse_charge as boolean,
+      // A quote in another currency becomes a rupee invoice at the quoted rate. Its place of supply is worked out afresh, so a
+      // customer outside India is refused with the same message as any other export, rather than carried over.
+      placeOfSupply: d.currency === 'INR' ? (d.place_of_supply as string) : undefined,
+      notes: d.notes as string | null, terms: d.terms as string | null,
+      lines: linesToInput(lines, d.currency === 'INR' ? 1_000_000n : BigInt(d.exchange_rate_micro as string)),
       tcsBp: d.tcs_bp as number, tdsBp: d.tds_bp as number,
     };
     const made = await persist(tx, t, null, input);

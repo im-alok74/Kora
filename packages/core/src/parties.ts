@@ -1,3 +1,4 @@
+import { CURRENCIES } from '@kora/tax';
 import { assertGstinMatchesState, gstinState } from '@kora/tax';
 import type { Sql } from '@kora/db';
 import { inTenant, type TenantSession } from './tenancy.js';
@@ -14,6 +15,8 @@ export interface PartyInput {
   email?: string | null;
   billingAddress?: Address;
   shippingAddress?: Address | null;
+  /** What this customer is usually quoted in. Quotes (estimates, proforma) can use it; tax invoices are always in rupees. */
+  currency?: string;
 }
 
 function clean(i: PartyInput) {
@@ -31,16 +34,18 @@ function clean(i: PartyInput) {
   const phone = str(i.phone, 'Phone', { max: 20 });
   const email = str(i.email, 'Email', { max: 254 })?.toLowerCase() ?? null;
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ValidationError('Enter a valid email address.', 'email');
-  return { kind, name, gstin, stateCode, phone, email, billing: i.billingAddress ?? {}, shipping: i.shippingAddress ?? null };
+  const currency = String(i.currency ?? 'INR').toUpperCase();
+  if (!(CURRENCIES as readonly string[]).includes(currency)) throw new ValidationError('Choose one of the supported currencies.', 'currency');
+  return { kind, name, gstin, stateCode, phone, email, currency, billing: i.billingAddress ?? {}, shipping: i.shippingAddress ?? null };
 }
 
 export async function createParty(sql: Sql, t: TenantSession, input: PartyInput): Promise<string> {
   const p = clean(input);
   return inTenant(sql, t, 'party.write', async (tx) => {
     const [r] = await tx`
-      insert into party (business_id, kind, name, gstin, phone, email, billing_address, shipping_address, state_code)
+      insert into party (business_id, kind, name, gstin, phone, email, billing_address, shipping_address, state_code, currency)
       values (${t.businessId}, ${p.kind}, ${p.name}, ${p.gstin}, ${p.phone}, ${p.email}, ${tx.json(p.billing as any)},
-              ${p.shipping ? tx.json(p.shipping as any) : null}, ${p.stateCode})
+              ${p.shipping ? tx.json(p.shipping as any) : null}, ${p.stateCode}, ${p.currency})
       returning id`;
     return r!.id as string;
   });
@@ -52,7 +57,7 @@ export async function updateParty(sql: Sql, t: TenantSession, id: string, input:
     const r = await tx`
       update party set kind = ${p.kind}, name = ${p.name}, gstin = ${p.gstin}, phone = ${p.phone}, email = ${p.email},
              billing_address = ${tx.json(p.billing as any)}, shipping_address = ${p.shipping ? tx.json(p.shipping as any) : null},
-             state_code = ${p.stateCode}
+             state_code = ${p.stateCode}, currency = ${p.currency}
        where id = ${id} returning id`;
     if (r.length === 0) throw new ValidationError('Customer not found.');
   });
@@ -60,7 +65,7 @@ export async function updateParty(sql: Sql, t: TenantSession, id: string, input:
 
 export async function listParties(sql: Sql, t: TenantSession, f: { q?: string; kind?: string; limit?: number } = {}) {
   return inTenant(sql, t, 'party.read', (tx) => tx`
-    select id, kind, name, gstin, phone, email, state_code, billing_address, shipping_address
+    select id, kind, name, gstin, phone, email, state_code, currency, billing_address, shipping_address
       from party
      where archived_at is null
        and (${f.q ?? null}::text is null or name ilike ${'%' + (f.q ?? '') + '%'} or gstin ilike ${'%' + (f.q ?? '') + '%'})

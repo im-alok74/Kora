@@ -68,7 +68,7 @@ export async function portalOverview(sql: Sql, token: string) {
        where d.party_id = ${who.partyId} and d.status = 'issued' and d.doc_type in ${tx(RECEIVABLE)}
        order by d.doc_date desc, d.number desc limit 100`;
     const estimates = await tx`
-      select d.id, d.number, d.doc_date::text as doc_date, d.due_date::text as valid_until, d.grand_total_paise,
+      select d.id, d.number, d.doc_date::text as doc_date, d.due_date::text as valid_until, d.grand_total_paise, d.currency,
              estimate_status(d.status, d.due_date, ${biz!.timezone as string}, es.decision, es.converted_to_id) as status
         from document d left join estimate_state es on es.document_id = d.id
        where d.party_id = ${who.partyId} and d.status = 'issued' and d.doc_type = 'estimate'

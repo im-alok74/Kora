@@ -1,5 +1,5 @@
 import {
-  assertCreditWithinOriginal, checkHsn, computeDocument, isTaxError, parseQuantity, parseRupees, resolvePlaceOfSupply,
+  assertCreditWithinOriginal, checkHsn, computeDocument, CURRENCIES, isTaxError, parseExchangeRate, parseQuantity, parseRupees, resolvePlaceOfSupply,
   type DocType, type DocumentResult, type LineInput, type TurnoverBand,
 } from '@kora/tax';
 import type { Sql, Tx } from '@kora/db';
@@ -42,6 +42,10 @@ export interface DocIn {
   tcsBp?: number;
   tdsBp?: number;
   originalDocumentId?: string | null;
+  /** Estimates and proforma invoices only. A GST tax document is always in rupees. */
+  currency?: string;
+  /** Rupees per one unit of the currency, for example "83.25". Required when the currency is not INR. */
+  exchangeRate?: string;
 }
 
 /** HSN rules until the CA-approved config exists: block above Rs 5 crore, warn below. */
@@ -63,6 +67,8 @@ interface Built {
   result: DocumentResult;
   placeOfSupply: string;
   docDate: string;
+  currency: string;
+  rateMicro: bigint;
   lines: { input: LineIn; hsn: string | null; unit: string; quantityMilli: bigint; rate: bigint; discount: bigint }[];
   warnings: string[];
 }
@@ -75,6 +81,13 @@ async function build(tx: Tx, t: TenantSession, input: DocIn): Promise<Built> {
   if (input.partyId && !party) throw new ValidationError('Customer not found.', 'partyId');
   if (['credit_note', 'debit_note', 'delivery_challan'].includes(input.docType) && !party) {
     throw new ValidationError('Choose a customer for this document.', 'partyId');
+  }
+  const currency = String(input.currency ?? 'INR').toUpperCase();
+  if (!(CURRENCIES as readonly string[]).includes(currency)) throw new ValidationError('Choose one of the supported currencies.', 'currency');
+  let rateMicro = 1_000_000n;
+  if (currency !== 'INR') {
+    if (!['estimate', 'proforma'].includes(input.docType)) throw new ValidationError('A tax invoice is always in rupees. Use an estimate or a proforma invoice to quote in another currency.', 'currency');
+    try { rateMicro = parseExchangeRate(String(input.exchangeRate ?? '')); } catch (e) { throw new ValidationError((e as Error).message, 'exchangeRate'); }
   }
   const docDate = input.docDate ?? todayIn(biz.timezone as string);
   if (!isDate(docDate)) throw new ValidationError('Enter the date as YYYY-MM-DD.', 'docDate');
@@ -105,6 +118,8 @@ async function build(tx: Tx, t: TenantSession, input: DocIn): Promise<Built> {
 
   const allServices = input.lines.every((l) => l.kind === 'service');
   let placeOfSupply = input.placeOfSupply ?? '';
+  // A quote in another currency is not a tax document, so a customer abroad (place 96) is allowed on it.
+  if (!placeOfSupply && currency !== 'INR') placeOfSupply = (party?.state_code as string | undefined) ?? (biz.state_code as string);
   if (!placeOfSupply) {
     const billTo = (party?.state_code as string | undefined) ?? (biz.state_code as string);
     const shipTo = input.shipToState ?? ((party?.shipping_address as { stateCode?: string } | null)?.stateCode ?? null);
@@ -125,10 +140,11 @@ async function build(tx: Tx, t: TenantSession, input: DocIn): Promise<Built> {
     result = computeDocument({
       docType: input.docType, registrationType: biz.registration_type as never, supplierState: biz.state_code as string,
       placeOfSupply, reverseCharge: input.reverseCharge ?? false, lines: lineInputs, tcsBp: input.tcsBp ?? 0, tdsBp: input.tdsBp ?? 0,
+      roundTotal: currency === 'INR',
     });
   } catch (e) { if (isTaxError(e)) throw new ValidationError(e.message); throw e; }
 
-  return { biz: biz as never, result, placeOfSupply, docDate, lines: built, warnings };
+  return { biz: biz as never, result, placeOfSupply, docDate, currency, rateMicro, lines: built, warnings };
 }
 
 async function creditHeadroom(tx: Tx, originalId: string, excludeId: string | null) {
@@ -162,7 +178,7 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
     taxable: s(r.taxablePaise), cgst: s(r.cgstPaise), sgst: s(r.sgstPaise), igst: s(r.igstPaise), cess: s(r.cessPaise),
     tcs: s(r.tcsPaise), tds: s(r.tdsPaise), round_off: s(r.roundOffPaise), grand: s(r.grandTotalPaise),
     notes: str(input.notes, 'Notes', { max: 2000 }), terms: str(input.terms, 'Terms', { max: 2000 }),
-    original: input.originalDocumentId ?? null, tcs_bp: input.tcsBp ?? 0, tds_bp: input.tdsBp ?? 0,
+    original: input.originalDocumentId ?? null, tcs_bp: input.tcsBp ?? 0, tds_bp: input.tdsBp ?? 0, currency: b.currency, rate: b.rateMicro.toString(),
   };
   let docId = id;
   if (id) {
@@ -175,16 +191,16 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
              taxable_paise = ${fields.taxable}, cgst_paise = ${fields.cgst}, sgst_paise = ${fields.sgst}, igst_paise = ${fields.igst},
              cess_paise = ${fields.cess}, tcs_paise = ${fields.tcs}, tds_paise = ${fields.tds}, round_off_paise = ${fields.round_off},
              grand_total_paise = ${fields.grand}, notes = ${fields.notes}, terms = ${fields.terms}, original_document_id = ${fields.original},
-             tcs_bp = ${fields.tcs_bp}, tds_bp = ${fields.tds_bp}
+             tcs_bp = ${fields.tcs_bp}, tds_bp = ${fields.tds_bp}, currency = ${fields.currency}, exchange_rate_micro = ${fields.rate}
              where id = ${id}`;
   } else {
     const [row] = await tx`
       insert into document (business_id, doc_type, party_id, place_of_supply, reverse_charge, doc_date, due_date, taxable_paise, cgst_paise,
                             sgst_paise, igst_paise, cess_paise, tcs_paise, tds_paise, round_off_paise, grand_total_paise, notes, terms,
-                            original_document_id, created_by, client_ref, tcs_bp, tds_bp)
+                            original_document_id, created_by, client_ref, tcs_bp, tds_bp, currency, exchange_rate_micro)
       values (${t.businessId}, ${fields.doc_type}, ${fields.party_id}, ${fields.place_of_supply}, ${fields.reverse_charge}, ${fields.doc_date},
               ${fields.due_date}, ${fields.taxable}, ${fields.cgst}, ${fields.sgst}, ${fields.igst}, ${fields.cess}, ${fields.tcs}, ${fields.tds},
-              ${fields.round_off}, ${fields.grand}, ${fields.notes}, ${fields.terms}, ${fields.original}, ${t.userId}, ${clientRef}, ${fields.tcs_bp}, ${fields.tds_bp})
+              ${fields.round_off}, ${fields.grand}, ${fields.notes}, ${fields.terms}, ${fields.original}, ${t.userId}, ${clientRef}, ${fields.tcs_bp}, ${fields.tds_bp}, ${fields.currency}, ${fields.rate})
       returning id`;
     docId = row!.id as string;
   }
@@ -243,7 +259,7 @@ export async function previewTotals(sql: Sql, t: TenantSession, input: DocIn) {
     const r = b.result;
     const s = (x: bigint) => x.toString();
     return {
-      supply: r.supply, placeOfSupply: b.placeOfSupply, warnings: b.warnings, recommendedDocType: r.recommendedDocType,
+      currency: b.currency, supply: r.supply, placeOfSupply: b.placeOfSupply, warnings: b.warnings, recommendedDocType: r.recommendedDocType,
       taxable: s(r.taxablePaise), cgst: s(r.cgstPaise), sgst: s(r.sgstPaise), igst: s(r.igstPaise), cess: s(r.cessPaise),
       tcs: s(r.tcsPaise), tds: s(r.tdsPaise), roundOff: s(r.roundOffPaise), grandTotal: s(r.grandTotalPaise), netReceivable: s(r.netReceivablePaise),
       lines: r.lines.map((l) => ({ taxable: s(l.taxablePaise), cgst: s(l.cgstPaise), sgst: s(l.sgstPaise), igst: s(l.igstPaise), cess: s(l.cessPaise), total: s(l.lineTotalPaise) })),
@@ -290,7 +306,7 @@ export async function getDocument(sql: Sql, t: TenantSession, id: string) {
 export async function listDocuments(sql: Sql, t: TenantSession, f: { type?: string; status?: string; q?: string; limit?: number; offset?: number } = {}) {
   return inTenant(sql, t, 'document.read', (tx) => tx`
     select d.id, d.doc_type, d.status, d.number, d.doc_date, d.due_date, d.grand_total_paise, d.amount_settled_paise, d.payment_status,
-           d.einvoice_status, d.party_id, p.name as party_name,
+           d.einvoice_status, d.party_id, p.name as party_name, d.currency,
            case when d.doc_type = 'estimate' then estimate_status(d.status, d.due_date, b.timezone, es.decision, es.converted_to_id) end as estimate_status
       from document d left join party p on p.id = d.party_id
       join business b on b.id = d.business_id left join estimate_state es on es.document_id = d.id
@@ -361,10 +377,12 @@ export async function deleteDraft(sql: Sql, t: TenantSession, id: string): Promi
 }
 
 /** Maps stored lines back to editor input, for drafts made from an existing document. */
-export function linesToInput(lines: Record<string, unknown>[]): LineIn[] {
+export function linesToInput(lines: Record<string, unknown>[], rateMicro: bigint = 1_000_000n): LineIn[] {
+  // Amounts in another currency become rupees at the rate (millionths of a rupee per unit), rounded half up to the paisa.
+  const inr = (minor: unknown) => (rateMicro === 1_000_000n ? BigInt(minor as string) : (BigInt(minor as string) * rateMicro + 500_000n) / 1_000_000n);
   return lines.map((l) => ({
     itemId: l.item_id as string | null, name: l.item_name as string, hsnSac: l.hsn_sac as string | null, unit: l.unit as string,
-    quantity: String(l.quantity), rate: rs(l.rate_paise as string), discount: rs(l.discount_paise as string),
+    quantity: String(l.quantity), rate: rs(inr(l.rate_paise)), discount: rs(inr(l.discount_paise)),
     taxRateBp: l.tax_rate_bp as number, cessRateBp: l.cess_rate_bp as number,
   }));
 }

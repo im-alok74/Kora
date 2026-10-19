@@ -29,6 +29,8 @@ export interface DocumentInput {
   /** TDS the customer will deduct, in basis points of a percent of the taxable value. */
   tdsBp?: number;
   allowedRateBp?: ReadonlySet<number>;
+  /** Round the total to the nearest whole rupee (the default). Documents in other currencies are not rounded. */
+  roundTotal?: boolean;
 }
 
 export interface LineResult {
@@ -121,7 +123,7 @@ export function computeDocument(d: DocumentInput): DocumentResult {
 
   const before = taxable + charged + tcs;
   // Round to the nearest rupee, but never turn a small amount into zero: under Rs 1 the total stays exact.
-  const roundOff = before < 100n ? 0n : roundHalfUp(before, 100n) * 100n - before;
+  const roundOff = d.roundTotal === false || before < 100n ? 0n : roundHalfUp(before, 100n) * 100n - before;
   const grand = before + roundOff;
 
   const allZero = lines.every((l) => l.taxRateBp === 0 && l.cessRateBp === 0);
