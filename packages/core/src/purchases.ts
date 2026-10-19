@@ -6,7 +6,7 @@ import { isDate, str, todayIn, ValidationError } from './validation.js';
 const rs = (p: bigint | string | number) => { const n = BigInt(p); return `${n / 100n}.${(n % 100n).toString().padStart(2, '0')}`; };
 const PAY_METHODS = ['cash', 'upi', 'card', 'netbanking', 'bank_transfer', 'cheque', 'other'] as const;
 
-export interface BillLineIn { description: string; hsnSac?: string | null; quantity: string; rate: string; discount?: string; taxRateBp: number; cessRateBp?: number }
+export interface BillLineIn { itemId?: string | null; description: string; hsnSac?: string | null; quantity: string; rate: string; discount?: string; taxRateBp: number; cessRateBp?: number }
 export interface BillIn {
   partyId: string; billNumber: string; billDate: string; dueDate?: string | null; reverseCharge?: boolean;
   itcStatus?: 'eligible' | 'blocked'; itcReason?: string | null; notes?: string | null; lines: BillLineIn[];
@@ -56,8 +56,8 @@ export async function createBill(sql: Sql, t: TenantSession, i: BillIn): Promise
     let n = 0;
     for (const x of results) {
       n++;
-      await tx`insert into purchase_line (business_id, bill_id, line_no, description, hsn_sac, quantity_milli, rate_paise, discount_paise, tax_rate_bp, cess_rate_bp, taxable_paise, cgst_paise, sgst_paise, igst_paise, cess_paise, total_paise)
-               values (${t.businessId}, ${id}, ${n}, ${x.description}, ${x.hsn}, ${x.qty.toString()}, ${x.rateP.toString()}, ${x.disc.toString()}, ${x.l.taxRateBp}, ${x.l.cessRateBp ?? 0}, ${x.r.taxablePaise.toString()}, ${x.r.cgstPaise.toString()}, ${x.r.sgstPaise.toString()}, ${x.r.igstPaise.toString()}, ${x.r.cessPaise.toString()}, ${x.r.lineTotalPaise.toString()})`;
+      await tx`insert into purchase_line (business_id, bill_id, line_no, item_id, description, hsn_sac, quantity_milli, rate_paise, discount_paise, tax_rate_bp, cess_rate_bp, taxable_paise, cgst_paise, sgst_paise, igst_paise, cess_paise, total_paise)
+               values (${t.businessId}, ${id}, ${n}, ${x.l.itemId ?? null}, ${x.description}, ${x.hsn}, ${x.qty.toString()}, ${x.rateP.toString()}, ${x.disc.toString()}, ${x.l.taxRateBp}, ${x.l.cessRateBp ?? 0}, ${x.r.taxablePaise.toString()}, ${x.r.cgstPaise.toString()}, ${x.r.sgstPaise.toString()}, ${x.r.igstPaise.toString()}, ${x.r.cessPaise.toString()}, ${x.r.lineTotalPaise.toString()})`;
     }
     return { id, totalPaise: total.toString() };
   });

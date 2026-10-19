@@ -27,6 +27,8 @@ export interface LineIn {
   taxRateBp: number;
   cessRateBp?: number;
   kind?: 'goods' | 'service';
+  /** The rate (and discount) already include GST, as a shop's MRP does. */
+  taxInclusive?: boolean;
 }
 
 export interface DocIn {
@@ -134,7 +136,7 @@ async function build(tx: Tx, t: TenantSession, input: DocIn): Promise<Built> {
 
   const lineInputs: LineInput[] = built.map((b) => ({
     quantityMilli: b.quantityMilli, ratePaise: b.rate, discountPaise: b.discount,
-    taxRateBp: b.input.taxRateBp, cessRateBp: b.input.cessRateBp ?? 0,
+    taxRateBp: b.input.taxRateBp, cessRateBp: b.input.cessRateBp ?? 0, taxInclusive: !!b.input.taxInclusive,
   }));
   let result: DocumentResult;
   try {
@@ -208,10 +210,10 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
   for (let i = 0; i < b.lines.length; i++) {
     const l = b.lines[i]!, c = r.lines[i]!;
     await tx`insert into document_line (business_id, document_id, position, item_id, item_name, hsn_sac, unit, quantity, rate_paise,
-               gross_paise, discount_paise, taxable_paise, tax_rate_bp, cess_rate_bp, cgst_paise, sgst_paise, igst_paise, cess_paise, line_total_paise)
+               gross_paise, discount_paise, taxable_paise, tax_rate_bp, cess_rate_bp, cgst_paise, sgst_paise, igst_paise, cess_paise, line_total_paise, price_includes_tax)
              values (${t.businessId}, ${docId}, ${i + 1}, ${l.input.itemId ?? null}, ${l.input.name}, ${l.hsn}, ${l.unit}, ${milliStr(l.quantityMilli)},
                ${s(l.rate)}, ${s(c.grossPaise)}, ${s(c.discountPaise)}, ${s(c.taxablePaise)}, ${c.taxRateBp}, ${c.cessRateBp},
-               ${s(c.cgstPaise)}, ${s(c.sgstPaise)}, ${s(c.igstPaise)}, ${s(c.cessPaise)}, ${s(c.lineTotalPaise)})`;
+               ${s(c.cgstPaise)}, ${s(c.sgstPaise)}, ${s(c.igstPaise)}, ${s(c.cessPaise)}, ${s(c.lineTotalPaise)}, ${!!l.input.taxInclusive})`;
   }
   return { id: docId!, warnings: b.warnings };
 }
@@ -389,7 +391,7 @@ export function linesToInput(lines: Record<string, unknown>[], rateMicro: bigint
   return lines.map((l) => ({
     itemId: l.item_id as string | null, name: l.item_name as string, hsnSac: l.hsn_sac as string | null, unit: l.unit as string,
     quantity: String(l.quantity), rate: rs(inr(l.rate_paise)), discount: rs(inr(l.discount_paise)),
-    taxRateBp: l.tax_rate_bp as number, cessRateBp: l.cess_rate_bp as number,
+    taxRateBp: l.tax_rate_bp as number, cessRateBp: l.cess_rate_bp as number, taxInclusive: !!l.price_includes_tax,
   }));
 }
 

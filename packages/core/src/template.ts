@@ -9,8 +9,10 @@ import { ValidationError } from './validation.js';
 export interface TemplateConfig {
   accent: string;                 // #rrggbb
   font: 'sans' | 'serif';
-  layout: 'classic' | 'compact' | 'narrative';
+  layout: 'classic' | 'compact' | 'narrative' | 'thermal';
   paper: 'A4' | 'A5';
+  /** The language of the fixed words on the document. */
+  language: 'en' | 'hi' | 'mr' | 'gu';
   logoDataUrl: string | null;     // png or jpeg, up to 150 KB
   showBank: boolean;
   showTerms: boolean;
@@ -22,7 +24,7 @@ export interface TemplateConfig {
 }
 
 export const DEFAULT_TEMPLATE: TemplateConfig = {
-  accent: '#0b5d4f', font: 'sans', layout: 'classic', paper: 'A4', logoDataUrl: null,
+  accent: '#0b5d4f', font: 'sans', layout: 'classic', paper: 'A4', language: 'en', logoDataUrl: null,
   showBank: true, showTerms: true, showNotes: true, showSignature: true, showAmountInWords: true, showUpiQr: true, footerText: '',
 };
 
@@ -45,9 +47,11 @@ export function sanitiseTemplate(raw: unknown): TemplateConfig {
   const font = r.font === undefined ? d.font : r.font;
   if (font !== 'sans' && font !== 'serif') throw new ValidationError('Choose a font.', 'font');
   const layout = r.layout === undefined ? d.layout : r.layout;
-  if (layout !== 'classic' && layout !== 'compact' && layout !== 'narrative') throw new ValidationError('Choose a layout.', 'layout');
+  if (layout !== 'classic' && layout !== 'compact' && layout !== 'narrative' && layout !== 'thermal') throw new ValidationError('Choose a layout.', 'layout');
   const paper = r.paper === undefined ? d.paper : r.paper;
   if (paper !== 'A4' && paper !== 'A5') throw new ValidationError('Choose A4 or A5.', 'paper');
+  const language = r.language === undefined ? d.language : r.language;
+  if (language !== 'en' && language !== 'hi' && language !== 'mr' && language !== 'gu') throw new ValidationError('Choose English, Hindi, Marathi or Gujarati.', 'language');
   let logo: string | null = null;
   if (r.logoDataUrl) {
     const s = String(r.logoDataUrl);
@@ -59,7 +63,7 @@ export function sanitiseTemplate(raw: unknown): TemplateConfig {
   const footer = r.footerText === undefined ? '' : String(r.footerText).trim();
   if (footer.length > 200) throw new ValidationError('The footer is too long.', 'footerText');
   return {
-    accent: accent.toLowerCase(), font, layout, paper, logoDataUrl: logo,
+    accent: accent.toLowerCase(), font, layout, paper, language, logoDataUrl: logo,
     showBank: bool('showBank'), showTerms: bool('showTerms'), showNotes: bool('showNotes'),
     showSignature: bool('showSignature'), showAmountInWords: bool('showAmountInWords'), showUpiQr: bool('showUpiQr'), footerText: footer,
   };

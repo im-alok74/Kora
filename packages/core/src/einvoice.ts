@@ -69,7 +69,7 @@ export function buildIrpPayload(i: { doc: Row; lines: Row[]; supplier: Row; reci
     const unit = UQC[String(l.unit ?? '').toUpperCase()] ?? 'OTH';
     const item: Record<string, unknown> = {
       SlNo: String(l.position), PrdDesc: String(l.item_name).slice(0, 300), IsServc: String(l.hsn_sac ?? '').startsWith('99') ? 'Y' : 'N', HsnCd: l.hsn_sac,
-      Qty: Number(l.quantity), Unit: unit, UnitPrice: rupees(l.rate_paise), TotAmt: rupees(l.gross_paise), Discount: rupees(l.discount_paise),
+      Qty: Number(l.quantity), Unit: unit, UnitPrice: l.price_includes_tax ? Math.round((Number(l.gross_paise) / Number(l.quantity)) * 10) / 1000 : rupees(l.rate_paise), TotAmt: rupees(l.gross_paise), Discount: rupees(l.discount_paise),
       AssAmt: rupees(l.taxable_paise), GstRt: l.tax_rate_bp / 100, IgstAmt: rupees(l.igst_paise), CgstAmt: rupees(l.cgst_paise), SgstAmt: rupees(l.sgst_paise),
       CesRt: l.cess_rate_bp / 100, CesAmt: rupees(l.cess_paise), TotItemVal: rupees(l.line_total_paise),
     };

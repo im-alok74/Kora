@@ -15,6 +15,12 @@ export interface LineInput {
   cessRateBp?: number;
   /** Per-unit cess is not supported in v1. Passing it is an error, never silently ignored. */
   cessSpecificPaisePerUnit?: Paise;
+  /**
+   * The rate (and any discount) already includes GST and cess, as a shop's MRP does. The line total then comes out as exactly
+   * quantity times rate less discount, and the tax is what is inside it. Taxable value is rounded half up from the total, and
+   * when the two halves of an in-state tax would differ by a paisa the extra paisa is left in the taxable value, so CGST equals SGST.
+   */
+  taxInclusive?: boolean;
 }
 
 export interface DocumentInput {
@@ -73,6 +79,25 @@ export function computeLine(l: LineInput, supply: 'intra' | 'inter', allowed: Re
 
   const gross = roundHalfUp(l.quantityMilli * l.ratePaise, 1000n);
   if (discount > gross) throw new TaxError('discount_exceeds_gross', 'A discount cannot be more than the amount before discount.');
+
+  if (l.taxInclusive) {
+    const denom = 10000n + BigInt(rateBp) + BigInt(cessBp);
+    const total = gross - discount;                                           // what the customer pays for this line
+    let taxable = roundHalfUp(total * 10000n, denom);
+    let tax = total - taxable;
+    const cess = roundHalfUp(taxable * BigInt(cessBp), 10000n);
+    let gst = tax - cess;
+    if (gst < 0n) { gst = 0n; tax = cess; taxable = total - cess; }
+    if (supply === 'intra' && gst % 2n === 1n) { taxable += 1n; gst -= 1n; }     // keep CGST equal to SGST
+    const exBefore = roundHalfUp(gross * 10000n, denom);                       // the amount before discount, without tax
+    const exDiscount = exBefore - taxable;
+    return {
+      grossPaise: taxable + (exDiscount > 0n ? exDiscount : 0n), discountPaise: exDiscount > 0n ? exDiscount : 0n, taxablePaise: taxable, taxRateBp: rateBp, cessRateBp: cessBp,
+      cgstPaise: supply === 'intra' ? gst / 2n : 0n, sgstPaise: supply === 'intra' ? gst / 2n : 0n, igstPaise: supply === 'intra' ? 0n : gst, cessPaise: cess,
+      lineTotalPaise: total,
+    };
+  }
+
   const taxable = gross - discount;
   const r = BigInt(rateBp);
   let cgst = 0n, sgst = 0n, igst = 0n;

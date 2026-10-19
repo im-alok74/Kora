@@ -7,9 +7,9 @@ import { cacheGet, cacheSet, getDraft, isNetworkError, newId, putDraft, removeDr
 import { localTotals, type BusinessFacts, type PartyFacts } from '../lib/localTotals';
 import { syncDrafts } from '../lib/sync';
 
-type Line = { key: number; itemId: string | null; name: string; hsnSac: string; quantity: string; rate: string; discount: string; taxRateBp: number; kind: 'goods' | 'service' };
+type Line = { key: number; itemId: string | null; name: string; hsnSac: string; quantity: string; rate: string; discount: string; taxRateBp: number; kind: 'goods' | 'service'; taxInclusive: boolean };
 type Party = PartyFacts & { phone: string | null; currency?: string };
-type Item = { id: string; name: string; kind: 'goods' | 'service'; hsn_sac: string | null; default_rate_bp: number; price_paise: string };
+type Item = { id: string; name: string; kind: 'goods' | 'service'; hsn_sac: string | null; default_rate_bp: number; price_paise: string; price_includes_tax?: boolean };
 type Totals = { supply: 'intra' | 'inter'; placeOfSupply: string; warnings: string[]; taxable: string; cgst: string; sgst: string; igst: string; cess: string;
   tcs: string; tds: string; netReceivable: string; roundOff: string; grandTotal: string; recommendedDocType: string; lines: { total: string }[] };
 
@@ -27,7 +27,7 @@ const bpToPct = (bp: number | null | undefined) => (bp ? String(bp / 100) : '');
 const microToText = (m: string | number) => { const n = BigInt(m); return `${n / 1_000_000n}.${(n % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '').padEnd(2, '0')}`; };
 
 let seq = 1;
-const blankLine = (): Line => ({ key: seq++, itemId: null, name: '', hsnSac: '', quantity: '1', rate: '', discount: '', taxRateBp: 1800, kind: 'goods' });
+const blankLine = (): Line => ({ key: seq++, itemId: null, name: '', hsnSac: '', quantity: '1', rate: '', discount: '', taxRateBp: 1800, kind: 'goods', taxInclusive: false });
 const rs = (p: string) => { const n = BigInt(p); return `${n / 100n}.${(n % 100n).toString().padStart(2, '0')}`; };
 
 /** Reference data comes from the server when it can, and from this device when it cannot. */
@@ -83,7 +83,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
     setDocType(p.docType); setPartyId(p.partyId ?? ''); setDocDate(p.docDate ?? ''); setDueDate(p.dueDate ?? ''); setNotes(p.notes ?? ''); setTerms(p.terms ?? '');
     setRcm(!!p.reverseCharge); setOriginal(p.originalDocumentId ?? null); setTcsPct(bpToPct(p.tcsBp)); setTdsPct(bpToPct(p.tdsBp)); setCurrency(p.currency ?? 'INR'); setRate(p.exchangeRate ?? '');
     setLines((p.lines as any[]).map((l) => ({ key: seq++, itemId: l.itemId ?? null, name: l.name, hsnSac: l.hsnSac ?? '', quantity: String(l.quantity), rate: String(l.rate),
-      discount: l.discount ?? '', taxRateBp: l.taxRateBp, kind: l.kind ?? 'goods' })));
+      discount: l.discount ?? '', taxRateBp: l.taxRateBp, kind: l.kind ?? 'goods', taxInclusive: !!l.taxInclusive })));
   };
 
   useEffect(() => {
@@ -103,7 +103,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
             setDocType(d.doc_type); setPartyId(d.party_id ?? ''); setDocDate(d.doc_date); setDueDate(d.due_date ?? ''); setNotes(d.notes ?? ''); setTerms(d.terms ?? '');
             setRcm(d.reverse_charge); setOriginal(d.original_document_id); setTcsPct(bpToPct(d.tcs_bp)); setTdsPct(bpToPct(d.tds_bp)); setCurrency(d.currency ?? 'INR'); setRate(d.currency && d.currency !== 'INR' ? microToText(d.exchange_rate_micro) : '');
             setLines(ls.map((l: any) => ({ key: seq++, itemId: l.item_id, name: l.item_name, hsnSac: l.hsn_sac ?? '', quantity: String(l.quantity).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '') || '1',
-              rate: rs(l.rate_paise), discount: BigInt(l.discount_paise) > 0n ? rs(l.discount_paise) : '', taxRateBp: l.tax_rate_bp, kind: 'goods' })));
+              rate: rs(l.rate_paise), discount: BigInt(l.discount_paise) > 0n ? rs(l.discount_paise) : '', taxRateBp: l.tax_rate_bp, kind: 'goods', taxInclusive: !!l.price_includes_tax })));
           } catch (e) {
             setErr(isNetworkError(e) ? 'This draft is on the server and cannot be opened while you are offline.' : (e as Error).message); return;
           }
@@ -118,7 +118,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
     originalDocumentId: original, tcsBp: pctToBp(tcsPct) ?? 0, tdsBp: pctToBp(tdsPct) ?? 0,
     ...(currency !== 'INR' && quote ? { currency, exchangeRate: rate } : {}),
     lines: lines.filter((l) => l.name.trim() || l.rate).map((l) => ({ itemId: l.itemId, name: l.name, hsnSac: l.hsnSac || null, quantity: l.quantity || '0',
-      rate: l.rate || '0', discount: l.discount || undefined, taxRateBp: l.taxRateBp, kind: l.kind })),
+      rate: l.rate || '0', discount: l.discount || undefined, taxRateBp: l.taxRateBp, kind: l.kind, taxInclusive: l.taxInclusive || undefined })),
   }), [docType, partyId, docDate, dueDate, notes, terms, reverseCharge, lines, original, tcsPct, tdsPct, currency, rate, quote]);
 
   // Live totals. The server is the authority; offline, the same tax library runs on this device.
@@ -143,7 +143,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
   const setLine = (key: number, patch: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   const pickName = (key: number, name: string) => {
     const it = items.find((i) => i.name.toLowerCase() === name.toLowerCase());
-    setLine(key, it ? { name, itemId: it.id, hsnSac: it.hsn_sac ?? '', rate: rs(it.price_paise), taxRateBp: it.default_rate_bp, kind: it.kind } : { name, itemId: null });
+    setLine(key, it ? { name, itemId: it.id, hsnSac: it.hsn_sac ?? '', rate: rs(it.price_paise), taxRateBp: it.default_rate_bp, kind: it.kind, taxInclusive: !!it.price_includes_tax } : { name, itemId: null });
   };
 
   const addCustomer = async () => {
@@ -313,7 +313,8 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
                 <td className="n" data-label="Rate"><input aria-label={`Line ${i + 1} rate`} style={{ width: 110 }} inputMode="decimal" value={l.rate} onChange={(e) => setLine(l.key, { rate: e.target.value })} /></td>
                 <td className="n" data-label="Discount"><input aria-label={`Line ${i + 1} discount`} style={{ width: 90 }} inputMode="decimal" value={l.discount} onChange={(e) => setLine(l.key, { discount: e.target.value })} /></td>
                 <td data-label="GST"><select aria-label={`Line ${i + 1} GST rate`} value={l.taxRateBp} onChange={(e) => setLine(l.key, { taxRateBp: Number(e.target.value) })}>
-                  {TAX_RATES.map((r) => <option key={r.bp} value={r.bp}>{r.label}</option>)}</select></td>
+                  {TAX_RATES.map((r) => <option key={r.bp} value={r.bp}>{r.label}</option>)}</select>
+                  <label className="incl"><input type="checkbox" aria-label={`Line ${i + 1} price includes GST`} checked={l.taxInclusive} onChange={(e) => setLine(l.key, { taxInclusive: e.target.checked })} /> price has GST in it</label></td>
                 <td className="n line-amount" data-label="Amount">{idx >= 0 && totals?.lines[idx]?.total ? rupees(totals.lines[idx]!.total) : ''}</td>
                 <td className="line-remove">{lines.length > 1 && <button type="button" className="link" aria-label={`Remove line ${i + 1}`} onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}>Remove</button>}</td>
               </tr>

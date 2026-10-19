@@ -421,3 +421,16 @@ kbd { font: 11px ui-monospace, Menlo, Consolas, monospace; padding: 1px 6px; bor
 .thsort:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .bulkbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 12px; background: var(--accent-soft); border: 1px solid var(--border-strong); border-radius: var(--radius-lg); position: sticky; top: 8px; z-index: 20; }
 .bulkbar button { margin: 0; height: 36px; }
+
+.incl { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; font-size: 12.5px; font-weight: 500; color: var(--text-muted); white-space: nowrap; }
+.incl input { width: 15px; height: 15px; margin: 0; accent-color: var(--accent); }
+
+/* ---------------------------------------------------------------- the till */
+.pos { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; }
+.pos-cart { position: sticky; top: 14px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 18px; }
+.pos-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.pos-tiles .tile { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; height: auto; min-height: 76px; padding: 10px 12px; text-align: left; margin: 0; font-weight: 500; }
+.pos-tiles .tile b { font-weight: 700; line-height: 18px; }
+.pos-tiles .tile small { color: var(--text-muted); } .pos-tiles .tile small.out { color: var(--danger); font-weight: 700; }
+.pos-found { background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 4px 12px; margin: 8px 0 0; }
+@media (max-width: 900px) { .pos { grid-template-columns: 1fr; } .pos-cart { position: static; } }

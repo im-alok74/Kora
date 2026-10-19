@@ -1,4 +1,5 @@
 import { formatRupees, rupeesInWords, STATE_NAMES } from '@kora/tax';
+import { labelsFor, titleFor } from './labels.js';
 
 /** Data the renderer needs. Shapes match the database rows (snake_case, bigints as strings). */
 export interface RenderInput {
@@ -37,13 +38,15 @@ function accentColour(t: Record<string, any>): string {
  */
 export function renderDocumentHtml(i: RenderInput): string {
   const { doc: d, lines, supplier: s, recipient: r, template: t } = i;
+  if (t.layout === 'thermal') return renderThermalHtml(i);
+  const L = labelsFor(t.language);
   const narrative = t.layout === 'narrative';
   const compact = t.layout === 'compact';
   const serif = t.font === 'serif';
   const accent = accentColour(t);
   const intra = s.state_code === d.place_of_supply;
   const showTax = d.doc_type !== 'bill_of_supply';
-  const title = TITLES[d.doc_type] ?? 'Document';
+  const title = t.language && t.language !== 'en' ? titleFor(t.language, d.doc_type) : (TITLES[d.doc_type] ?? 'Document');
   const draftMark = d.status === 'draft' ? '<div class="mark">DRAFT</div>' : d.status === 'cancelled' ? '<div class="mark">CANCELLED</div>' : '';
   const place = STATE_NAMES[d.place_of_supply] ? `${STATE_NAMES[d.place_of_supply]} (${esc(d.place_of_supply)})` : esc(d.place_of_supply);
   const bank = (s.bank_details ?? {}) as Record<string, any>;
@@ -58,7 +61,7 @@ export function renderDocumentHtml(i: RenderInput): string {
     const disc = BigInt(l.discount_paise) > 0n ? money(l.discount_paise) : '-';
     if (narrative) return `<tr><td>${idx + 1}</td><td>${esc(l.item_name)}</td><td>${esc(l.hsn_sac ?? '')}</td><td class="n">${money(l.taxable_paise)}</td>${taxCells}</tr>`;
     return `<tr><td>${idx + 1}</td><td>${esc(l.item_name)}</td><td>${esc(l.hsn_sac ?? '')}</td>
-      <td class="n">${esc(String(l.quantity).replace(/\.?0+$/, ''))} ${esc(l.unit)}</td><td class="n">${money(l.rate_paise)}</td>
+      <td class="n">${esc(String(l.quantity).replace(/\.?0+$/, ''))} ${esc(l.unit)}</td><td class="n">${money(l.rate_paise)}${l.price_includes_tax ? `<br><small>${esc(L.inclusive)}</small>` : ''}</td>
       <td class="n">${disc}</td><td class="n">${money(l.taxable_paise)}</td>${taxCells}</tr>`;
   }).join('');
 
@@ -66,32 +69,32 @@ export function renderDocumentHtml(i: RenderInput): string {
   const foreign = !!d.currency && d.currency !== 'INR';
   const rateMicro = BigInt(String(d.exchange_rate_micro ?? 1_000_000));
   const rateText = `${rateMicro / 1_000_000n}.${(rateMicro % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '').padEnd(2, '0')}`;
-  const totals: [string, string][] = [['Taxable value', money(d.taxable_paise)]];
+  const totals: [string, string][] = [[L.taxableValue, money(d.taxable_paise)]];
   if (showTax) {
     if (BigInt(d.cgst_paise) > 0n || intra) { totals.push(['CGST', money(d.cgst_paise)], ['SGST', money(d.sgst_paise)]); }
     if (BigInt(d.igst_paise) > 0n || !intra) totals.push(['IGST', money(d.igst_paise)]);
     if (BigInt(d.cess_paise) > 0n) totals.push(['Cess', money(d.cess_paise)]);
   }
   if (BigInt(d.tcs_paise) > 0n) totals.push(['TCS', money(d.tcs_paise)]);
-  if (BigInt(d.round_off_paise) !== 0n) totals.push(['Round off', (BigInt(d.round_off_paise) < 0n ? '-' : '') + money(BigInt(d.round_off_paise) < 0n ? -BigInt(d.round_off_paise) : d.round_off_paise)]);
+  if (BigInt(d.round_off_paise) !== 0n) totals.push([L.roundOff, (BigInt(d.round_off_paise) < 0n ? '-' : '') + money(BigInt(d.round_off_paise) < 0n ? -BigInt(d.round_off_paise) : d.round_off_paise)]);
   const totalRows = totals.map(([k, v]) => `<tr><td>${k}</td><td class="n">${v}</td></tr>`).join('');
 
   const optional = (show: boolean, title: string, text: unknown) =>
     show && text ? `<div class="note"><b>${title}</b><br>${esc(text).replace(/\n/g, '<br>')}</div>` : '';
   const bankBlock = t.showBank && (bank.accountNumber || s.upi_vpa)
-    ? `<div class="note"><b>Pay to</b><br>${[bank.accountName && `A/c name: ${esc(bank.accountName)}`, bank.accountNumber && `A/c no: ${esc(bank.accountNumber)}`,
+    ? `<div class="note"><b>${esc(L.payTo)}</b><br>${[bank.accountName && `A/c name: ${esc(bank.accountName)}`, bank.accountNumber && `A/c no: ${esc(bank.accountNumber)}`,
         bank.ifsc && `IFSC: ${esc(bank.ifsc)}`, bank.bankName && esc(bank.bankName), s.upi_vpa && `UPI: ${esc(s.upi_vpa)}`].filter(Boolean).join('<br>')}</div>` : '';
   const irnBlock = i.irn
     ? `<div class="irn"><div><b>IRN</b> ${esc(i.irn.irn)}<br><b>Ack no</b> ${esc(i.irn.ackNo)} &nbsp; <b>Ack date</b> ${esc(i.irn.ackDate)}</div>${i.irn.qrDataUrl && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(i.irn.qrDataUrl) ? `<img src="${i.irn.qrDataUrl}" alt="e-invoice QR">` : ''}</div>` : '';
   const upiBlock = i.upi && t.showUpiQr !== false && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(i.upi.qrDataUrl)
-    ? `<div class="upi"><img src="${i.upi.qrDataUrl}" alt="UPI QR code"><div><b>Scan to pay ${esc(i.upi.amountText)}</b><br>UPI: ${esc(i.upi.vpa)}</div></div>` : '';
+    ? `<div class="upi"><img src="${i.upi.qrDataUrl}" alt="UPI QR code"><div><b>${esc(L.scanToPay)} ${esc(i.upi.amountText)}</b><br>UPI: ${esc(i.upi.vpa)}</div></div>` : '';
   const logo = t.logoDataUrl && /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(t.logoDataUrl) ? `<img class="logo" src="${t.logoDataUrl}" alt="">` : '';
 
   const supplierName = s.trade_name || s.legal_name;
   return `<!doctype html><html lang="en-IN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} ${esc(d.number ?? '')}</title><style>
 @page { size: ${t.paper === 'A5' ? 'A5' : 'A4'}; margin: 12mm; }
-*{box-sizing:border-box} body{margin:0;background:#fff;color:#17201d;font:${compact ? 11 : 12.5}px/1.45 ${serif ? 'Georgia,"Source Serif 4",serif' : 'Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif'};font-variant-numeric:tabular-nums}
+*{box-sizing:border-box} body{margin:0;background:#fff;color:#17201d;font:${compact ? 11 : 12.5}px/1.45 ${serif ? 'Georgia,"Source Serif 4","Noto Serif Devanagari","Noto Serif Gujarati",serif' : 'Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Devanagari","Noto Sans Gujarati",sans-serif'};font-variant-numeric:tabular-nums}
 .page{position:relative;max-width:820px;margin:0 auto;padding:${compact ? 12 : 24}px}
 h1{font-size:${compact ? 18 : 22}px;margin:0;color:${accent};letter-spacing:.02em;text-transform:uppercase}
 .top{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid ${accent};padding-bottom:10px}
@@ -114,20 +117,73 @@ table.tot{width:100%;border-collapse:collapse}.tot td{padding:3px 0}.tot tr.g td
 </style></head><body><div class="page">${draftMark}
 <div class="top"><div>${logo}<b style="font-size:1.25em">${esc(supplierName)}</b>${supplierName !== s.legal_name ? `<br>${esc(s.legal_name)}` : ''}<br>${addr(s.address)}${s.phone ? `<br>Ph: ${esc(s.phone)}` : ''}${s.email ? `<br>${esc(s.email)}` : ''}
 ${s.gstin ? `<br><b>GSTIN:</b> ${esc(s.gstin)}` : ''}</div>
-<div style="text-align:right"><h1>${esc(title)}</h1><table class="meta" style="margin-left:auto"><tr><td>No.</td><td><b>${esc(d.number ?? 'Draft')}</b></td></tr>
-<tr><td>Date</td><td>${esc(d.doc_date)}</td></tr>${d.due_date ? `<tr><td>Due</td><td>${esc(d.due_date)}</td></tr>` : ''}
-${d.original_number ? `<tr><td>Against</td><td>${esc(d.original_number)}</td></tr>` : ''}</table></div></div>
-<div class="parties"><div><div class="lbl">Bill to</div>${r ? `<b>${esc(r.name)}</b><br>${addr(r.billing_address)}${r.gstin ? `<br><b>GSTIN:</b> ${esc(r.gstin)}` : ''}${r.phone ? `<br>Ph: ${esc(r.phone)}` : ''}` : 'Walk-in customer'}</div>
-<div><div class="lbl">Place of supply</div><b>${place}</b>${r?.shipping_address && Object.keys(r.shipping_address).length ? `<div class="lbl" style="margin-top:8px">Ship to</div>${addr(r.shipping_address)}` : ''}</div></div>
-<table class="items"><thead>${narrative ? `<tr><th>#</th><th>Particulars of professional services</th><th>SAC</th><th class="n">Fee</th>${taxHead}</tr>` : `<tr><th>#</th><th>Description</th><th>HSN/SAC</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Disc.</th><th class="n">Taxable</th>${taxHead}</tr>`}</thead><tbody>${rows}</tbody></table>
+<div style="text-align:right"><h1>${esc(title)}</h1><table class="meta" style="margin-left:auto"><tr><td>${esc(L.no)}</td><td><b>${esc(d.number ?? 'Draft')}</b></td></tr>
+<tr><td>${esc(L.date)}</td><td>${esc(d.doc_date)}</td></tr>${d.due_date ? `<tr><td>${esc(L.due)}</td><td>${esc(d.due_date)}</td></tr>` : ''}
+${d.original_number ? `<tr><td>${esc(L.against)}</td><td>${esc(d.original_number)}</td></tr>` : ''}</table></div></div>
+<div class="parties"><div><div class="lbl">${esc(L.billTo)}</div>${r ? `<b>${esc(r.name)}</b><br>${addr(r.billing_address)}${r.gstin ? `<br><b>GSTIN:</b> ${esc(r.gstin)}` : ''}${r.phone ? `<br>Ph: ${esc(r.phone)}` : ''}` : esc(L.walkIn)}</div>
+<div><div class="lbl">${esc(L.placeOfSupply)}</div><b>${place}</b>${r?.shipping_address && Object.keys(r.shipping_address).length ? `<div class="lbl" style="margin-top:8px">${esc(L.shipTo)}</div>${addr(r.shipping_address)}` : ''}</div></div>
+<table class="items"><thead>${narrative ? `<tr><th>#</th><th>Particulars of professional services</th><th>SAC</th><th class="n">Fee</th>${taxHead}</tr>` : `<tr><th>#</th><th>${esc(L.description)}</th><th>HSN/SAC</th><th class="n">${esc(L.qty)}</th><th class="n">${esc(L.rate)}</th><th class="n">${esc(L.discount)}</th><th class="n">${esc(L.taxable)}</th>${taxHead}</tr>`}</thead><tbody>${rows}</tbody></table>
 <div class="bottom"><div>${t.showAmountInWords && !foreign ? `<div class="words">${esc(rupeesInWords(BigInt(d.grand_total_paise)))}</div>` : ''}
-${rcm ? '<div class="rcm">Tax is payable on reverse charge.</div>' : ''}
-${bankBlock}${upiBlock}${optional(t.showNotes, 'Notes', d.notes)}${optional(t.showTerms, 'Terms', d.terms)}</div>
-<div><table class="tot">${totalRows}<tr class="g"><td>${rcm ? 'Amount due' : 'Total'}${foreign ? ` (${esc(d.currency)})` : ''}</td><td class="n">${money(d.grand_total_paise)}</td></tr>
+${rcm ? `<div class="rcm">${esc(L.reverseCharge)}</div>` : ''}
+${bankBlock}${upiBlock}${optional(t.showNotes, L.notes, d.notes)}${optional(t.showTerms, L.terms, d.terms)}</div>
+<div><table class="tot">${totalRows}<tr class="g"><td>${rcm ? L.amountDue : L.total}${foreign ? ` (${esc(d.currency)})` : ''}</td><td class="n">${money(d.grand_total_paise)}</td></tr>
 ${rcm && showTax ? `<tr><td colspan="2" style="color:#55605b;font-size:.9em">Tax shown above is payable by the recipient.</td></tr>` : ''}
 ${foreign ? `<tr><td colspan="2" style="color:#55605b;font-size:.9em">All amounts are in ${esc(d.currency)}. Exchange rate used: 1 ${esc(d.currency)} = Rs ${rateText}. This is not a tax invoice.</td></tr>` : ''}
-${BigInt(d.tds_paise ?? 0) > 0n ? `<tr><td style="color:#55605b">Less: TDS to be deducted</td><td class="n" style="color:#55605b">${money(d.tds_paise)}</td></tr><tr><td style="color:#55605b">Net payable by customer</td><td class="n" style="color:#55605b">${money(BigInt(d.grand_total_paise) - BigInt(d.tds_paise))}</td></tr>` : ''}</table></div></div>
-${irnBlock}${t.showSignature ? `<div class="sign"><div>Authorised signatory<br>${esc(supplierName)}</div></div>` : ''}
+${BigInt(d.tds_paise ?? 0) > 0n ? `<tr><td style="color:#55605b">${esc(L.tdsLess)}</td><td class="n" style="color:#55605b">${money(d.tds_paise)}</td></tr><tr><td style="color:#55605b">${esc(L.netPayable)}</td><td class="n" style="color:#55605b">${money(BigInt(d.grand_total_paise) - BigInt(d.tds_paise))}</td></tr>` : ''}</table></div></div>
+${irnBlock}${t.showSignature ? `<div class="sign"><div>${esc(L.signatory)}<br>${esc(supplierName)}</div></div>` : ''}
 ${t.footerText ? `<div class="foot">${esc(t.footerText)}</div>` : ''}
 </div></body></html>`;
+}
+
+
+/**
+ * An 80 mm till receipt. Everything the law needs is still here (supplier and GSTIN, number, date, the tax split by rate, the total),
+ * set out in one narrow column the way a thermal printer expects. Item lines show name, then quantity times rate and the line total.
+ */
+export function renderThermalHtml(i: RenderInput): string {
+  const { doc: d, lines, supplier: s, recipient: r, template: t } = i;
+  const L = labelsFor(t.language);
+  const accent = accentColour(t);
+  const intra = s.state_code === d.place_of_supply;
+  const showTax = d.doc_type !== 'bill_of_supply';
+  const title = t.language && t.language !== 'en' ? titleFor(t.language, d.doc_type) : (TITLES[d.doc_type] ?? 'Document');
+  const qty = (q: unknown) => esc(String(q).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, ''));
+  const rows = lines.map((l) => `<div class="it"><div class="nm">${esc(l.item_name)}${l.hsn_sac ? ` <span class="h">${esc(l.hsn_sac)}</span>` : ''}</div>
+    <div class="ln"><span>${qty(l.quantity)} ${esc(l.unit)} x ${money(l.rate_paise)}${l.price_includes_tax ? ` ${esc(L.inclusive)}` : ''}</span><span>${money(l.line_total_paise)}</span></div></div>`).join('');
+  const byRate = new Map<number, { taxable: bigint; cgst: bigint; sgst: bigint; igst: bigint }>();
+  for (const l of lines) {
+    const k = Number(l.tax_rate_bp);
+    const g = byRate.get(k) ?? { taxable: 0n, cgst: 0n, sgst: 0n, igst: 0n };
+    g.taxable += BigInt(l.taxable_paise); g.cgst += BigInt(l.cgst_paise); g.sgst += BigInt(l.sgst_paise); g.igst += BigInt(l.igst_paise);
+    byRate.set(k, g);
+  }
+  const taxRows = showTax ? [...byRate.entries()].sort((a, b) => a[0] - b[0]).map(([bp, g]) =>
+    `<tr><td>${pct(bp)}</td><td class="n">${money(g.taxable)}</td><td class="n">${intra ? `${money(g.cgst)} + ${money(g.sgst)}` : money(g.igst)}</td></tr>`).join('') : '';
+  const upiBlock = i.upi && t.showUpiQr !== false && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(i.upi.qrDataUrl)
+    ? `<div class="c"><img src="${i.upi.qrDataUrl}" alt="UPI QR code" width="110" height="110"><br>${esc(L.scanToPay)} ${esc(i.upi.amountText)}</div>` : '';
+  const irn = i.irn ? `<div class="sm">IRN ${esc(i.irn.irn)}<br>Ack ${esc(i.irn.ackNo)}</div>` : '';
+  const name = s.trade_name || s.legal_name;
+  const draft = d.status === 'draft' ? '<div class="c b">DRAFT</div>' : d.status === 'cancelled' ? '<div class="c b">CANCELLED</div>' : '';
+  return `<!doctype html><html lang="en-IN"><head><meta charset="utf-8"><title>${esc(title)} ${esc(d.number ?? '')}</title><style>
+@page { size: 80mm auto; margin: 3mm; }
+*{box-sizing:border-box} body{margin:0;width:74mm;background:#fff;color:#000;font:11.5px/1.35 'Courier New',ui-monospace,monospace,'Noto Sans Devanagari','Noto Sans Gujarati'}
+.c{text-align:center}.b{font-weight:700}.sm{font-size:9.5px;word-break:break-all}.h{color:#444;font-size:9.5px}
+hr{border:0;border-top:1px dashed #000;margin:6px 0}
+.ln{display:flex;justify-content:space-between;gap:6px}.nm{font-weight:700}.it{margin:3px 0}
+table{width:100%;border-collapse:collapse;font-size:10.5px}td,th{padding:1px 0;text-align:left}.n{text-align:right}
+.tot{display:flex;justify-content:space-between;font-weight:700;font-size:14px;margin-top:3px;border-top:1px solid ${accent};padding-top:3px}
+</style></head><body>
+${draft}<div class="c b" style="font-size:14px">${esc(name)}</div>
+<div class="c">${[s.address?.line1, s.address?.city].filter(Boolean).map(esc).join(', ')}${s.phone ? `<br>Ph: ${esc(s.phone)}` : ''}${s.gstin ? `<br>GSTIN: ${esc(s.gstin)}` : ''}</div>
+<hr><div class="c b">${esc(title)}</div>
+<div class="ln"><span>${esc(L.no)} ${esc(d.number ?? 'Draft')}</span><span>${esc(d.doc_date)}</span></div>
+${r ? `<div>${esc(r.name)}${r.gstin ? `<br>GSTIN: ${esc(r.gstin)}` : ''}</div>` : `<div>${esc(L.walkIn)}</div>`}
+<div class="sm">${esc(L.placeOfSupply)}: ${esc(STATE_NAMES[d.place_of_supply] ?? d.place_of_supply)} (${esc(d.place_of_supply)})</div>
+<hr>${rows}<hr>
+${showTax ? `<table><thead><tr><th>GST</th><th class="n">${esc(L.taxable)}</th><th class="n">${intra ? 'CGST + SGST' : 'IGST'}</th></tr></thead><tbody>${taxRows}</tbody></table>` : ''}
+${BigInt(d.round_off_paise ?? 0) !== 0n ? `<div class="ln"><span>${esc(L.roundOff)}</span><span>${BigInt(d.round_off_paise) < 0n ? '-' : ''}${money(BigInt(d.round_off_paise) < 0n ? -BigInt(d.round_off_paise) : d.round_off_paise)}</span></div>` : ''}
+<div class="tot"><span>${esc(L.total)}</span><span>${money(d.grand_total_paise)}</span></div>
+${d.reverse_charge === true ? `<div class="sm">${esc(L.reverseCharge)}</div>` : ''}
+${upiBlock}${irn}${t.footerText ? `<hr><div class="c">${esc(t.footerText)}</div>` : `<hr><div class="c">${esc(L.thanks)}</div>`}
+</body></html>`;
 }

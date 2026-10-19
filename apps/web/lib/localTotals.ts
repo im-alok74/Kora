@@ -10,7 +10,7 @@ export interface PartyFacts { id: string; name: string; state_code: string; gsti
  */
 export function localTotals(a: { business: BusinessFacts; party: PartyFacts | null; payload: Record<string, any> }) {
   const { business, party, payload } = a;
-  const lines = (payload.lines ?? []) as { name: string; quantity: string; rate: string; discount?: string; taxRateBp: number; cessRateBp?: number; kind?: string }[];
+  const lines = (payload.lines ?? []) as { name: string; quantity: string; rate: string; discount?: string; taxRateBp: number; cessRateBp?: number; kind?: string; taxInclusive?: boolean }[];
   if (!lines.length) return null;
   const allServices = lines.every((l) => l.kind === 'service');
   const foreign = !!payload.currency && payload.currency !== 'INR';   // a quote abroad is not a tax document, so place 96 is fine
@@ -22,7 +22,7 @@ export function localTotals(a: { business: BusinessFacts; party: PartyFacts | nu
     docType: payload.docType as DocType, registrationType: business.registration_type as never, supplierState: business.state_code, placeOfSupply: place,
     reverseCharge: !!payload.reverseCharge, tcsBp: payload.tcsBp ?? 0, tdsBp: payload.tdsBp ?? 0, roundTotal: !payload.currency || payload.currency === 'INR',
     lines: lines.map((l) => ({ quantityMilli: parseQuantity(String(l.quantity)), ratePaise: parseRupees(String(l.rate)), discountPaise: l.discount ? parseRupees(String(l.discount)) : 0n,
-      taxRateBp: l.taxRateBp, cessRateBp: l.cessRateBp ?? 0 })),
+      taxRateBp: l.taxRateBp, cessRateBp: l.cessRateBp ?? 0, taxInclusive: !!l.taxInclusive })),
   });
   const s = (x: bigint) => x.toString();
   return {

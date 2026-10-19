@@ -185,6 +185,7 @@ test('settings: an owner saves business details that appear on the invoice', asy
 test('items autofill HSN, rate and GST on a line', async ({ page, context }) => {
   await owner(context);
   await page.goto('/app/items');
+  await page.getByRole('button', { name: 'Add an item' }).click();
   await page.getByLabel('Name', { exact: true }).fill('Laptop');
   await page.getByLabel('HSN or SAC').fill('847130');
   await page.getByLabel('Price (Rs)').fill('55000');

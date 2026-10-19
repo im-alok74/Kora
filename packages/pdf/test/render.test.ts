@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from 'vitest';
-import { closePdfBrowser, esc, renderDocumentHtml, renderPdf, type RenderInput } from '../src/index.js';
+import { closePdfBrowser, esc, paperFor, renderDocumentHtml, renderPdf, type RenderInput } from '../src/index.js';
 
 const TEMPLATE = { accent: '#0b5d4f', font: 'sans', layout: 'classic', paper: 'A4', logoDataUrl: null, showBank: true, showTerms: true,
   showNotes: true, showSignature: true, showAmountInWords: true, footerText: '' };
@@ -99,5 +99,57 @@ describe('renderPdf', () => {
     const html = '<html><body><img src="http://127.0.0.1:9/x.png"><script>document.title="ran"</script>hello</body></html>';
     const pdf = await renderPdf(html);
     expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+  }, 60_000);
+});
+
+describe('languages, receipts and prices that include GST', () => {
+  it('prints the fixed words in Hindi, with the English title beside it, and leaves statutory terms alone', () => {
+    const h = renderDocumentHtml(sample({ template: { ...TEMPLATE, language: 'hi' } }));
+    expect(h).toContain('कर चालान / Tax Invoice');
+    expect(h).toContain('बिल प्राप्तकर्ता');
+    expect(h).toContain('आपूर्ति का स्थान');
+    expect(h).toContain('देय तिथि');
+    for (const kept of ['GSTIN:', 'HSN/SAC', 'CGST', 'SGST', '27AAPFU0939F1ZV', '1,180.00']) expect(h).toContain(kept);
+    expect(h).not.toContain('>Bill to<');
+    expect(renderDocumentHtml(sample({ template: { ...TEMPLATE, language: 'gu' } }))).toContain('કર ઇન્વૉઇસ / Tax Invoice');
+    expect(renderDocumentHtml(sample({ template: { ...TEMPLATE, language: 'mr' } }))).toContain('कर बीजक / Tax Invoice');
+    expect(renderDocumentHtml(sample({ template: { ...TEMPLATE, language: 'xx' } }))).toContain('Tax Invoice');   // unknown falls back to English
+  });
+  it('marks a line whose price already includes GST', () => {
+    const base = sample();
+    const h = renderDocumentHtml({ ...base, lines: [{ ...base.lines[0]!, price_includes_tax: true }] });
+    expect(h).toContain('incl. GST');
+    expect(renderDocumentHtml(sample())).not.toContain('incl. GST');
+  });
+  it('lays out an 80 mm receipt with the tax split by rate, and every statutory field', () => {
+    const base = sample({ template: { ...TEMPLATE, layout: 'thermal' } });
+    const lines = [base.lines[0]!, { ...base.lines[0]!, item_name: 'Biscuits', tax_rate_bp: 500, quantity: '2.000', rate_paise: '2000', taxable_paise: '4000', cgst_paise: '100', sgst_paise: '100', line_total_paise: '4200', hsn_sac: '1905' }];
+    const h = renderDocumentHtml({ ...base, lines });
+    expect(h).toContain('size: 80mm auto');
+    for (const needle of ['Acme Traders', 'GSTIN: 27AAPFU0939F1ZV', 'Tax Invoice', 'INV/26-27/0001', '2026-10-18', 'Widget', 'Biscuits', '8471', '18%', '5%', 'CGST + SGST', '1,180.00', 'Thank you']) expect(h).toContain(needle);
+    expect(h).toContain('2 NOS x 20.00');                                   // quantity times rate
+    expect(h).not.toContain('<th>Description</th>');                         // no wide table
+  });
+  it('a receipt with a footer, in another language, for a bill of supply, still renders every part', () => {
+    const base = sample({ template: { ...TEMPLATE, layout: 'thermal', language: 'hi', footerText: 'Exchange within 7 days' } }, { doc_type: 'bill_of_supply', status: 'draft' });
+    const h = renderDocumentHtml(base);
+    expect(h).toContain('Exchange within 7 days');
+    expect(h).toContain('DRAFT');
+    expect(h).toContain('आपूर्ति का बिल / Bill of Supply');
+    expect(h).not.toContain('CGST + SGST');                                   // a bill of supply shows no tax split
+  });
+  it('picks the roll for a receipt layout and a normal page otherwise', () => {
+    expect(paperFor({ layout: 'thermal', paper: 'A4' })).toBe('THERMAL');
+    expect(paperFor({ layout: 'classic', paper: 'A5' })).toBe('A5');
+    expect(paperFor(undefined)).toBe('A4');
+  });
+  it('makes a narrow, short PDF for a receipt', async () => {
+    const pdf = await renderPdf(renderDocumentHtml(sample({ template: { ...TEMPLATE, layout: 'thermal' } })), 'THERMAL');
+    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+    const mb = /\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]/.exec(pdf.toString('latin1'));
+    expect(mb).not.toBeNull();
+    const [w, hgt] = [Number(mb![1]) / 2.8346, Number(mb![2]) / 2.8346];      // points to millimetres
+    expect(w).toBeGreaterThan(78); expect(w).toBeLessThan(82);
+    expect(hgt).toBeGreaterThan(60); expect(hgt).toBeLessThan(250);
   }, 60_000);
 });

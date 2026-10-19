@@ -35,6 +35,8 @@ export * from './observe.js';
 export * from './blobs.js';
 export * from './purchases.js';
 export * from './workspace.js';
+export * from './stock.js';
+export * from './pos.js';
 export * from './reports.js';
 export * from './handlers.js';
 export * from './einvoice.js';

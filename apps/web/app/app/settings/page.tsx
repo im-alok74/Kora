@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../../lib/client';
 
 type Rem = { enabled: boolean; channel: string; offsets: number[] };
-type Tpl = { accent: string; font: string; layout: string; paper: string; logoDataUrl: string | null; showBank: boolean; showTerms: boolean;
+type Tpl = { accent: string; font: string; layout: string; paper: string; language?: string; logoDataUrl: string | null; showBank: boolean; showTerms: boolean;
   showNotes: boolean; showSignature: boolean; showAmountInWords: boolean; showUpiQr: boolean; footerText: string };
 
 export default function Settings() {
@@ -137,8 +137,9 @@ export default function Settings() {
                   <div><label htmlFor="tf">Font</label><select id="tf" value={tpl.font} onChange={(e) => setT({ font: e.target.value })}><option value="sans">Sans-serif</option><option value="serif">Serif</option></select></div>
                 </div>
                 <div className="row">
-                  <div><label htmlFor="tl">Layout</label><select id="tl" value={tpl.layout} onChange={(e) => setT({ layout: e.target.value })}><option value="classic">Classic</option><option value="compact">Compact</option><option value="narrative">Professional services (particulars and fee)</option></select></div>
+                  <div><label htmlFor="tl">Layout</label><select id="tl" value={tpl.layout} onChange={(e) => setT({ layout: e.target.value })}><option value="classic">Classic</option><option value="compact">Compact</option><option value="narrative">Professional services (particulars and fee)</option><option value="thermal">Receipt (80 mm roll)</option></select></div>
                   <div><label htmlFor="tp">Paper</label><select id="tp" value={tpl.paper} onChange={(e) => setT({ paper: e.target.value })}><option value="A4">A4</option><option value="A5">A5</option></select></div>
+                  <div><label htmlFor="tg">Language</label><select id="tg" value={tpl.language ?? 'en'} onChange={(e) => setT({ language: e.target.value })}><option value="en">English</option><option value="hi">Hindi</option><option value="mr">Marathi</option><option value="gu">Gujarati</option></select></div>
                 </div>
                 <label htmlFor="lg">Logo (PNG or JPEG, under 150 KB)</label>
                 <input id="lg" type="file" accept="image/png,image/jpeg" onChange={(e) => onLogo(e.target.files?.[0])} />
