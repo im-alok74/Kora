@@ -30,6 +30,7 @@ export default function Security() {
   const [code, setCode] = useState('');
   const [codes, setCodes] = useState<string[] | null>(null);
   const [link, setLink] = useState({ identifier: '', code: '', sent: false });
+  const [del, setDel] = useState('');
 
   const load = useCallback(async () => { setA(await api('/api/account')); }, []);
   useEffect(() => { load().catch((e) => setErr(e.message)); }, [load]);
@@ -100,6 +101,16 @@ export default function Security() {
               <td className="n">{!s.current && <button className="link" disabled={busy} onClick={() => run(async () => { await act({ action: 'session.revoke', sessionId: s.id }); await load(); })}>Sign out</button>}</td></tr>))}</tbody>
         </table>
         {a.sessions.length > 1 && <button className="secondary" disabled={busy} style={{ marginTop: 12 }} onClick={() => run(async () => { const r = await act({ action: 'session.revokeOthers' }); setMsg(`Signed out ${r.revoked} other ${r.revoked === 1 ? 'device' : 'devices'}.`); await load(); })}>Sign out everywhere else</button>}
+      </div>
+
+      <div className="panel" aria-label="Close account">
+        <h2>Close my account</h2>
+        <p className="muted">This signs you out everywhere and removes your number, email and sign-in details. Invoices and records you created stay in your business, as the law requires, but no longer show who you are. You cannot close it while you are the only owner of a business.</p>
+        <form onSubmit={(e) => { e.preventDefault(); void run(async () => { await act({ action: 'account.delete', confirm: del }); window.location.href = '/'; }); }}>
+          <label htmlFor="dc">Type DELETE to confirm</label>
+          <input id="dc" value={del} onChange={(e) => setDel(e.target.value)} autoComplete="off" required />
+          <button className="danger" disabled={busy || del !== 'DELETE'} style={{ marginTop: 10 }}>Close my account</button>
+        </form>
       </div>
 
       <div className="panel" aria-label="Recent activity">

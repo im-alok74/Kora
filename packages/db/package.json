@@ -5,6 +5,7 @@
   "main": "src/index.ts",
   "scripts": {
     "migrate": "tsx src/migrate-cli.ts",
+    "erd": "tsx src/erd-cli.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p ."
   },

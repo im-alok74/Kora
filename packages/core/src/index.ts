@@ -33,6 +33,7 @@ export * from './totp.js';
 export * from './ratelimit.js';
 export * from './observe.js';
 export * from './blobs.js';
+export * from './purchases.js';
 export * from './reports.js';
 export * from './handlers.js';
 export * from './einvoice.js';

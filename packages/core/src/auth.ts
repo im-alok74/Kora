@@ -251,6 +251,22 @@ export function createAuth(sql: Sql, sender: OtpSender, cfg: AuthConfig) {
       await logEvent(userId, 'mfa.disabled', info);
     },
 
+    // ------------------------------------------------------------ closing the account
+    /**
+     * Closes the person's own account: signs them out everywhere, removes their sign-in details, authenticator and security log, and
+     * takes them out of every business. Records they created keep their id (the law requires invoices and the audit log to stay),
+     * but no longer lead to a name, number or email. Refused while they are the only owner of a business: that business has to be
+     * handed to someone else first, or its data exported and the business closed, so it is never left without an owner.
+     */
+    async deleteAccount(userId: string, confirm: string, info: RequestInfo = {}): Promise<void> {
+      if (confirm !== 'DELETE') throw new AuthError('invalid_code', 'Type DELETE to confirm.');
+      const [r] = await sql`select close_account(${userId}) as blocking`;
+      const blocking = r!.blocking as string[] | null;
+      if (blocking === null) throw new AuthError('invalid_code', 'This account is already closed.');
+      if (blocking.length) throw new AuthError('invalid_code', `You are the only owner of ${blocking.join(', ')}. Make someone else an owner first.`);
+      void info;
+    },
+
     // ------------------------------------------------------------ changing the number or email
     /** Sends a code to a new address. It becomes the person's own address only once the code is confirmed. */
     async requestLink(userId: string, raw: string, info: RequestInfo = {}): Promise<void> {

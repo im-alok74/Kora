@@ -1,6 +1,6 @@
 import { qrDataUrl } from '@kora/pdf';
 import { ValidationError } from '@kora/core';
-import { requestInfo, userRoute } from '../../../lib/server';
+import { json, requestInfo, SESSION_COOKIE, userRoute } from '../../../lib/server';
 
 /** Everything about the person's own sign-in: devices, recent security events, and whether an authenticator app is on. */
 export const GET = userRoute(async ({ userId, token, svc }) => {
@@ -20,6 +20,7 @@ export const GET = userRoute(async ({ userId, token, svc }) => {
  *   { action: 'session.revokeOthers' }                   sign every other device out
  *   { action: 'identifier.request', identifier }         send a code to a new number or email
  *   { action: 'identifier.confirm', identifier, code }   add it to the account
+ *   { action: 'account.delete', confirm: 'DELETE' }      close the account (refused for the only owner of a business)
  */
 export const POST = userRoute(async ({ userId, token, svc, req }) => {
   const b = await req.json().catch(() => ({})) as Record<string, unknown>;
@@ -37,6 +38,9 @@ export const POST = userRoute(async ({ userId, token, svc, req }) => {
     case 'session.revokeOthers': return { revoked: await svc.auth.revokeOtherSessions(userId, token, info) };
     case 'identifier.request': await svc.auth.requestLink(userId, str('identifier'), info); return { ok: true };
     case 'identifier.confirm': return svc.auth.confirmLink(userId, str('identifier'), str('code'), info);
+    case 'account.delete':
+      await svc.auth.deleteAccount(userId, str('confirm'), info);
+      return json({ ok: true }, 200, { 'set-cookie': `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0` });
     default: throw new ValidationError('Unknown action.');
   }
 });

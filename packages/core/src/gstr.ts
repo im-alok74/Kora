@@ -1,3 +1,4 @@
+import { itcSummary } from './purchases.js';
 import { rupees } from './einvoice.js';
 import type { Sql } from '@kora/db';
 import { inTenant, type TenantSession } from './tenancy.js';
@@ -229,6 +230,7 @@ export async function gstSummary(sql: Sql, t: TenantSession, period: string) {
  */
 export async function gstr3b(sql: Sql, t: TenantSession, period: string) {
   const s = await gstSummary(sql, t, period);
+  const itc = await itcSummary(sql, t, period);
   const { fp } = periodBounds(period);
   const [biz] = await inTenant(sql, t, 'report.export', (tx) => tx`select gstin from business where id = ${t.businessId}`);
   const r = (p: string | bigint) => rupees(p.toString());
@@ -241,13 +243,24 @@ export async function gstr3b(sql: Sql, t: TenantSession, period: string) {
     row('(a) Outward taxable supplies (other than zero rated, nil rated and exempted)', a),
     row('(b) Outward taxable supplies (zero rated)', none),
     row('(c) Other outward supplies (nil rated, exempted)', { ...none, taxable: nilExempt.toString() }),
-    row('(d) Inward supplies (liable to reverse charge)', none),
+    row('(d) Inward supplies (liable to reverse charge)', itc.reverseCharge),
     row('(e) Non-GST outward supplies', none),
   ];
+  const rc = itc.reverseCharge;
+  const big = (x: string) => BigInt(x);
+  // Tax owed before credit: tax on sales, plus tax on purchases where you pay it under reverse charge.
   const liability = {
-    igst: a.igst, cgst: a.cgst, sgst: a.sgst, cess: a.cess,
-    total: (BigInt(a.igst) + BigInt(a.cgst) + BigInt(a.sgst) + BigInt(a.cess)).toString(),
+    igst: (big(a.igst) + big(rc.igst)).toString(), cgst: (big(a.cgst) + big(rc.cgst)).toString(), sgst: (big(a.sgst) + big(rc.sgst)).toString(), cess: (big(a.cess) + big(rc.cess)).toString(),
+    total: (BigInt(a.igst) + BigInt(a.cgst) + BigInt(a.sgst) + BigInt(a.cess) + big(rc.igst) + big(rc.cgst) + big(rc.sgst) + big(rc.cess)).toString(),
   };
+  // Table 4: credit on ordinary bills (4A5), credit on reverse charge bills (4A3), and credit you may not take (4D).
+  const oth = itc.ordinary, isrc = itc.reverseCharge, inelg = itc.blocked;
+  const table4 = [
+    row('4A(3) Inward supplies liable to reverse charge', isrc), row('4A(5) All other ITC', oth), row('4D(2) Ineligible ITC, other (not claimed)', inelg),
+  ];
+  const netItc = { igst: (big(oth.igst) + big(isrc.igst)).toString(), cgst: (big(oth.cgst) + big(isrc.cgst)).toString(), sgst: (big(oth.sgst) + big(isrc.sgst)).toString(), cess: (big(oth.cess) + big(isrc.cess)).toString() };
+  const netItcTotal = big(netItc.igst) + big(netItc.cgst) + big(netItc.sgst) + big(netItc.cess);
+  const payableInCash = (() => { const d = big(liability.total) - netItcTotal; return (d < 0n ? 0n : d).toString(); })();
   const json = {
     gstin: (biz?.gstin as string | null) ?? '',
     ret_period: fp,
@@ -255,8 +268,19 @@ export async function gstr3b(sql: Sql, t: TenantSession, period: string) {
       osup_det: { txval: r(a.taxable), iamt: r(a.igst), camt: r(a.cgst), samt: r(a.sgst), csamt: r(a.cess) },
       osup_zero: { txval: r(0n), iamt: r(0n), csamt: r(0n) },
       osup_nil_exmp: { txval: r(nilExempt) },
-      isup_rev: { txval: r(0n), iamt: r(0n), camt: r(0n), samt: r(0n), csamt: r(0n) },
+      isup_rev: { txval: r(big(rc.taxable)), iamt: r(big(rc.igst)), camt: r(big(rc.cgst)), samt: r(big(rc.sgst)), csamt: r(big(rc.cess)) },
       osup_nongst: { txval: r(0n) },
+    },
+    itc_elg: {
+      itc_avl: [
+        { ty: 'IMPG', iamt: r(0n), camt: r(0n), samt: r(0n), csamt: r(0n) }, { ty: 'IMPS', iamt: r(0n), camt: r(0n), samt: r(0n), csamt: r(0n) },
+        { ty: 'ISRC', iamt: r(big(isrc.igst)), camt: r(big(isrc.cgst)), samt: r(big(isrc.sgst)), csamt: r(big(isrc.cess)) },
+        { ty: 'ISD', iamt: r(0n), camt: r(0n), samt: r(0n), csamt: r(0n) },
+        { ty: 'OTH', iamt: r(big(oth.igst)), camt: r(big(oth.cgst)), samt: r(big(oth.sgst)), csamt: r(big(oth.cess)) },
+      ],
+      itc_rev: [{ ty: 'RUL', iamt: r(0n), camt: r(0n), samt: r(0n), csamt: r(0n) }, { ty: 'OTH', iamt: r(0n), camt: r(0n), samt: r(0n), csamt: r(0n) }],
+      itc_net: { iamt: r(big(netItc.igst)), camt: r(big(netItc.cgst)), samt: r(big(netItc.sgst)), csamt: r(big(netItc.cess)) },
+      itc_inelg: [{ ty: 'RUL', iamt: r(0n), camt: r(0n), samt: r(0n), csamt: r(0n) }, { ty: 'OTH', iamt: r(big(inelg.igst)), camt: r(big(inelg.cgst)), samt: r(big(inelg.sgst)), csamt: r(big(inelg.cess)) }],
     },
     inter_sup: {
       unreg_details: s.interStateToUnregistered.map((x) => ({ pos: x.pos, txval: r(x.taxable), iamt: r(x.igst) })),
@@ -265,11 +289,13 @@ export async function gstr3b(sql: Sql, t: TenantSession, period: string) {
     },
   };
   return {
-    period, gstin: json.gstin, table31, table32: s.interStateToUnregistered, liability, json,
+    period, gstin: json.gstin, table31, table32: s.interStateToUnregistered, table4, netItc, payableInCash, itcAtRisk: itc.atRiskTotal, liability, json,
     notes: [
       'Outward supplies are net of credit notes and include debit notes. Cancelled documents are left out.',
-      'Table 4 (input tax credit), table 5 (inward exempt and nil supplies) and 5.1 (interest and late fee) are not filled: Kora does not record purchases yet. Add them in the GST offline tool or portal.',
-      'Table 3.1(a) here is the tax you owe before any input tax credit.',
+      'Table 4 is filled from the purchase bills dated in the month: credit on reverse charge bills (4A3), all other credit (4A5), and credit you marked as blocked (4D). Credit on bills the supplier has not filed (see GSTR-2B) is at risk, and is shown separately.',
+      'Table 5 (inward exempt and nil supplies) and 5.1 (interest and late fee) are not filled. Add them in the GST offline tool or portal.',
+      'Tax payable in cash is the total liability minus the total credit, never below zero. It does not follow the order in which the law sets credit off against each tax head, so use it as a guide and let your CA settle the heads.',
+      'Table 3.1(a) is the tax you owe on sales before any input tax credit, and 3.1(d) is the tax you owe on purchases under reverse charge.',
       'Supplies where the recipient pays the tax are not in 3.1(a); they appear on the GST summary, and your CA should decide where they go.',
       'Table 3.2 lists inter-state supplies to buyers without a GSTIN. Supplies to composition dealers and UIN holders are not separated yet.',
       'The file layout has not been checked against the latest GST offline utility. Have your CA check it before use.',

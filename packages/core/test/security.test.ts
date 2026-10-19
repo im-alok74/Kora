@@ -220,3 +220,31 @@ describe('request limits', () => {
     await expect(broken.hit('k', 1, 1)).rejects.toThrow(/500/);
   });
 });
+
+describe('closing an account', () => {
+  it('is refused for the only owner of a business, and for anything but the word DELETE', async () => {
+    const { createBusiness, addMember } = await import('../src/index.js');
+    await auth.requestOtp('closing.owner@example.test');
+    const o = await auth.verifyOtp('closing.owner@example.test', last());
+    const bid = await createBusiness(db.web, o.userId, { legalName: 'Solo Traders', gstin: null, stateCode: '27', registrationType: 'unregistered' });
+    await expect(auth.deleteAccount(o.userId, 'delete')).rejects.toThrow(/Type DELETE/);
+    await expect(auth.deleteAccount(o.userId, 'DELETE')).rejects.toThrow(/only owner of Solo Traders/);
+    // with a second owner it goes through
+    await auth.requestOtp('second.owner@example.test');
+    const o2 = await auth.verifyOtp('second.owner@example.test', last());
+    await addMember(db.web, o.userId, bid, o2.userId, 'owner');
+    await auth.deleteAccount(o.userId, 'DELETE');
+    expect(await auth.getSession(o.token)).toBeNull();
+    const [u] = await db.owner`select phone, email, display_name, deleted_at from app_user where id = ${o.userId}`;
+    expect(u).toMatchObject({ phone: null, email: null, display_name: null });
+    expect(u!.deleted_at).not.toBeNull();
+    expect(await db.owner`select 1 from member where user_id = ${o.userId}`).toHaveLength(0);
+    expect(await db.owner`select 1 from security_event where user_id = ${o.userId}`).toHaveLength(0);
+    await expect(auth.deleteAccount(o.userId, 'DELETE')).rejects.toThrow(/already closed/);
+    // the same address can be used to start a fresh account, which is not the closed one
+    await auth.requestOtp('closing.owner@example.test');
+    const again = await auth.verifyOtp('closing.owner@example.test', last());
+    expect(again.isNewUser).toBe(true);
+    expect(again.userId).not.toBe(o.userId);
+  });
+});
