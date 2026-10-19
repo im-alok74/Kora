@@ -7,7 +7,7 @@ test('warm up routes', async ({ page, context }) => {
   test.setTimeout(240_000);
   const u = await signedIn(context);
   await makeBusiness(u.userId);
-  for (const path of ['/', '/setup', '/app/invoices', '/app/invoices/new', '/app/customers', '/app/items', '/app/settings']) {
+  for (const path of ['/', '/login', '/setup', '/app/invoices', '/app/invoices/new', '/app/customers', '/app/items', '/app/settings']) {
     await page.goto(path); await page.getByRole('heading').first().waitFor();
   }
   for (const api of ['/api/me', '/api/business', '/api/parties', '/api/items', '/api/documents', '/api/template']) await page.request.get(api);

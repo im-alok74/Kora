@@ -7,7 +7,7 @@ test('a new user signs up, issues an invoice and sends it on WhatsApp in under 6
   let steps = 0;
   const step = () => { steps++; };
 
-  await page.goto('/');
+  await page.goto('/login');
   await page.getByLabel('Mobile number or email').fill(phone); step();
   await page.getByRole('button', { name: 'Send code' }).click(); step();
   await expect(page.getByLabel(/Six-digit code/)).toBeVisible();   // the server has stored the code by now
@@ -44,7 +44,7 @@ test('a new user signs up, issues an invoice and sends it on WhatsApp in under 6
 
 test('login rejects a wrong code and shows the message', async ({ page }) => {
   const phone = `8${Math.floor(Math.random() * 1e9).toString().padStart(9, '0')}`;
-  await page.goto('/');
+  await page.goto('/login');
   await page.getByLabel('Mobile number or email').fill(phone);
   await page.getByRole('button', { name: 'Send code' }).click();
   await page.getByLabel(/Six-digit code/).fill('000000');
@@ -53,7 +53,7 @@ test('login rejects a wrong code and shows the message', async ({ page }) => {
 });
 
 test('a bad mobile number is refused before any code is sent', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/login');
   await page.getByLabel('Mobile number or email').fill('12345');
   await page.getByRole('button', { name: 'Send code' }).click();
   await expect(page.locator('p[role="alert"]')).toContainText('valid 10-digit Indian mobile number');
@@ -70,4 +70,13 @@ test('setup refuses a GSTIN with a wrong check character', async ({ page, contex
   await expect(page.getByText('This GSTIN is not valid')).toBeVisible();
   await page.getByRole('button', { name: 'Create business' }).click();
   await expect(page.locator('p[role="alert"]')).toContainText('GSTIN is not valid');
+});
+
+test('the home page explains the product and leads to sign-in', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('GST invoicing');
+  await expect(page.getByRole('heading', { name: /From first login to first payment/ })).toBeVisible();
+  await page.getByRole('link', { name: 'Sign in to Kora' }).first().click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole('heading', { name: 'Sign in to Kora' })).toBeVisible();
 });

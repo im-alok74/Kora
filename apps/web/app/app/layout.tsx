@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const userId = await currentUserId();
-  if (!userId) redirect('/');
+  if (!userId) redirect('/login');
   const businesses = await listBusinesses(services().sql, userId);
   if (businesses.length === 0) redirect('/setup');
   const chosen = (await cookies()).get(BUSINESS_COOKIE)?.value;
