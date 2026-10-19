@@ -100,15 +100,21 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
 
   return (
     <>
-      <div className="toolbar">
+      <div className="doc-head">
         <div>
           <h1>{label} {d.number ?? ''}</h1>
+          <div className="meta">
           {est ? <span className={`chip ${EST_CHIP[est.status] ?? 'issued'}`} data-testid="estimate-status">{EST_LABEL[est.status] ?? est.status}</span> : (
           <span className={`chip ${d.status === 'issued' && d.payment_status === 'paid' ? 'paid' : d.status}`}>
-            {d.status === 'draft' ? 'Draft' : d.status === 'cancelled' ? 'Cancelled' : d.payment_status === 'paid' ? 'Paid' : d.payment_status === 'part_paid' ? 'Part paid' : 'Issued'}</span>)}{' '}
-          <span className="muted">{d.party_name ?? 'Walk-in customer'} · {d.doc_date} · {money(d.grand_total_paise)}{foreignCur ? ` at 1 ${foreignCur} = Rs ${(Number(d.exchange_rate_micro) / 1_000_000).toString()}` : ''}{est && d.due_date ? ` · valid until ${d.due_date}` : ''}{outstanding > 0n && outstanding !== BigInt(d.grand_total_paise) ? ` · ${rupees(outstanding)} due` : ''}</span>
+            {d.status === 'draft' ? 'Draft' : d.status === 'cancelled' ? 'Cancelled' : d.payment_status === 'paid' ? 'Paid' : d.payment_status === 'part_paid' ? 'Part paid' : 'Issued'}</span>)}
+          <span className="muted">{d.party_name ?? 'Walk-in customer'} · {d.doc_date}{foreignCur ? ` · ${money(d.grand_total_paise)} at 1 ${foreignCur} = Rs ${(Number(d.exchange_rate_micro) / 1_000_000).toString()}` : ''}{est && d.due_date ? ` · valid until ${d.due_date}` : ''}</span>
+          </div>
         </div>
-        <div className="row" style={{ flex: 'none' }}>
+        <div className="doc-amount">
+          <div className="big">{money(d.grand_total_paise)}</div>
+          {outstanding > 0n && <div className="due">{rupees(outstanding)} due</div>}
+        </div>
+        <div className="row doc-actions">
           <a className="btn secondary" href="/app/invoices">Back</a>
           {isDraft && canIssue && <a className="btn secondary" href={`/app/invoices/${id}/edit`}>Edit</a>}
           {isDraft && canIssue && <button disabled={busy} onClick={() => run(async () => { await api(`/api/documents/${id}/issue`, { body: {} }); await load(); setMsg(`${label} issued.`); })}>Issue</button>}
@@ -122,8 +128,13 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
       </div>
       {err && <p className="error" role="alert">{err}</p>}
       {msg && <p className="ok" role="status">{msg}</p>}
-      {isIssued && ['tax_invoice', 'bill_of_supply'].includes(d.doc_type) && outstanding > 0n && <LateFeePanel invoiceId={id} canWrite={canIssue} />}
 
+      <div className="doc-layout">
+        <div>
+  <iframe className="preview" title="Document preview" sandbox="" srcDoc={html} />
+        </div>
+        <div className="doc-side">
+      {isIssued && ['tax_invoice', 'bill_of_supply'].includes(d.doc_type) && outstanding > 0n && <LateFeePanel invoiceId={id} canWrite={canIssue} />}
       {d.einvoice_status && d.einvoice_status !== 'none' && einv?.current && (
         <div className="panel" data-testid="einvoice">
           <h2>E-invoice</h2>
@@ -276,9 +287,10 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
           )}
         </div>
       )}
+        </div>
+      </div>
       {d.status === 'cancelled' && <p className="muted">Cancelled: {d.cancel_reason}</p>}
 
-      <iframe className="preview" title="Document preview" sandbox="" srcDoc={html} />
     </>
   );
 }

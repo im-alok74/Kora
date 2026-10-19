@@ -12,7 +12,7 @@ export default function Login() {
 
   const enter = async () => {
     const me = await api('/api/me');
-    window.location.href = me.businesses.length ? '/app/invoices' : '/setup';
+    window.location.href = me.businesses.length ? '/app' : '/setup';
   };
   useEffect(() => { api('/api/me').then(enter).catch(() => setReady(true)); }, []);
 
@@ -21,12 +21,14 @@ export default function Login() {
     try { await fn(); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
 
-  if (!ready) return <main><p className="muted">Loading</p></main>;
+  if (!ready) return <main className="auth"><p className="muted">Loading</p></main>;
 
   return (
-    <main>
+    <main className="auth">
+      <div className="auth-box">
+      <div className="auth-brand"><a href="/" aria-label="Kora home"><span className="brand-mark" aria-hidden="true">k</span>kora</a></div>
       <h1>Sign in to Kora</h1>
-      <p className="muted">We send a six-digit code to your mobile number or email.</p>
+      <p className="lead">We send a six-digit code to your mobile number or email. No password to remember.</p>
       <div className="card">
         {step === 'id' ? (
           <form onSubmit={(e) => { e.preventDefault(); void run(async () => { await api('/api/auth/request', { body: { identifier } }); setStep('code'); }); }}>
@@ -43,6 +45,8 @@ export default function Login() {
           </form>
         )}
         {err && <p className="error" role="alert">{err}</p>}
+      </div>
+      <p className="muted" style={{ textAlign: 'center', marginTop: 16, fontSize: 13 }}>Kora prepares your documents. You and your CA stay responsible for every invoice and filing.</p>
       </div>
     </main>
   );

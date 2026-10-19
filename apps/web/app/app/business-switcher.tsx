@@ -5,7 +5,7 @@ import { api } from '../../lib/client';
 export default function BusinessSwitcher({ businesses, activeId }: { businesses: { businessId: string; legalName: string }[]; activeId: string }) {
   return (
     <div>
-      <label htmlFor="bs" style={{ marginTop: 0 }} className="muted">Business</label>
+      <label htmlFor="bs">Business</label>
       <select id="bs" value={activeId} onChange={async (e) => {
         if (e.target.value === '__new') { window.location.href = '/setup?add=1'; return; }
         await api('/api/business/select', { body: { businessId: e.target.value } });

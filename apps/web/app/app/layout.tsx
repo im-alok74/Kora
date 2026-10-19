@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { listBusinesses } from '@kora/core';
 import { BUSINESS_COOKIE, currentUserId, services } from '../../lib/server';
+import SideNav from './side-nav';
 import SignOut from './sign-out';
 import ClientOnly from '../../components/ClientOnly';
 import BusinessSwitcher from './business-switcher';
@@ -19,25 +20,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const active = businesses.find((b) => b.businessId === chosen) ?? businesses[0]!;
   return (
     <div className="shell">
-      <nav className="side" aria-label="Main">
-        <div className="brand">kora</div>
-        <a className="nav" href="/app/invoices">Documents</a>
-        <a className="nav" href="/app/recurring">Recurring</a>
-        <a className="nav" href="/app/expenses">Expenses</a>
-        <a className="nav" href="/app/customers">Customers</a>
-        <a className="nav" href="/app/items">Items</a>
-        <a className="nav" href="/app/reports">Reports</a>
-        <a className="nav" href="/app/data">Data</a>
-        {active.role === 'owner' && <a className="nav" href="/app/developers">Developers</a>}
-        {active.role === 'owner' && <a className="nav" href="/app/team">Team</a>}
-        {active.role !== 'staff' && <a className="nav" href="/app/activity">Activity</a>}
-        <a className="nav" href="/app/settings">Settings</a>
-        <div className="who">
-          <BusinessSwitcher businesses={businesses} activeId={active.businessId} />
-          <div className="muted" style={{ marginTop: 4 }}>{active.role}</div>
-          <SignOut />
-        </div>
-      </nav>
+      <SideNav role={active.role}>
+        <BusinessSwitcher businesses={businesses} activeId={active.businessId} />
+        <span className="role">{active.role}</span>
+        <SignOut />
+      </SideNav>
       <div className="content"><ClientOnly><SyncStatus />{children}</ClientOnly></div>
     </div>
   );

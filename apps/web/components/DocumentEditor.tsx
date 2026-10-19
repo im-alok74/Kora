@@ -1,4 +1,5 @@
 'use client';
+import Icon from './Icon';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CURRENCIES, formatMoney, gstinValid, STATE_NAMES } from '@kora/tax';
 import { api, ApiError, DOC_LABEL, rupees as rupeesInr, TAX_RATES } from '../lib/client';
@@ -227,7 +228,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
 
   return (
     <>
-      <div className="toolbar"><h1>{title}</h1></div>
+      <div className="toolbar"><div><h1>{title}</h1><p className="page-sub">{quote ? 'Quote a price. Nothing here is a tax invoice until you turn it into one.' : 'Choose who it is for and what you are selling. Kora works out the tax as you type.'}</p></div></div>
       {local?.conflict && (
         <div className="panel" role="alert" data-testid="conflict">
           <h2>This draft was changed on another device</h2>
@@ -240,10 +241,13 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
       )}
       {local?.status === 'error' && <p className="error" role="alert">This draft could not be saved: {local.error} Fix it and save again.</p>}
       {!online && <p className="warn" role="status" data-testid="offline-note">You are offline. Totals are worked out on this device and checked again when the draft syncs.</p>}
-      <div className="panel">
+      <div className="editor">
+      <div className="editor-main">
+      <section className="panel" aria-label="Customer and dates">
+        <p className="section-label">Customer and dates</p>
         <div className="grid2">
           <div>
-            <label htmlFor="dt">Document type</label>
+            <label htmlFor="dt" style={{ marginTop: 0 }}>Document type</label>
             <select id="dt" value={docType} onChange={(e) => { setDocType(e.target.value); if (!['estimate', 'proforma'].includes(e.target.value)) setCurrency('INR'); }} disabled={!!original}>
               {Object.entries(DOC_LABEL).filter(([k]) => original ? k === docType : !['credit_note', 'debit_note'].includes(k)).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
@@ -292,35 +296,40 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
             <button type="button" className="sm" style={{ margin: '8px 0' }} onClick={addCustomer}>Add customer</button>
           </fieldset>
         )}
-      </div>
+      </section>
 
-      <table className="t" aria-label="Line items">
+      <section className="panel" aria-label="Items">
+      <p className="section-label">Items</p>
+      <table className="t line-table" aria-label="Line items">
         <thead><tr><th>Description</th><th>HSN/SAC</th><th className="n">Qty</th><th className="n">Rate{currency !== 'INR' ? ` (${currency})` : ''}</th><th className="n">Discount</th><th>GST</th><th className="n">Amount</th><th /></tr></thead>
         <tbody>
           {lines.map((l, i) => {
             const idx = lines.filter((x) => x.name.trim() || x.rate).findIndex((x) => x.key === l.key);
             return (
               <tr key={l.key}>
-                <td><input aria-label={`Line ${i + 1} description`} list="items-list" value={l.name} onChange={(e) => pickName(l.key, e.target.value)} /></td>
-                <td><input aria-label={`Line ${i + 1} HSN or SAC`} style={{ width: 96 }} inputMode="numeric" value={l.hsnSac} onChange={(e) => setLine(l.key, { hsnSac: e.target.value })} /></td>
-                <td className="n"><input aria-label={`Line ${i + 1} quantity`} style={{ width: 72 }} inputMode="decimal" value={l.quantity} onChange={(e) => setLine(l.key, { quantity: e.target.value })} /></td>
-                <td className="n"><input aria-label={`Line ${i + 1} rate`} style={{ width: 110 }} inputMode="decimal" value={l.rate} onChange={(e) => setLine(l.key, { rate: e.target.value })} /></td>
-                <td className="n"><input aria-label={`Line ${i + 1} discount`} style={{ width: 90 }} inputMode="decimal" value={l.discount} onChange={(e) => setLine(l.key, { discount: e.target.value })} /></td>
-                <td><select aria-label={`Line ${i + 1} GST rate`} value={l.taxRateBp} onChange={(e) => setLine(l.key, { taxRateBp: Number(e.target.value) })}>
+                <td data-label="Description"><input aria-label={`Line ${i + 1} description`} list="items-list" value={l.name} onChange={(e) => pickName(l.key, e.target.value)} /></td>
+                <td data-label="HSN or SAC"><input aria-label={`Line ${i + 1} HSN or SAC`} style={{ width: 96 }} inputMode="numeric" value={l.hsnSac} onChange={(e) => setLine(l.key, { hsnSac: e.target.value })} /></td>
+                <td className="n" data-label="Quantity"><input aria-label={`Line ${i + 1} quantity`} style={{ width: 72 }} inputMode="decimal" value={l.quantity} onChange={(e) => setLine(l.key, { quantity: e.target.value })} /></td>
+                <td className="n" data-label="Rate"><input aria-label={`Line ${i + 1} rate`} style={{ width: 110 }} inputMode="decimal" value={l.rate} onChange={(e) => setLine(l.key, { rate: e.target.value })} /></td>
+                <td className="n" data-label="Discount"><input aria-label={`Line ${i + 1} discount`} style={{ width: 90 }} inputMode="decimal" value={l.discount} onChange={(e) => setLine(l.key, { discount: e.target.value })} /></td>
+                <td data-label="GST"><select aria-label={`Line ${i + 1} GST rate`} value={l.taxRateBp} onChange={(e) => setLine(l.key, { taxRateBp: Number(e.target.value) })}>
                   {TAX_RATES.map((r) => <option key={r.bp} value={r.bp}>{r.label}</option>)}</select></td>
-                <td className="n">{idx >= 0 && totals?.lines[idx]?.total ? rupees(totals.lines[idx]!.total) : ''}</td>
-                <td>{lines.length > 1 && <button type="button" className="link" aria-label={`Remove line ${i + 1}`} onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}>Remove</button>}</td>
+                <td className="n line-amount" data-label="Amount">{idx >= 0 && totals?.lines[idx]?.total ? rupees(totals.lines[idx]!.total) : ''}</td>
+                <td className="line-remove">{lines.length > 1 && <button type="button" className="link" aria-label={`Remove line ${i + 1}`} onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}>Remove</button>}</td>
               </tr>
             );
           })}
         </tbody>
       </table>
       <datalist id="items-list">{items.map((i) => <option key={i.id} value={i.name} />)}</datalist>
-      <button type="button" className="secondary sm" style={{ marginTop: 8 }} onClick={() => setLines((ls) => [...ls, blankLine()])}>Add line</button>
+      <button type="button" className="secondary sm" style={{ marginTop: 10 }} onClick={() => setLines((ls) => [...ls, blankLine()])}><Icon name="plus" size={16} />Add line</button>
+      </section>
 
-      <div className="grid2" style={{ marginTop: 16 }}>
+      <section className="panel" aria-label="Notes and extras">
+      <p className="section-label">Notes and extras</p>
+      <div>
         <div>
-          <label htmlFor="nt">Notes</label><textarea id="nt" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <label htmlFor="nt" style={{ marginTop: 0 }}>Notes</label><textarea id="nt" value={notes} onChange={(e) => setNotes(e.target.value)} />
           <label htmlFor="tm">Terms</label><textarea id="tm" value={terms} onChange={(e) => setTerms(e.target.value)} />
           <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" style={{ width: 'auto', height: 'auto' }} checked={reverseCharge} onChange={(e) => setRcm(e.target.checked)} /> Tax is payable by the recipient (reverse charge)</label>
           {['tax_invoice', 'bill_of_supply', 'debit_note'].includes(docType) && (
@@ -330,27 +339,35 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
             </div>)}
           {(pctToBp(tcsPct) === null || pctToBp(tdsPct) === null) && <p className="error" role="alert">Enter TCS and TDS as a percentage between 0 and 100, with at most two decimals.</p>}
         </div>
-        <div className="totals" aria-live="polite" aria-label="Totals">
-          {totals ? (<>
-            <div><span>Taxable value</span><span>{rupees(totals.taxable)}</span></div>
-            {totals.supply === 'intra' ? (<><div><span>CGST</span><span>{rupees(totals.cgst)}</span></div><div><span>SGST</span><span>{rupees(totals.sgst)}</span></div></>) : <div><span>IGST</span><span>{rupees(totals.igst)}</span></div>}
-            {BigInt(totals.cess) > 0n && <div><span>Cess</span><span>{rupees(totals.cess)}</span></div>}
-            {BigInt(totals.tcs) > 0n && <div><span>TCS</span><span data-testid="tcs-amount">{rupees(totals.tcs)}</span></div>}
-            {BigInt(totals.roundOff) !== 0n && <div><span>Round off</span><span>{BigInt(totals.roundOff) < 0n ? '-' : ''}{rupees(BigInt(totals.roundOff) < 0n ? -BigInt(totals.roundOff) : totals.roundOff)}</span></div>}
-            <div className="grand"><span>Total</span><span data-testid="grand-total">{rupees(totals.grandTotal)}</span></div>
-            {BigInt(totals.tds) > 0n && <div className="muted" data-testid="tds-note">Customer deducts {rupees(totals.tds)} as TDS, so they pay <b>{rupees(totals.netReceivable)}</b>. Record the TDS as a payment when it arrives.</div>}
-            <div className="muted">Place of supply: {STATE_NAMES[totals.placeOfSupply]} ({totals.supply === 'intra' ? 'within state' : 'other state'})</div>
-            {totals.recommendedDocType === 'bill_of_supply' && docType === 'tax_invoice' && <div className="warn">Every line is at 0%. A bill of supply may be the right document.</div>}
-            {totals.warnings.map((w) => <div key={w} className="warn">{w}</div>)}
-          </>) : <div className="muted">{hint || 'Add a line to see the total.'}</div>}
-        </div>
+      </div>
+      </section>
       </div>
 
-      {err && <p className="error" role="alert">{err}</p>}
-      {savedLocally && <p className="ok" role="status" data-testid="saved-locally">Saved on this device. It will sync when you are back online.</p>}
-      <div className="row" style={{ marginTop: 16, justifyContent: 'flex-end' }}>
-        <button type="button" className="secondary" style={{ flex: 'none' }} disabled={busy || !!local?.conflict} onClick={() => save(false)}>Save draft</button>
-        <button type="button" style={{ flex: 'none' }} disabled={busy || !online || !!local?.conflict} title={online ? undefined : 'Issuing needs a connection'} onClick={() => save(true)}>Issue {label.toLowerCase()}</button>
+      <aside className="editor-side" aria-label="Summary">
+        <div className="sumcard">
+          <p className="section-label">Summary</p>
+          <div className="totals" aria-live="polite" aria-label="Totals">
+            {totals ? (<>
+              <div><span>Taxable value</span><span>{rupees(totals.taxable)}</span></div>
+              {totals.supply === 'intra' ? (<><div><span>CGST</span><span>{rupees(totals.cgst)}</span></div><div><span>SGST</span><span>{rupees(totals.sgst)}</span></div></>) : <div><span>IGST</span><span>{rupees(totals.igst)}</span></div>}
+              {BigInt(totals.cess) > 0n && <div><span>Cess</span><span>{rupees(totals.cess)}</span></div>}
+              {BigInt(totals.tcs) > 0n && <div><span>TCS</span><span data-testid="tcs-amount">{rupees(totals.tcs)}</span></div>}
+              {BigInt(totals.roundOff) !== 0n && <div><span>Round off</span><span>{BigInt(totals.roundOff) < 0n ? '-' : ''}{rupees(BigInt(totals.roundOff) < 0n ? -BigInt(totals.roundOff) : totals.roundOff)}</span></div>}
+              <div className="grand"><span>Total</span><span data-testid="grand-total">{rupees(totals.grandTotal)}</span></div>
+              {BigInt(totals.tds) > 0n && <div className="muted" data-testid="tds-note">Customer deducts {rupees(totals.tds)} as TDS, so they pay <b>{rupees(totals.netReceivable)}</b>. Record the TDS as a payment when it arrives.</div>}
+              <div className="muted">Place of supply: {STATE_NAMES[totals.placeOfSupply]} ({totals.supply === 'intra' ? 'within state' : 'other state'})</div>
+              {totals.recommendedDocType === 'bill_of_supply' && docType === 'tax_invoice' && <div className="warn">Every line is at 0%. A bill of supply may be the right document.</div>}
+              {totals.warnings.map((w) => <div key={w} className="warn">{w}</div>)}
+            </>) : <div className="muted">{hint || 'Add a line to see the total.'}</div>}
+          </div>
+          {err && <p className="error" role="alert">{err}</p>}
+          {savedLocally && <p className="ok" role="status" data-testid="saved-locally">Saved on this device. It will sync when you are back online.</p>}
+          <div className="actions">
+            <button type="button" disabled={busy || !online || !!local?.conflict} title={online ? undefined : 'Issuing needs a connection'} onClick={() => save(true)}>Issue {label.toLowerCase()}</button>
+            <button type="button" className="secondary" disabled={busy || !!local?.conflict} onClick={() => save(false)}>Save draft</button>
+          </div>
+        </div>
+      </aside>
       </div>
     </>
   );

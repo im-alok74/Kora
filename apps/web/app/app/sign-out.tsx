@@ -1,4 +1,5 @@
 'use client';
+import Icon from '../../components/Icon';
 import { api } from '../../lib/client';
 import { clearLocalData, listDrafts } from '../../lib/offline';
 
@@ -11,7 +12,7 @@ export default function SignOut() {
       await clearLocalData();
       window.location.href = '/';
     }}>
-      Sign out
+      <Icon name="logout" size={17} />Sign out
     </button>
   );
 }
