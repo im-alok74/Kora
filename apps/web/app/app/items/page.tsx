@@ -5,10 +5,10 @@ import { api, rupees, TAX_RATES } from '../../../lib/client';
 
 type Item = {
   id: string; name: string; kind: string; hsn_sac: string | null; unit: string; default_rate_bp: number; price_paise: string; price_includes_tax: boolean;
-  track_stock: boolean; barcode: string | null; reorder_milli: string | null; qty_milli: string | null;
+  track_stock: boolean; barcode: string | null; reorder_milli: string | null; qty_milli: string | null; network_listed?: boolean;
 };
 type Move = { id: string; qty_milli: string; kind: string; note: string | null; occurred_on: string; invoice_number: string | null; bill_number: string | null };
-const EMPTY = { name: '', kind: 'goods', hsnSac: '', unit: 'NOS', defaultRateBp: 1800, price: '', priceIncludesTax: false, trackStock: false, barcode: '', reorderLevel: '' };
+const EMPTY = { name: '', kind: 'goods', hsnSac: '', unit: 'NOS', defaultRateBp: 1800, price: '', priceIncludesTax: false, trackStock: false, barcode: '', reorderLevel: '', networkListed: false };
 const KIND: Record<string, string> = { opening: 'Opening stock', purchase: 'Bought', purchase_cancelled: 'Purchase cancelled', sale: 'Sold', sale_cancelled: 'Sale cancelled', adjustment: 'Adjusted' };
 const qty = (m: string | null) => { if (m === null) return ''; const n = BigInt(m); const neg = n < 0n; const a = neg ? -n : n; const whole = a / 1000n; const frac = (a % 1000n).toString().padStart(3, '0').replace(/0+$/, ''); return `${neg ? '-' : ''}${whole}${frac ? `.${frac}` : ''}`; };
 
@@ -42,7 +42,7 @@ export default function Items() {
           e.preventDefault(); setErr('');
           try {
             const body = { name: form.name, kind: form.kind, hsnSac: form.hsnSac || null, unit: form.unit, defaultRateBp: form.defaultRateBp, price: form.price || undefined,
-              priceIncludesTax: form.priceIncludesTax, trackStock: form.trackStock && form.kind === 'goods', barcode: form.barcode || null, reorderLevel: form.reorderLevel || null };
+              priceIncludesTax: form.priceIncludesTax, trackStock: form.trackStock && form.kind === 'goods', barcode: form.barcode || null, reorderLevel: form.reorderLevel || null, networkListed: form.networkListed };
             await api(editing ? `/api/items/${editing}` : '/api/items', { method: editing ? 'PUT' : 'POST', body });
             setForm(EMPTY); setEditing(null); setOpen(false); await load();
           } catch (x) { setErr((x as Error).message); }
@@ -59,6 +59,7 @@ export default function Items() {
             <div><label htmlFor="ip">Price (Rs)</label><input id="ip" inputMode="decimal" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></div>
           </div>
           <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" style={{ width: 'auto', height: 'auto' }} checked={form.priceIncludesTax} onChange={(e) => setForm({ ...form, priceIncludesTax: e.target.checked })} /> The price already includes GST (an MRP)</label>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" style={{ width: 'auto', height: 'auto' }} checked={form.networkListed} onChange={(e) => setForm({ ...form, networkListed: e.target.checked })} /> Show in my Kora network catalogue</label>
           {form.kind === 'goods' && (<>
             <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" style={{ width: 'auto', height: 'auto' }} checked={form.trackStock} onChange={(e) => setForm({ ...form, trackStock: e.target.checked })} /> Keep count of stock for this item</label>
             <div className="row">
@@ -88,7 +89,7 @@ export default function Items() {
                 <td className="n">{rupees(i.price_paise)}{i.price_includes_tax && <span className="muted" style={{ fontSize: 12 }}> incl.</span>}</td>
                 <td className="n">{i.track_stock ? <>{qty(i.qty_milli)} {i.unit}{low && <> <span className="chip cancelled">Low</span></>}</> : <span className="muted">Not counted</span>}</td>
                 <td className="n">{i.track_stock && <button className="link" onClick={() => openStock(i)}>Stock</button>}{' '}
-                  {canWrite && <button className="link" onClick={() => { setOpen(false); setEditing(i.id); setForm({ name: i.name, kind: i.kind, hsnSac: i.hsn_sac ?? '', unit: i.unit, defaultRateBp: i.default_rate_bp, price: (BigInt(i.price_paise) / 100n).toString() + (BigInt(i.price_paise) % 100n === 0n ? '' : `.${(BigInt(i.price_paise) % 100n).toString().padStart(2, '0')}`), priceIncludesTax: i.price_includes_tax, trackStock: i.track_stock, barcode: i.barcode ?? '', reorderLevel: i.reorder_milli === null ? '' : qty(i.reorder_milli) }); window.scrollTo({ top: 0 }); }}>Edit</button>}{' '}
+                  {canWrite && <button className="link" onClick={() => { setOpen(false); setEditing(i.id); setForm({ name: i.name, kind: i.kind, hsnSac: i.hsn_sac ?? '', unit: i.unit, defaultRateBp: i.default_rate_bp, price: (BigInt(i.price_paise) / 100n).toString() + (BigInt(i.price_paise) % 100n === 0n ? '' : `.${(BigInt(i.price_paise) % 100n).toString().padStart(2, '0')}`), priceIncludesTax: i.price_includes_tax, trackStock: i.track_stock, barcode: i.barcode ?? '', reorderLevel: i.reorder_milli === null ? '' : qty(i.reorder_milli), networkListed: !!i.network_listed }); window.scrollTo({ top: 0 }); }}>Edit</button>}{' '}
                   {canWrite && <button className="link" onClick={async () => { await api(`/api/items/${i.id}`, { method: 'DELETE' }); await load(); }}>Archive</button>}</td>
               </tr>);
           })}</tbody>

@@ -22,6 +22,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
   const [link, setLink] = useState('');
   const [payLink, setPayLink] = useState('');
   const [views, setViews] = useState(0);
+  const [kora, setKora] = useState<{ buyer: string; status: string; sellerCancelled: boolean; reason: string | null } | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState('');
   const [role, setRole] = useState('');
@@ -40,6 +41,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
     if (d.document.einvoice_status && d.document.einvoice_status !== 'none') setEinv(await api(`/api/documents/${id}/einvoice`));
     if (d.document.status !== 'draft') {
       setViews((await api(`/api/documents/${id}/share`)).stats.views);
+      api(`/api/documents/${id}/network`).then((r) => setKora(r.delivery)).catch(() => {});
       if (RECEIVABLE.includes(d.document.doc_type)) {
         setPayments((await api(`/api/documents/${id}/payments`)).payments);
         const o = BigInt(d.document.grand_total_paise) - BigInt(d.document.amount_settled_paise);
@@ -128,6 +130,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
       </div>
       {err && <p className="error" role="alert">{err}</p>}
       {msg && <p className="ok" role="status">{msg}</p>}
+      {kora && <p className="muted" data-testid="kora-delivery" style={{ margin: '0 0 12px' }}>Sent through Kora to {kora.buyer}: {kora.sellerCancelled ? 'you cancelled it' : kora.status === 'new' ? 'waiting for them to accept' : kora.status === 'accepted' ? 'they accepted it' : `they rejected it${kora.reason ? ` (${kora.reason})` : ''}`}.</p>}
 
       <div className="doc-layout">
         <div>
