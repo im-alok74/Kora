@@ -65,4 +65,9 @@ Customer base and brand,network,could,yes,skip,cannot be cloned
 Firm roll-up across all clients,ca firm,must,yes,yes,"one screen for every business the person belongs to: owed, overdue, drafts, standard GSTR-1 and GSTR-3B dates (monthly only); each business read with the person's own role; unit and browser tested"
 Client inbox with review queue,ca firm,must,yes,yes,"business sends a bill or paper (JPEG PNG PDF up to 2 MB, content checked), accountant marks done or sends back with a reason; roles enforced; unit and browser tested"
 Vendor bills purchases and input tax credit,ca firm,must,yes,no,next for the CA module; needed for GSTR-3B input credit and GSTR-2B matching
-Matters time entries retainers and client money,lawyer,must,yes,no,lawyer module; needs review by a practising advocate before launch
+Matters with client, rate and file number,lawyer,must,yes,yes,"open or closed, search, one matter per case; unit and browser tested"
+Time entries and billing from a matter,lawyer,must,yes,yes,"1:30, 90m or 1.5 style entry, amount worked out once in paise and never changed by later rate edits; draft invoice with one narrative line per entry, at-cost expenses without GST, reverse charge and TDS from the matter; entries lock once billed; claim step stops double billing; unit and browser tested"
+Client money ledger,lawyer,must,yes,partial,"deposits, refunds and amounts kept for an invoice, append-only, balance can never go below zero even with two refunds at once; applying held money to an invoice as a payment is not built; bar council rules need a lawyer's review"
+Retainer and fixed-fee billing,lawyer,should,yes,no,next for the lawyer module
+Per-matter access and confidentiality,lawyer,should,yes,no,roles are per business today
+Hearing dates and deadlines,lawyer,should,yes,no,not built

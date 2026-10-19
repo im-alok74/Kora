@@ -27,6 +27,7 @@ export * from './webhooks.js';
 export * from './dashboard.js';
 export * from './firm.js';
 export * from './inbox.js';
+export * from './matters.js';
 export * from './reports.js';
 export * from './handlers.js';
 export * from './einvoice.js';

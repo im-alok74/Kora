@@ -59,11 +59,16 @@ for (const [category, amount, vendor, d] of [['Rent', '45000', 'Linking Road Est
 await post('/api/recurring', { name: 'Monthly retainer', partyId: customers[4], unit: 'month', startDate: day(-20), mode: 'issue_and_send', channel: 'whatsapp', termsDays: 15, lines: [line('Monthly retainer', '998313', '12000')] });
 await post('/api/late-fees', {}).catch(() => {});
 
+const mt = await post('/api/matters', { partyId: customers[0], title: 'Recovery suit against Delta Ltd', reference: 'CS-102/2026', rate: '3000' });
+await post(`/api/matters/${mt.id}/time`, { duration: '1:30', description: 'Drafting the plaint', date: day(6) });
+await post(`/api/matters/${mt.id}/time`, { duration: '45m', description: 'Conference with the client', date: day(3) });
+await post(`/api/matters/${mt.id}/expense`, { description: 'Court fee', amount: '1500', pureAgent: true, date: day(2) });
+await post(`/api/matters/${mt.id}/funds`, { kind: 'deposit', amount: '10000', note: 'Cheque 4412' });
 const portal = await post(`/api/parties/${customers[0]}/portal`, {});
 const pages: [string, string][] = [
   ['home', '/'], ['login', '/login'], ['dashboard', '/app'], ['invoices', '/app/invoices'], ['editor', '/app/invoices/new'], ['invoice', `/app/invoices/${ids[2]}`],
   ['customers', '/app/customers'], ['items', '/app/items'], ['reports', '/app/reports'], ['expenses', '/app/expenses'], ['settings', '/app/settings'],
-  ['data', '/app/data'], ['developers', '/app/developers'], ['team', '/app/team'], ['recurring', '/app/recurring'], ['activity', '/app/activity'], ['portal', new URL(portal.url).pathname],
+  ['data', '/app/data'], ['developers', '/app/developers'], ['team', '/app/team'], ['recurring', '/app/recurring'], ['matters', '/app/matters'], ['matter', `/app/matters/${mt.id}`], ['activity', '/app/activity'], ['portal', new URL(portal.url).pathname],
 ];
 for (const [name, path] of pages) {
   if (only.length && !only.includes(name)) continue;

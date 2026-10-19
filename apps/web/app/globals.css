@@ -95,6 +95,7 @@ table.t tbody tr:first-child td { border-top: 0; }
 table.t tbody tr { transition: background .1s; }
 table.t tbody tr:hover { background: #faf9f5; }
 table.t td.n, table.t th.n { text-align: right; font-variant-numeric: tabular-nums; }
+table.t td.n { white-space: nowrap; }
 table.t td a { font-weight: 600; text-decoration: none; }
 table.t td a:hover { text-decoration: underline; }
 table.t input, table.t select { height: 38px; font-size: 15px; }
@@ -201,6 +202,7 @@ iframe.preview { width: 100%; height: 880px; border: 1px solid var(--border); bo
 .doc-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; }
 .doc-side { display: flex; flex-direction: column; gap: 0; }
 .doc-side .panel h2 { font-size: 16px; }
+.doc-side .row > * { flex: 1 1 100%; }
 .doc-side table.t { width: 100%; box-shadow: none; } .doc-side .t th, .doc-side .t td { padding: 8px 6px; font-size: 13px; } .doc-side .t td.n { white-space: nowrap; } .doc-side .t td:first-child { white-space: nowrap; }
 
 /* a table that becomes a list of cards on a phone: number and status on top, customer and total below */

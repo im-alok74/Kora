@@ -217,7 +217,7 @@ CA firm, then lawyer, then freelancer, then shopkeeper, then B2B marketplace.
 | 1a | CA firm: clients roll-up with GST dates | **done**, tested |
 | 1b | CA firm: client inbox and review queue | **done**, tested |
 | 1c | CA firm: vendor bills, input tax credit, GSTR-2B matching, bulk filing data | next |
-| 2 | Lawyer: matters, time, retainers, client money, narrative invoice | planned |
+| 2 | Lawyer: matters, time, expenses, billing from a matter, client money ledger | **first version done**, tested. Still to do: retainer and fixed fees, apply held money to an invoice, per-matter access, hearing dates, legal invoice layout, review by an advocate and a CA |
 | 3 | Freelancer: time and projects, retainers, international clients and currency, payment links | planned |
 | 4 | Shopkeeper: stock, barcode billing, thermal and A5 print, Hindi | planned |
 | 5 | B2B marketplace: buyer and seller network, purchase orders, supplier invoices and e-way bills, trade credit | planned, needs a product decision |
