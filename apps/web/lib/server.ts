@@ -23,7 +23,7 @@ interface Services { sql: Sql; auth: Auth; gateway: PaymentGateway; gstin: Gstin
 const g = globalThis as unknown as { __kora?: Services };
 export function services(): Services {
   if (!g.__kora) {
-    const sql = createSql(need('DATABASE_URL'), { max: 10 });
+    const sql = createSql(need('DATABASE_URL'), { max: Number(process.env.DB_POOL_MAX ?? 10) });
     const auth = createAuth(sql, otpSenderFromEnv(), {
       hmacSecret: need('OTP_HMAC_SECRET'),
       sessionTtlDays: Number(process.env.SESSION_TTL_DAYS ?? 30),

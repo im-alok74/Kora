@@ -15,7 +15,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const dateAsString = { date: { to: 1082, from: [1082], serialize: (x: unknown) => String(x), parse: (x: string) => x } };
 
 export function createSql(url: string, opts: postgres.Options<{}> = {}): Sql {
-  return postgres(url, { onnotice: () => {}, types: dateAsString, ...opts }) as Sql;
+  // A transaction-mode pooler (port 6543, as on Supabase) does not support prepared statements.
+  const pooled = /:6543\//.test(url);
+  return postgres(url, { onnotice: () => {}, types: dateAsString, ...(pooled ? { prepare: false } : {}), ...opts }) as Sql;
 }
 
 export interface TenantContext {
