@@ -16,9 +16,10 @@ Kora issues legally correct GST documents, sends them on WhatsApp, collects by U
 | Compliance | E-invoice (IRN and QR) through a partner adapter with retry, rejection handling and the 24-hour cancellation window. GSTR-1 JSON export, GST summary, reconciliation to the ledger. |
 | Offline | Installable web app. Drafts made offline are kept on the device and sync when the connection returns, with conflict handling. |
 | Team | Owner, staff and accountant roles enforced in the database. Activity log that cannot be edited. Several businesses per login. |
+| Client portal | A private link per customer where they see what they owe, pay, answer estimates and read their statement, with no account. The business can replace or stop the link any time. |
 | Reports | Sales register, sales by customer, payments received, ageing, customer statement, with CSV export that is safe to open in a spreadsheet. |
 
-What is **not** in v1: filing returns, purchases and input tax credit, e-way bills, exports and SEZ, a customer portal, inventory. See [docs/compliance.md](docs/compliance.md).
+What is **not** in v1: filing returns, purchases and input tax credit, e-way bills, exports and SEZ, customer login accounts, inventory. See [docs/compliance.md](docs/compliance.md).
 
 ## Run it locally
 

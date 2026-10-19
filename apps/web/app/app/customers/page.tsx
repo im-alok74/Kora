@@ -12,6 +12,28 @@ export default function Customers() {
   const [editing, setEditing] = useState<string | null>(null);
   const [err, setErr] = useState('');
   const [q, setQ] = useState('');
+  const [role, setRole] = useState('');
+  const [portal, setPortal] = useState<{ party: Party; active: boolean; views: number; lastViewed: string | null; url: string | null; copied: boolean } | null>(null);
+  useEffect(() => { api('/api/business').then((b) => setRole(b.role)); }, []);
+  const canPortal = role === 'owner' || role === 'staff';
+
+  const openPortal = async (party: Party) => {
+    setErr('');
+    try {
+      const s = await api(`/api/parties/${party.id}/portal`);
+      setPortal({ party, active: !!s.active, views: s.view_count ?? 0, lastViewed: s.last_viewed_at ?? null, url: null, copied: false });
+    } catch (x) { setErr((x as Error).message); }
+  };
+  const makeLink = async () => {
+    if (!portal) return;
+    try { const r = await api(`/api/parties/${portal.party.id}/portal`, { body: {} }); setPortal({ ...portal, active: true, views: 0, lastViewed: null, url: r.url, copied: false }); }
+    catch (x) { setErr((x as Error).message); }
+  };
+  const stopLink = async () => {
+    if (!portal) return;
+    try { await api(`/api/parties/${portal.party.id}/portal`, { method: 'DELETE' }); setPortal({ ...portal, active: false, url: null }); }
+    catch (x) { setErr((x as Error).message); }
+  };
 
   const load = useCallback(() => api(`/api/parties${q ? `?q=${encodeURIComponent(q)}` : ''}`).then((r) => setRows(r.parties)), [q]);
   useEffect(() => { void load(); }, [load]);
@@ -58,11 +80,43 @@ export default function Customers() {
         {err && <p className="error" role="alert">{err}</p>}
       </form>
       <label htmlFor="sq">Search</label><input id="sq" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 320, marginBottom: 12 }} />
+      {portal && (
+        <div className="panel" role="region" aria-label={`Portal for ${portal.party.name}`} data-testid="portal-panel">
+          <div className="toolbar" style={{ marginBottom: 8 }}>
+            <h2 style={{ margin: 0 }}>Client portal: {portal.party.name}</h2>
+            <button className="secondary" onClick={() => setPortal(null)}>Close</button>
+          </div>
+          <p className="muted">A private page where this customer sees what they owe, pays, answers estimates and reads their statement. They need no account. Anyone with the link can open it.</p>
+          {portal.active && !portal.url && <p>The link is live. Opened {portal.views} time{portal.views === 1 ? '' : 's'}{portal.lastViewed ? `, last on ${portal.lastViewed.slice(0, 10)}` : ''}. For safety it can only be shown when it is made, so make a new one to share it again.</p>}
+          {portal.url && (
+            <>
+              <label htmlFor="portal-url">Link to send</label>
+              <input id="portal-url" readOnly value={portal.url} onFocus={(e) => e.currentTarget.select()} />
+              <div className="row" style={{ marginTop: 8, justifyContent: 'flex-start' }}>
+                <button className="secondary" style={{ flex: 'none', marginTop: 0 }} onClick={async () => { await navigator.clipboard.writeText(portal.url!); setPortal({ ...portal, copied: true }); }}>{portal.copied ? 'Copied' : 'Copy link'}</button>
+                {(() => {
+                  const digits = (portal.party.phone ?? '').replace(/\D/g, '').slice(-10);
+                  const text = `Hello ${portal.party.name}, you can see your account, pay and read your statement here: ${portal.url}`;
+                  return (<>
+                    {digits.length === 10 && <a className="btn secondary" style={{ flex: 'none', marginTop: 0 }} href={`https://wa.me/91${digits}?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">Share on WhatsApp</a>}
+                    {portal.party.email && <a className="btn secondary" style={{ flex: 'none', marginTop: 0 }} href={`mailto:${portal.party.email}?subject=${encodeURIComponent('Your account')}&body=${encodeURIComponent(text)}`}>Email it</a>}
+                  </>);
+                })()}
+              </div>
+            </>)}
+          <div className="row" style={{ marginTop: 12, justifyContent: 'flex-start' }}>
+            <button style={{ flex: 'none', marginTop: 0 }} onClick={() => void makeLink()}>{portal.active ? 'Make a new link' : 'Make a link'}</button>
+            {portal.active && <button className="danger" style={{ flex: 'none', marginTop: 0 }} onClick={() => void stopLink()}>Stop this link</button>}
+            <a className="btn secondary" style={{ flex: 'none', marginTop: 0 }} href={`/app/reports?tab=statement&party=${portal.party.id}`}>View statement</a>
+          </div>
+          {portal.active && <p className="muted">Making a new link stops the old one.</p>}
+        </div>)}
       <table className="t">
         <thead><tr><th>Name</th><th>GSTIN</th><th>State</th><th>Mobile</th><th /></tr></thead>
         <tbody>{rows.map((p) => (
           <tr key={p.id}><td>{p.name}</td><td>{p.gstin ?? ''}</td><td>{STATE_NAMES[p.state_code]}</td><td>{p.phone ?? ''}</td>
             <td className="n"><button className="link" onClick={() => { setEditing(p.id); setForm({ name: p.name, gstin: p.gstin ?? '', stateCode: p.state_code, phone: p.phone ?? '', email: p.email ?? '', line1: p.billing_address?.line1 ?? '', city: p.billing_address?.city ?? '', pincode: p.billing_address?.pincode ?? '' }); window.scrollTo(0, 0); }}>Edit</button>{' '}
+              {canPortal && <button className="link" onClick={() => void openPortal(p)}>Portal</button>}{' '}
               <button className="link" onClick={async () => { await api(`/api/parties/${p.id}`, { method: 'DELETE' }); await load(); }}>Archive</button></td></tr>))}</tbody>
       </table>
     </>

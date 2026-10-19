@@ -1,10 +1,10 @@
-import type { Sql } from '@kora/db';
+import { SYSTEM_USER, type Sql } from '@kora/db';
 import { getDocumentTx, linesToInput, persist, type DocIn } from './documents.js';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { ValidationError } from './validation.js';
 
 /** Accept or decline an issued estimate. The estimate itself stays frozen; the decision is recorded beside it. */
-export async function decideEstimate(sql: Sql, t: TenantSession, documentId: string, decision: 'accepted' | 'declined') {
+export async function decideEstimate(sql: Sql, t: TenantSession, documentId: string, decision: 'accepted' | 'declined', via: 'staff' | 'portal' = 'staff') {
   if (decision !== 'accepted' && decision !== 'declined') throw new ValidationError('Choose accepted or declined.', 'decision');
   return inTenant(sql, t, 'document.issue', async (tx) => {
     const [d] = await tx`select d.doc_type, d.status, estimate_status(d.status, d.due_date, b.timezone, es.decision, es.converted_to_id) as est
@@ -14,9 +14,12 @@ export async function decideEstimate(sql: Sql, t: TenantSession, documentId: str
     if (d.status !== 'issued') throw new ValidationError('Issue the estimate before recording an answer.');
     if (d.est === 'invoiced') throw new ValidationError('This estimate has already been turned into an invoice.');
     if (d.est === 'expired') throw new ValidationError('This estimate has expired. Make a new one.');
-    await tx`insert into estimate_state (business_id, document_id, decision, decided_at, decided_by)
-             values (${t.businessId}, ${documentId}, ${decision}, now(), ${t.userId})
-             on conflict (document_id) do update set decision = excluded.decision, decided_at = excluded.decided_at, decided_by = excluded.decided_by`;
+    // The automatic system actor is not a person, so no user is recorded when the customer answers from their portal.
+    const by = t.userId === SYSTEM_USER ? null : t.userId;
+    await tx`insert into estimate_state (business_id, document_id, decision, decided_at, decided_by, decided_via)
+             values (${t.businessId}, ${documentId}, ${decision}, now(), ${by}, ${via})
+             on conflict (document_id) do update set decision = excluded.decision, decided_at = excluded.decided_at,
+                                                     decided_by = excluded.decided_by, decided_via = excluded.decided_via`;
     return (await getDocumentTx(tx, documentId))!;
   });
 }

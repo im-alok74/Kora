@@ -37,6 +37,11 @@ One library computes everything, in integer paise, with these rules:
 - A recurring invoice set to issue automatically issues a real tax invoice on each date, with the next number in sequence, and queues its e-invoice if one is required. The owner is responsible for what the template says. Draft mode leaves each invoice for review first.
 - Each scheduled date makes at most one invoice, even if two workers run at once or the worker was down and catches up.
 
+### Client portal
+- Each customer can have one private link. It shows only that customer's issued invoices, estimates, payments and statement, lets them pay and answer estimates, and opens their documents through short-lived public links. It never shows drafts, other customers, or the business's reports.
+- The link's token is long and random and only its hash is stored. The business can make a new link (the old one stops) or stop it at any time. Anyone who has the link can open it, so the page says so; it is not a login.
+- An estimate answered from the portal is recorded as answered by the customer, with no staff user attached, and appears in the activity log as an automatic action.
+
 ### Returns data
 - **GSTR-1 JSON** for a month: B2B, B2CL, B2CS, credit and debit notes (registered and unregistered), nil and exempt supplies, HSN summary, and the document series summary. Kora proves that the sections add up to the sales ledger to the paisa and warns if they do not.
 - **GST summary** laid out like GSTR-3B table 3.1 (outward supplies), net of credit notes, with reverse-charge, nil-rated and exempt supplies shown apart.
@@ -80,4 +85,5 @@ Kora stores customers' names, GSTINs, addresses, phone numbers and emails on beh
 - Sign-in is by one-time code with rate limits, single-use codes, and HMAC-hashed storage. No passwords exist to leak. The portal password of a taxpayer is never requested or stored.
 - Webhooks are verified by signature on the raw body and are idempotent by event id.
 - The public invoice link holds only a hash of its token, can be revoked, and returns nothing but the one document.
+- The portal link works the same way for one customer. Every portal action checks that the document belongs to that customer before reading or changing it, and the portal pages are marked not to be indexed by search engines.
 - Spreadsheet exports neutralise cells that would run as formulas.

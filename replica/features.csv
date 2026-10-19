@@ -44,7 +44,7 @@ Multi-factor login,security,should,yes,partial,zoho MFA; kora uses OTP then pass
 Multi-business and per-document currency,business,should,yes,no,zoho multi-currency basic; bible v1.5
 Recurring invoices with auto-send,recurring,should,yes,yes,"weekly, monthly or yearly; draft, issue, or issue and send; worker makes each date exactly once, catches up, pauses without backfill; unit and browser tested"
 Auto-charge with saved mandate,recurring,should,yes,no,zoho saved cards; bible v2
-Client portal,portal,should,yes,no,zoho; bible v2
+Client portal,portal,should,yes,yes,"private link per customer: balance and overdue, invoices, pay, answer estimates, statement with CSV and print; hash-only token, replace or stop anytime; unit and browser tested. Customer login accounts and saved payment methods are not built"
 Inventory with batches serials barcodes,inventory,should,yes,no,mbb deep; zoho SKU only; bible v2
 Expenses and receipts,expenses,should,yes,no,zoho; mbb; bible v2
 Tally and Excel import and export,integrations,should,yes,no,mbb Tally export; zoho Tally XML extension; bible v2

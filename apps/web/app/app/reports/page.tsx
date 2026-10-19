@@ -8,11 +8,12 @@ const TABS: [Tab, string][] = [['sales', 'Sales register'], ['customers', 'Sales
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
 export default function Reports() {
-  const [tab, setTab] = useState<Tab>('sales');
+  const initial = typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(window.location.search);
+  const [tab, setTab] = useState<Tab>(() => (TABS.some(([k]) => k === initial.get('tab')) ? (initial.get('tab') as Tab) : 'sales'));
   const [from, setFrom] = useState(() => today().slice(0, 8) + '01');
   const [to, setTo] = useState(today);
   const [month, setMonth] = useState(() => today().slice(0, 7));
-  const [party, setParty] = useState('');
+  const [party, setParty] = useState(() => initial.get('party') ?? '');
   const [parties, setParties] = useState<{ id: string; name: string }[]>([]);
   const [loaded, setLoaded] = useState<{ query: string; body: any } | null>(null);
   const [err, setErr] = useState('');
