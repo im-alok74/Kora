@@ -28,7 +28,9 @@ export function services(): Services {
       hmacSecret: need('OTP_HMAC_SECRET'),
       sessionTtlDays: Number(process.env.SESSION_TTL_DAYS ?? 30),
     });
-    const appUrl = process.env.APP_URL ?? 'http://localhost:3000';
+    // On Vercel, the platform sets the production host; an explicit APP_URL (a custom domain) always wins.
+    const vercelHost = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+    const appUrl = process.env.APP_URL ?? (vercelHost ? `https://${vercelHost}` : 'http://localhost:3000');
     const gatewayName = process.env.GATEWAY ?? 'mock';
     const gatewaySecret = need('GATEWAY_WEBHOOK_SECRET');
     if (gatewayName !== 'mock') throw new Error(`Unknown GATEWAY "${gatewayName}". Real gateways need an approved account and keys first.`);
