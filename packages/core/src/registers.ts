@@ -117,6 +117,32 @@ export async function paymentsReceived(sql: Sql, t: TenantSession, f: { from?: s
   });
 }
 
+export const TDS_COLUMNS: Column<any>[] = [
+  { key: 'customer', label: 'Customer' }, { key: 'gstin', label: 'GSTIN' }, { key: 'invoices', label: 'Invoices with TDS' },
+  { key: 'expected', label: 'TDS the customer will deduct', money: true }, { key: 'received', label: 'TDS received as a credit', money: true }, { key: 'pending', label: 'Still to receive', money: true },
+];
+
+/**
+ * Tax deducted at source by customers, for invoices dated in the period: what each customer is expected to deduct (set on the invoice),
+ * what has been recorded as received (payments of the kind "TDS deducted by the customer"), and what is still to come. A way to follow up
+ * on the certificates and to check the credit in the tax account (Form 26AS or AIS) against your books.
+ */
+export async function tdsReceivable(sql: Sql, t: TenantSession, f: { from?: string; to?: string } = {}) {
+  return inTenant(sql, t, 'report.read', async (tx) => {
+    const [b] = await tx`select timezone from business where id = ${t.businessId}`;
+    const { from, to } = dateRange(f, b!.timezone as string);
+    const rows = await tx`
+      select coalesce(p.name, 'Walk-in customer') as customer, coalesce(p.gstin, '') as gstin, count(*)::int as invoices, sum(d.tds_paise)::text as expected,
+             coalesce(sum((select sum(a.amount_paise) from payment_allocation a join payment pay on pay.id = a.payment_id where a.document_id = d.id and pay.method = 'tds')), 0)::text as received
+        from document d left join party p on p.id = d.party_id
+       where d.status = 'issued' and d.doc_type in ('tax_invoice', 'bill_of_supply', 'debit_note') and d.tds_paise > 0 and d.doc_date between ${from}::date and ${to}::date
+       group by p.id, p.name, p.gstin order by customer`;
+    const out: Record<string, any>[] = rows.map((r) => ({ ...r, pending: (BigInt(r.expected as string) - BigInt(r.received as string)).toString() }));
+    const sum = (k: string) => out.reduce((n, r) => n + BigInt(r[k] as string), 0n).toString();
+    return { from, to, rows: out, totals: { expected: sum('expected'), received: sum('received'), pending: sum('pending') } };
+  });
+}
+
 export const STATEMENT_COLUMNS: Column<any>[] = [
   { key: 'date', label: 'Date' }, { key: 'description', label: 'Description' }, { key: 'debit', label: 'Billed', money: true },
   { key: 'credit', label: 'Received or credited', money: true }, { key: 'balance', label: 'Balance', money: true },

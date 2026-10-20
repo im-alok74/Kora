@@ -16,7 +16,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
 <body style="font-family:system-ui;max-width:420px;margin:12vh auto;padding:0 16px;color:#17201d">
 <p style="color:#8a5a00"><b>Test payment page.</b> No real money moves. This stands in for the payment gateway.</p>
 <h1 style="font-weight:600">${paid ? 'Payment received' : 'Pay ' + amount}</h1>
-${paid ? '<p>Thank you. You can close this page.</p>' : `<button id="pay" style="height:44px;padding:0 20px;border:0;border-radius:8px;background:#0b5d4f;color:#fff;font-size:16px;font-weight:600;cursor:pointer">Pay ${amount} (test)</button><p id="msg" role="status"></p>
+${paid ? '<p>Thank you. You can close this page.</p>' : `<button id="pay" style="height:44px;padding:0 20px;border:0;border-radius:8px;background:#7c2130;color:#fff;font-size:16px;font-weight:600;cursor:pointer">Pay ${amount} (test)</button><p id="msg" role="status"></p>
 <script>document.getElementById('pay').onclick=async()=>{const r=await fetch('/api/mock-gateway/${id}/pay',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});document.getElementById('msg').textContent=r.ok?'Payment received. Thank you.':'Could not complete the payment.';if(r.ok)document.getElementById('pay').remove()}</script>`}</body></html>`,
     { headers: { ...HEAD, 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'" } });
 }

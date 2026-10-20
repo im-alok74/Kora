@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { STATE_NAMES } from '@kora/tax';
 import { api, rupees } from '../../../lib/client';
 
-type Tab = 'sales' | 'customers' | 'payments' | 'ageing' | 'statement' | 'gst' | 'gstr3b' | 'gstr1';
-const TABS: [Tab, string][] = [['sales', 'Sales register'], ['customers', 'Sales by customer'], ['payments', 'Payments received'], ['ageing', 'Who owes you'], ['statement', 'Customer statement'], ['gst', 'GST summary'], ['gstr3b', 'GSTR-3B data'], ['gstr1', 'GSTR-1 data']];
+type Tab = 'sales' | 'customers' | 'payments' | 'ageing' | 'statement' | 'tds' | 'gst' | 'gstr3b' | 'gstr1';
+const TABS: [Tab, string][] = [['sales', 'Sales register'], ['customers', 'Sales by customer'], ['payments', 'Payments received'], ['ageing', 'Who owes you'], ['statement', 'Customer statement'], ['tds', 'TDS deducted'], ['gst', 'GST summary'], ['gstr3b', 'GSTR-3B data'], ['gstr1', 'GSTR-1 data']];
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
 export default function Reports() {
@@ -28,6 +28,7 @@ export default function Reports() {
       case 'customers': return `/api/reports/customers?${range}`;
       case 'payments': return `/api/reports/payments?${range}`;
       case 'ageing': return `/api/reports/ageing?asOf=${to}`;
+      case 'tds': return `/api/reports/tds?${range}`;
       case 'statement': return party ? `/api/reports/statement?${range}&party=${party}` : '';
       case 'gst': return `/api/reports/gst-summary?period=${month}`;
       case 'gstr3b': return `/api/reports/gstr3b?period=${month}`;
@@ -46,7 +47,7 @@ export default function Reports() {
   const data = loaded && loaded.query === query ? loaded.body : null;
 
   const monthly = tab === 'gst' || tab === 'gstr3b' || tab === 'gstr1';
-  const csvHref = query && ['sales', 'customers', 'payments', 'ageing', 'statement'].includes(tab) ? `${query}${query.includes('?') ? '&' : '?'}format=csv` : '';
+  const csvHref = query && ['sales', 'customers', 'payments', 'ageing', 'statement', 'tds'].includes(tab) ? `${query}${query.includes('?') ? '&' : '?'}format=csv` : '';
 
   return (
     <>
@@ -84,6 +85,14 @@ export default function Reports() {
         <table className="t"><thead><tr><th>Date</th><th>Customer</th><th>Method</th><th>Invoices</th><th className="n">Amount</th></tr></thead>
           <tbody>{data.rows.map((r: any, i: number) => <tr key={i}><td>{r.received_on}</td><td>{r.customer}</td><td>{r.method}</td><td>{r.invoices}{BigInt(r.unallocated) > 0n ? ` (${rupees(r.unallocated)} not applied)` : ''}</td><td className="n">{rupees(r.amount)}</td></tr>)}
             <tr><td colSpan={4}><b>Total received</b></td><td className="n"><b>{rupees(data.total)}</b></td></tr></tbody></table>
+      )}
+      {tab === 'tds' && data && (
+        <>
+          <p className="muted">Tax your customers deduct before paying you, for invoices dated in this period. Record the deduction as a payment of the kind &ldquo;TDS deducted by customer&rdquo; when the certificate arrives, and it moves from Still to receive to Received.</p>
+          <table className="t" aria-label="TDS deducted by customers"><thead><tr><th>Customer</th><th>GSTIN</th><th className="n">Invoices</th><th className="n">Expected</th><th className="n">Received</th><th className="n">Still to receive</th></tr></thead>
+            <tbody>{data.rows.length === 0 ? <tr><td colSpan={6} className="muted">No invoices with TDS in this period.</td></tr> : data.rows.map((r: any, i: number) => <tr key={i}><td>{r.customer}</td><td>{r.gstin}</td><td className="n">{r.invoices}</td><td className="n">{rupees(r.expected)}</td><td className="n">{rupees(r.received)}</td><td className="n"><b>{rupees(r.pending)}</b></td></tr>)}
+              {data.rows.length > 0 && <tr><td colSpan={3}><b>Total</b></td><td className="n"><b>{rupees(data.totals.expected)}</b></td><td className="n"><b>{rupees(data.totals.received)}</b></td><td className="n"><b>{rupees(data.totals.pending)}</b></td></tr>}</tbody></table>
+        </>
       )}
       {tab === 'ageing' && data && (
         <table className="t"><thead><tr><th>Customer</th><th className="n">Not due</th><th className="n">1-30</th><th className="n">31-60</th><th className="n">61-90</th><th className="n">Over 90</th><th className="n">Total</th></tr></thead>

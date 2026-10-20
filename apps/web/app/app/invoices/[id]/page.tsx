@@ -1,5 +1,6 @@
 'use client';
 import LateFeePanel from '../../../../components/LateFeePanel';
+import EwayPanel from '../../../../components/EwayPanel';
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { formatMoney } from '@kora/tax';
 import { api, DOC_LABEL, rupees } from '../../../../lib/client';
@@ -236,6 +237,8 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
           {einv.history.length > 0 && <p className="muted">{einv.history.length} earlier attempt{einv.history.length === 1 ? '' : 's'}.</p>}
         </div>
       )}
+
+      {isIssued && ['tax_invoice', 'bill_of_supply', 'delivery_challan'].includes(d.doc_type) && <EwayPanel documentId={id} canWrite={canIssue} />}
 
       {isIssued && receivable && (
         <div className="panel">

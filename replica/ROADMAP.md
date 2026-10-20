@@ -57,11 +57,11 @@ The screen people use all day. After this phase it has every field Zoho's invoic
 
 ## Phase 6: compliance that does not need a live partner (code only)
 
-- [ ] 6.1 E-way bill: data, validation, the JSON the portal accepts, and a mock partner path, with the same retry and plain-words errors as e-invoice (MyBillBook, SAG). M
-- [ ] 6.2 Export invoices under LUT and SEZ supplies, with a rate on the invoice and tax shown in rupees (Zoho, SAG). L
-- [ ] 6.3 GSTR-9 annual summary data (SAG). M
-- [ ] 6.4 TDS receivable and TDS payable reports (Zoho, SAG). S
-- [ ] 6.5 MSME payment-due warnings on vendor bills (Zoho). S
+- [x] 6.1 E-way bill: data, validation, the JSON the portal accepts, and a mock partner path, with the same retry and plain-words errors as e-invoice (MyBillBook, SAG). M Done: check, generate and cancel through the mock partner, validity shown, portal JSON download. Not checked against the live portal; extending validity is not built.
+- [ ] 6.2 Export invoices under LUT and SEZ supplies, with a rate on the invoice and tax shown in rupees (Zoho, SAG). L Open: needs a CA to confirm GSTR-1 table 6A and the e-invoice export fields.
+- [ ] 6.3 GSTR-9 annual summary data (SAG). M Open: needs a CA to confirm the table layout.
+- [x] 6.4 TDS receivable and TDS payable reports (Zoho, SAG). S Done for TDS receivable (Reports, TDS deducted, with CSV). TDS payable not built: Kora does not yet record TDS cut from vendor payments.
+- [ ] 6.5 MSME payment-due warnings on vendor bills (Zoho). S Open: needs a party Udyam flag and migration, next up.
 
 ## Phase 7: portal and customer accounts (code only)
 

@@ -52,3 +52,4 @@ export * from './messages.js';
 export * from './xlsx.js';
 export * from './invoiceimport.js';
 export * from './tallyimport.js';
+export * from './ewaybill.js';

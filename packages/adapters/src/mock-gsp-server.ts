@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { gstinValid } from '@kora/tax';
+import { ewayValidityDays, validateEwayPayload } from './eway.js';
 
 /**
  * A stand-in for the GST partner, speaking the NIC-style JSON the real one does. It checks the same rules the
@@ -105,6 +106,9 @@ const ist = (d: Date) => new Date(d.getTime() + 330 * 60_000).toISOString().slic
 export function createMockGspServer(opts: MockGspOptions = {}): { server: Server; reset(): void; registered(): Registered[] } {
   const now = opts.now ?? (() => new Date());
   const byIrn = new Map<string, Registered>();
+  const ewb = new Map<string, { no: string; key: string; at: Date; validUpto: Date; cancelledAt?: Date }>();
+  let ewbSeq = 331000000000 + Math.floor(Math.random() * 1e8) * 10;   // the test database outlives the mock, so numbers must not repeat between runs
+  const eway = (d: Date) => { const t = new Date(d.getTime() + 330 * 60_000); const h = t.getUTCHours(); const p = (n: number) => String(n).padStart(2, '0'); return `${p(t.getUTCDate())}/${p(t.getUTCMonth() + 1)}/${t.getUTCFullYear()} ${p(h % 12 === 0 ? 12 : h % 12)}:${p(t.getUTCMinutes())}:${p(t.getUTCSeconds())} ${h >= 12 ? 'PM' : 'AM'}`; };
   const attempts = new Map<string, number>();
   let ack = 100000000000;
 
@@ -165,6 +169,34 @@ export function createMockGspServer(opts: MockGspOptions = {}): { server: Server
         return send(res, 200, { Status: 1, Data: { Irn: r.irn, CancelDate: ist(r.cancelledAt) } });
       }
 
+      if (req.method === 'POST' && url.pathname === '/ewaybill/generate') {
+        const p = await body(req);
+        if (!p) return send(res, 400, { error: 'bad json' });
+        const pan = String(p?.toGstin ?? '').slice(2, 7);
+        const key = `${p?.fromGstin}|${p?.docType}|${p?.docNo}`;
+        if (pan === 'DOWNX') return send(res, 503, { error: 'service unavailable' });
+        const problems = validateEwayPayload(p);
+        if (problems.length) return fail(res, problems[0]!.code, problems[0]!.message, problems.map((x) => ({ ErrorCode: x.code, ErrorMessage: x.message })));
+        if (pan === 'REJEC') return fail(res, '238', 'The buyer GSTIN is not active on the GST portal.');
+        const prior = [...ewb.values()].find((e) => e.key === key && !e.cancelledAt);
+        if (prior) return fail(res, '604', `An e-way bill (${prior.no}) already exists for this document.`);
+        const at = now();
+        const e = { no: String(++ewbSeq), key, at, validUpto: new Date(at.getTime() + ewayValidityDays(Number(p.transDistance)) * 24 * 3600_000) };
+        ewb.set(e.no, e);
+        return send(res, 200, { Status: 1, Data: { ewayBillNo: Number(e.no), ewayBillDate: eway(e.at), validUpto: eway(e.validUpto) } });
+      }
+
+      if (req.method === 'POST' && url.pathname === '/ewaybill/cancel') {
+        const p = await body(req);
+        const e = p?.ewbNo ? ewb.get(String(p.ewbNo)) : undefined;
+        if (!e) return fail(res, '312', 'The e-way bill was not found.');
+        if (e.cancelledAt) return fail(res, '313', 'The e-way bill is already cancelled.');
+        if (![1, 2, 3, 4].includes(Number(p.cancelRsnCode))) return fail(res, '314', 'The cancel reason must be 1, 2, 3 or 4.');
+        if (now().getTime() - e.at.getTime() > 24 * 3600_000) return fail(res, '315', 'An e-way bill can be cancelled only within 24 hours of generation.');
+        e.cancelledAt = now();
+        return send(res, 200, { Status: 1, Data: { ewayBillNo: Number(e.no), cancelDate: eway(e.cancelledAt) } });
+      }
+
       if (req.method === 'GET' && url.pathname === '/einvoice/by-document') {
         const q = url.searchParams;
         const dt = String(q.get('dt'));
@@ -177,7 +209,7 @@ export function createMockGspServer(opts: MockGspOptions = {}): { server: Server
       send(res, 500, { error: (e as Error).message });
     }
   });
-  return { server, reset: () => { byIrn.clear(); attempts.clear(); }, registered: () => [...byIrn.values()] };
+  return { server, reset: () => { byIrn.clear(); attempts.clear(); ewb.clear(); }, registered: () => [...byIrn.values()] };
 }
 
 export async function startMockGsp(port = 0, opts: MockGspOptions = {}): Promise<{ url: string; close(): Promise<void>; reset(): void; registered(): Registered[] }> {

@@ -39,6 +39,27 @@ export interface GspClient {
   cancelIrn(a: { irn: string; reason: CancelReason; remark: string }): Promise<{ irn: string; cancelDate: string }>;
   /** Looks an IRN up by document, used to recover when a registration succeeded but the answer was lost. */
   getIrnByDocument(a: { sellerGstin: string; docType: 'INV' | 'CRN' | 'DBN'; docNo: string; docDate: string }): Promise<IrnResult | null>;
+  /** Asks the portal for an e-way bill for one consignment. The payload is the e-way bill JSON (see eway.ts). */
+  generateEwayBill(payload: Record<string, unknown>): Promise<EwayResult>;
+  /** Cancels an e-way bill, only possible within 24 hours of generation and before the goods move. */
+  cancelEwayBill(a: { ewbNo: string; reason: EwayCancelReason; remark: string }): Promise<{ ewbNo: string; cancelDate: string }>;
+}
+
+export interface EwayResult {
+  ewbNo: string;
+  /** ISO 8601, in UTC. */
+  ewbDate: string;
+  validUpto: string;
+}
+export type EwayCancelReason = '1' | '2' | '3' | '4';      // duplicate, order cancelled, data entry mistake, other
+
+/** "20/10/2026 12:01:00 PM" (India time) as an ISO time in UTC. */
+export function ewayDateToIso(s: string): string {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)?$/i.exec(s.trim());
+  if (!m) return new Date(s).toISOString();
+  let h = Number(m[4]);
+  if (m[7]) { h = h % 12; if (m[7].toUpperCase() === 'PM') h += 12; }
+  return new Date(Date.UTC(+m[3]!, +m[2]! - 1, +m[1]!, h, +m[5]!, +m[6]!) - 330 * 60_000).toISOString();
 }
 
 interface NicResponse<T> {
@@ -93,6 +114,19 @@ export function createHttpGsp(cfg: { baseUrl: string; token?: string; timeoutMs?
     async cancelIrn(a) {
       const r = await call<any>('POST', '/einvoice/cancel', { Irn: a.irn, CnlRsn: a.reason, CnlRem: a.remark });
       if (r.Status === 1 && r.Data) return { irn: r.Data.Irn, cancelDate: toIso(r.Data.CancelDate) };
+      throw new GspError('validation', r.ErrorCode ?? 'UNKNOWN', r.ErrorMessage ?? 'The portal refused the cancellation.');
+    },
+    async generateEwayBill(payload) {
+      const r = await call<any>('POST', '/ewaybill/generate', payload);
+      if (r.Status === 1 && r.Data) return { ewbNo: String(r.Data.ewayBillNo), ewbDate: ewayDateToIso(r.Data.ewayBillDate), validUpto: ewayDateToIso(r.Data.validUpto) };
+      const details = (r.ErrorDetails ?? []).map((d) => ({ code: d.ErrorCode, message: d.ErrorMessage }));
+      const code = r.ErrorCode ?? details[0]?.code ?? 'UNKNOWN';
+      if (['5001', '5002', '503'].includes(code)) throw new GspError('transient', code, r.ErrorMessage ?? 'Portal busy', details);
+      throw new GspError('validation', code, r.ErrorMessage ?? details[0]?.message ?? 'The portal rejected the e-way bill.', details);
+    },
+    async cancelEwayBill(a) {
+      const r = await call<any>('POST', '/ewaybill/cancel', { ewbNo: Number(a.ewbNo), cancelRsnCode: Number(a.reason), cancelRmrk: a.remark });
+      if (r.Status === 1 && r.Data) return { ewbNo: String(r.Data.ewayBillNo), cancelDate: ewayDateToIso(r.Data.cancelDate) };
       throw new GspError('validation', r.ErrorCode ?? 'UNKNOWN', r.ErrorMessage ?? 'The portal refused the cancellation.');
     },
     async getIrnByDocument(a) {
