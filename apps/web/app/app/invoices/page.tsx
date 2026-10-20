@@ -6,7 +6,7 @@ import { api, DOC_LABEL, rupees } from '../../../lib/client';
 import { isNetworkError, listDrafts, onDraftsChanged, type LocalDraft } from '../../../lib/offline';
 
 type Row = { id: string; doc_type: string; status: string; number: string | null; doc_date: string; grand_total_paise: string;
-  payment_status: string; party_name: string | null; einvoice_status: string; estimate_status?: string | null; currency?: string };
+  payment_status: string; party_name: string | null; einvoice_status: string; estimate_status?: string | null; currency?: string; due_date: string | null; amount_settled_paise: string };
 
 const EST_LABEL: Record<string, string> = { draft: 'Draft', open: 'Open', accepted: 'Accepted', declined: 'Declined', expired: 'Expired', invoiced: 'Invoiced', cancelled: 'Cancelled' };
 const EST_CHIP: Record<string, string> = { draft: 'draft', open: 'issued', accepted: 'paid', declined: 'cancelled', expired: 'cancelled', invoiced: 'paid', cancelled: 'cancelled' };
@@ -46,6 +46,12 @@ export default function Documents() {
     const bv = sort.key === 'grand_total_paise' ? Number(b.grand_total_paise) : String(sort.key === 'status' ? b.status : (b as Record<string, unknown>)[sort.key] ?? '');
     return (av < bv ? -1 : av > bv ? 1 : 0) * sort.dir;
   }) : rows;
+  const today = new Date().toISOString().slice(0, 10);
+  const owed = (r: Row) => (r.status === 'issued' && ['tax_invoice', 'bill_of_supply', 'debit_note'].includes(r.doc_type) && (!r.currency || r.currency === 'INR') ? BigInt(r.grand_total_paise) - BigInt(r.amount_settled_paise) : 0n);
+  const late = (r: Row) => owed(r) > 0n && !!r.due_date && r.due_date < today;
+  const outstanding = (rows ?? []).reduce((a, r) => a + owed(r), 0n);
+  const overdue = (rows ?? []).filter(late).reduce((a, r) => a + owed(r), 0n);
+  const draftCount = (rows ?? []).filter((r) => r.status === 'draft').length;
   const chosen = (rows ?? []).filter((r) => picked.has(r.id));
   const toggle = (id: string) => setPicked((s0) => { const n = new Set(s0); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const bulk = async (action: 'issue' | 'delete' | 'cancel' | 'remind', reason?: string) => {
@@ -73,6 +79,14 @@ export default function Documents() {
         </div>
         {canWrite && <a className="btn" href="/app/invoices/new"><Icon name="plus" size={18} />New invoice</a>}
       </div>
+      {rows && rows.length > 0 && (
+        <div className="doc-stats" aria-label="Summary of the documents shown">
+          <div><span className="k">Shown</span><b>{rows.length}</b></div>
+          <div><span className="k">Outstanding</span><b>{rupees(outstanding)}</b></div>
+          <div className={overdue > 0n ? 'owing' : ''}><span className="k">Overdue</span><b>{rupees(overdue)}</b></div>
+          <div><span className="k">Drafts</span><b>{draftCount}</b></div>
+        </div>
+      )}
       <div className="tabs" role="group" aria-label="Quick filters">
         {([['all', 'All', '', ''], ['invoices', 'Tax invoices', 'tax_invoice', ''], ['estimates', 'Estimates', 'estimate', ''], ['drafts', 'Drafts', '', 'draft'], ['cancelled', 'Cancelled', '', 'cancelled']] as const).map(([k, label, t, st]) => (
           <button key={k} type="button" aria-pressed={tab === k} onClick={() => pick(t, st)}>{label}</button>))}
@@ -125,17 +139,19 @@ export default function Documents() {
         </div>)}
       {rows && rows.length > 0 && (
         <table className="t cards">
-          <thead><tr><th aria-sort={sort?.key === 'number' ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>{canIssue && <input type="checkbox" aria-label="Select all documents" checked={rows.length > 0 && rows.every((r) => picked.has(r.id))} onChange={(e) => setPicked(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())} />} <button type="button" className="thsort" onClick={() => setSort((c) => (c?.key === 'number' ? (c.dir === 1 ? { key: 'number', dir: -1 } : null) : { key: 'number', dir: 1 }))}>Number{sort?.key === 'number' ? (sort.dir === 1 ? ' \u2191' : ' \u2193') : ''}</button></th>{th('Type', 'type')}{th('Customer', 'party_name')}{th('Date', 'doc_date')}{th('Total', 'grand_total_paise', true)}{th('Status', 'status')}</tr></thead>
+          <thead><tr><th aria-sort={sort?.key === 'number' ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>{canIssue && <input type="checkbox" aria-label="Select all documents" checked={rows.length > 0 && rows.every((r) => picked.has(r.id))} onChange={(e) => setPicked(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())} />} <button type="button" className="thsort" onClick={() => setSort((c) => (c?.key === 'number' ? (c.dir === 1 ? { key: 'number', dir: -1 } : null) : { key: 'number', dir: 1 }))}>Number{sort?.key === 'number' ? (sort.dir === 1 ? ' \u2191' : ' \u2193') : ''}</button></th>{th('Type', 'type')}{th('Customer', 'party_name')}{th('Date', 'doc_date')}<th>Due</th>{th('Total', 'grand_total_paise', true)}<th className="n">Balance</th>{th('Status', 'status')}</tr></thead>
           <tbody>{(sorted ?? rows).map((r) => (
             <tr key={r.id}>
               <td className="c-num">{canIssue && <input type="checkbox" aria-label={`Select ${r.number ?? 'draft'} for ${r.party_name ?? 'walk-in customer'}`} checked={picked.has(r.id)} onChange={() => toggle(r.id)} />} <a href={`/app/invoices/${r.id}`}>{r.number ?? 'Draft'}</a></td>
               <td className="c-type">{DOC_LABEL[r.doc_type]}</td>
               <td className="c-cust">{r.party_name ?? 'Walk-in'}</td>
               <td className="c-date">{r.doc_date}</td>
+              <td className="c-due">{r.due_date ?? ''}</td>
               <td className="n c-total">{r.currency && r.currency !== 'INR' ? formatMoney(BigInt(r.grand_total_paise), r.currency) : rupees(r.grand_total_paise)}</td>
+              <td className="n c-bal">{owed(r) > 0n ? <span className={late(r) ? 'bad' : ''}>{rupees(owed(r))}</span> : ''}</td>
               <td className="c-status">{r.estimate_status ? <span className={`chip ${EST_CHIP[r.estimate_status] ?? 'issued'}`}>{EST_LABEL[r.estimate_status] ?? r.estimate_status}</span> : (
-                <span className={`chip ${r.status === 'issued' && r.payment_status === 'paid' ? 'paid' : r.status === 'issued' && r.payment_status === 'part_paid' ? 'due' : r.status}`}>
-                {r.status === 'issued' ? (r.payment_status === 'paid' ? 'Paid' : r.payment_status === 'part_paid' ? 'Part paid' : 'Issued') : r.status === 'draft' ? 'Draft' : 'Cancelled'}</span>)}</td>
+                <span className={`chip ${late(r) ? 'cancelled' : r.status === 'issued' && r.payment_status === 'paid' ? 'paid' : r.status === 'issued' && r.payment_status === 'part_paid' ? 'due' : r.status}`}>
+                {late(r) ? 'Overdue' : r.status === 'issued' ? (r.payment_status === 'paid' ? 'Paid' : r.payment_status === 'part_paid' ? 'Part paid' : 'Issued') : r.status === 'draft' ? 'Draft' : 'Cancelled'}</span>)}</td>
             </tr>))}</tbody>
         </table>
       )}

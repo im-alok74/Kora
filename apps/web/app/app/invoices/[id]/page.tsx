@@ -99,9 +99,20 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
   const est = d.doc_type === 'estimate' ? (data.estimate ?? null) : null;
   const estAnswerable = !!est && isIssued && !['invoiced', 'expired'].includes(est.status);
   const outstanding = isIssued && receivable ? BigInt(d.grand_total_paise) - BigInt(d.amount_settled_paise) : 0n;
+  const today = new Date().toISOString().slice(0, 10);
+  const lateDays = d.due_date && d.due_date < today ? Math.round((Date.parse(today) - Date.parse(d.due_date)) / 86_400_000) : 0;
+  const sentOk = data.deliveries.some((x) => x.status === 'sent');
+  const steps: { name: string; note: string; done: boolean }[] = [
+    { name: 'Created', note: d.doc_date, done: true },
+    { name: 'Issued', note: isDraft ? 'Not yet' : (d.number ?? ''), done: !isDraft },
+    { name: 'Sent', note: sentOk ? 'Delivered' : 'Not sent yet', done: sentOk },
+    { name: 'Viewed', note: views > 0 ? `Opened ${views} time${views === 1 ? '' : 's'}` : 'Not opened yet', done: views > 0 },
+    ...(receivable ? [{ name: 'Paid', note: d.payment_status === 'paid' ? 'In full' : d.payment_status === 'part_paid' ? 'Part paid' : 'Waiting', done: d.payment_status === 'paid' }] : []),
+  ];
 
   return (
     <>
+      <nav className="crumbs" aria-label="Breadcrumb"><a href="/app/invoices">Documents</a><span aria-hidden="true">/</span><span aria-current="page">{label} {d.number ?? ''}</span></nav>
       <div className="doc-head">
         <div>
           <h1>{label} {d.number ?? ''}</h1>
@@ -112,10 +123,11 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
           <span className="muted">{d.party_name ?? 'Walk-in customer'} · {d.doc_date}{foreignCur ? ` · ${money(d.grand_total_paise)} at 1 ${foreignCur} = Rs ${(Number(d.exchange_rate_micro) / 1_000_000).toString()}` : ''}{est && d.due_date ? ` · valid until ${d.due_date}` : ''}</span>
           </div>
         </div>
-        <div className="doc-amount">
-          <div className="big">{money(d.grand_total_paise)}</div>
-          {outstanding > 0n && <div className="due">{rupees(outstanding)} due</div>}
-        </div>
+        {(isDraft || d.status === 'cancelled' || !receivable) && (
+          <div className="doc-amount">
+            <div className="big">{money(d.grand_total_paise)}</div>
+          </div>
+        )}
         <div className="row doc-actions">
           <a className="btn secondary" href="/app/invoices">Back</a>
           {isDraft && canIssue && <a className="btn secondary" href={`/app/invoices/${id}/edit`}>Edit</a>}
@@ -132,8 +144,22 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
       {msg && <p className="ok" role="status">{msg}</p>}
       {kora && <p className="muted" data-testid="kora-delivery" style={{ margin: '0 0 12px' }}>Sent through Kora to {kora.buyer}: {kora.sellerCancelled ? 'you cancelled it' : kora.status === 'new' ? 'waiting for them to accept' : kora.status === 'accepted' ? 'they accepted it' : `they rejected it${kora.reason ? ` (${kora.reason})` : ''}`}.</p>}
 
+      {!isDraft && d.status !== 'cancelled' && receivable && (
+        <div className="doc-stats" aria-label="Amounts">
+          <div><span className="k">Total</span><b>{money(d.grand_total_paise)}</b></div>
+          <div><span className="k">Received</span><b className="good">{rupees(d.amount_settled_paise)}</b></div>
+          <div className={outstanding > 0n ? 'owing' : ''}><span className="k">Balance due</span><b>{rupees(outstanding)}</b></div>
+          <div><span className="k">Due date</span><b>{d.due_date ?? 'On receipt'}</b>{lateDays > 0 && outstanding > 0n && <span className="late">{lateDays} day{lateDays === 1 ? '' : 's'} late</span>}</div>
+        </div>
+      )}
+      {d.status !== 'cancelled' && (
+        <ol className="timeline" aria-label="Progress">
+          {steps.map((st) => <li key={st.name} className={st.done ? 'done' : ''}><span className="dot" aria-hidden="true" /><b>{st.name}</b><span className="muted">{st.note}</span></li>)}
+        </ol>
+      )}
+
       <div className="doc-layout">
-        <div>
+        <div className="paper-stage">
   <iframe className="preview" title="Document preview" sandbox="" srcDoc={html} />
         </div>
         <div className="doc-side">

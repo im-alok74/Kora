@@ -247,11 +247,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
         <p className="section-label">Customer and dates</p>
         <div className="grid2">
           <div>
-            <label htmlFor="dt" style={{ marginTop: 0 }}>Document type</label>
-            <select id="dt" value={docType} onChange={(e) => { setDocType(e.target.value); if (!['estimate', 'proforma'].includes(e.target.value)) setCurrency('INR'); }} disabled={!!original}>
-              {Object.entries(DOC_LABEL).filter(([k]) => original ? k === docType : !['credit_note', 'debit_note'].includes(k)).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-            <label htmlFor="cu">Customer</label>
+            <label htmlFor="cu" style={{ marginTop: 0 }}>Customer</label>
             <select id="cu" value={newCust ? '__new' : partyId} onChange={(e) => { if (e.target.value === '__new') setNewCust(true); else { setNewCust(false); setPartyId(e.target.value); const pc = parties.find((x) => x.id === e.target.value)?.currency; if (quote && pc && pc !== 'INR' && currency === 'INR') setCurrency(pc); } }} disabled={!!original}>
               <option value="">Walk-in customer</option>
               {parties.map((p) => <option key={p.id} value={p.id}>{p.name}{p.gstin ? ` (${p.gstin})` : ''}</option>)}
@@ -267,10 +263,14 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
               </div>)}
             {quote && currency !== 'INR' && <p className="muted">This is a quote, not a tax invoice. When the customer accepts, it turns into an invoice in rupees at this rate.</p>}
           </div>
-          <div className="grid2">
-            <div><label htmlFor="dd">Date</label><input id="dd" type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} /></div>
-            <div><label htmlFor="du">{docType === 'estimate' ? 'Valid until' : 'Due date'}</label><input id="du" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>
+          <div>
+            <label htmlFor="dt" style={{ marginTop: 0 }}>Document type</label>
+            <select id="dt" value={docType} onChange={(e) => { setDocType(e.target.value); if (!['estimate', 'proforma'].includes(e.target.value)) setCurrency('INR'); }} disabled={!!original}>
+              {Object.entries(DOC_LABEL).filter(([k]) => original ? k === docType : !['credit_note', 'debit_note'].includes(k)).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
           </div>
+          <div><label htmlFor="dd">Date</label><input id="dd" type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} /></div>
+          <div><label htmlFor="du">{docType === 'estimate' ? 'Valid until' : 'Due date'}</label><input id="du" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>
         </div>
         {newCust && online && (
           <fieldset style={{ border: '1px solid var(--border)', borderRadius: 8, marginTop: 12 }}>
@@ -301,20 +301,20 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
       <section className="panel" aria-label="Items">
       <p className="section-label">Items</p>
       <table className="t line-table" aria-label="Line items">
-        <thead><tr><th>Description</th><th>HSN/SAC</th><th className="n">Qty</th><th className="n">Rate{currency !== 'INR' ? ` (${currency})` : ''}</th><th className="n">Discount</th><th>GST</th><th className="n">Amount</th><th /></tr></thead>
+        <thead><tr><th>Item details</th><th className="n">Qty</th><th className="n">Rate{currency !== 'INR' ? ` (${currency})` : ''}</th><th className="n">Discount</th><th>GST</th><th className="n">Amount</th><th /></tr></thead>
         <tbody>
           {lines.map((l, i) => {
             const idx = lines.filter((x) => x.name.trim() || x.rate).findIndex((x) => x.key === l.key);
             return (
               <tr key={l.key}>
-                <td data-label="Description"><input aria-label={`Line ${i + 1} description`} list="items-list" value={l.name} onChange={(e) => pickName(l.key, e.target.value)} /></td>
-                <td data-label="HSN or SAC"><input aria-label={`Line ${i + 1} HSN or SAC`} style={{ width: 96 }} inputMode="numeric" value={l.hsnSac} onChange={(e) => setLine(l.key, { hsnSac: e.target.value })} /></td>
-                <td className="n" data-label="Quantity"><input aria-label={`Line ${i + 1} quantity`} style={{ width: 72 }} inputMode="decimal" value={l.quantity} onChange={(e) => setLine(l.key, { quantity: e.target.value })} /></td>
-                <td className="n" data-label="Rate"><input aria-label={`Line ${i + 1} rate`} style={{ width: 110 }} inputMode="decimal" value={l.rate} onChange={(e) => setLine(l.key, { rate: e.target.value })} /></td>
-                <td className="n" data-label="Discount"><input aria-label={`Line ${i + 1} discount`} style={{ width: 90 }} inputMode="decimal" value={l.discount} onChange={(e) => setLine(l.key, { discount: e.target.value })} /></td>
+                <td className="item-cell" data-label="Description"><input aria-label={`Line ${i + 1} description`} placeholder="Item or service" list="items-list" value={l.name} onChange={(e) => pickName(l.key, e.target.value)} />
+                  <div className="item-sub"><div className="sub-field"><span aria-hidden="true">HSN/SAC</span><input aria-label={`Line ${i + 1} HSN or SAC`} inputMode="numeric" value={l.hsnSac} onChange={(e) => setLine(l.key, { hsnSac: e.target.value })} /></div>
+                    <label className="incl"><input type="checkbox" aria-label={`Line ${i + 1} price includes GST`} checked={l.taxInclusive} onChange={(e) => setLine(l.key, { taxInclusive: e.target.checked })} /> price has GST in it</label></div></td>
+                <td className="n" data-label="Quantity"><input aria-label={`Line ${i + 1} quantity`} inputMode="decimal" value={l.quantity} onChange={(e) => setLine(l.key, { quantity: e.target.value })} /></td>
+                <td className="n" data-label="Rate"><input aria-label={`Line ${i + 1} rate`} inputMode="decimal" value={l.rate} onChange={(e) => setLine(l.key, { rate: e.target.value })} /></td>
+                <td className="n" data-label="Discount"><input aria-label={`Line ${i + 1} discount`} inputMode="decimal" value={l.discount} onChange={(e) => setLine(l.key, { discount: e.target.value })} /></td>
                 <td data-label="GST"><select aria-label={`Line ${i + 1} GST rate`} value={l.taxRateBp} onChange={(e) => setLine(l.key, { taxRateBp: Number(e.target.value) })}>
-                  {TAX_RATES.map((r) => <option key={r.bp} value={r.bp}>{r.label}</option>)}</select>
-                  <label className="incl"><input type="checkbox" aria-label={`Line ${i + 1} price includes GST`} checked={l.taxInclusive} onChange={(e) => setLine(l.key, { taxInclusive: e.target.checked })} /> price has GST in it</label></td>
+                  {TAX_RATES.map((r) => <option key={r.bp} value={r.bp}>{r.label}</option>)}</select></td>
                 <td className="n line-amount" data-label="Amount">{idx >= 0 && totals?.lines[idx]?.total ? rupees(totals.lines[idx]!.total) : ''}</td>
                 <td className="line-remove">{lines.length > 1 && <button type="button" className="link" aria-label={`Remove line ${i + 1}`} onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}>Remove</button>}</td>
               </tr>
@@ -347,6 +347,12 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
       <aside className="editor-side" aria-label="Summary">
         <div className="sumcard">
           <p className="section-label">Summary</p>
+          <div className="billto">
+            <span className="k">Bill to</span>
+            <b>{parties.find((p) => p.id === partyId)?.name ?? 'Walk-in customer'}</b>
+            {parties.find((p) => p.id === partyId)?.gstin && <span className="muted">GSTIN {parties.find((p) => p.id === partyId)?.gstin}</span>}
+            {totals && <span className="muted">Place of supply: {STATE_NAMES[totals.placeOfSupply]}</span>}
+          </div>
           <div className="totals" aria-live="polite" aria-label="Totals">
             {totals ? (<>
               <div><span>Taxable value</span><span>{rupees(totals.taxable)}</span></div>
