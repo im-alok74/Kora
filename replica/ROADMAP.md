@@ -49,11 +49,11 @@ The screen people use all day. After this phase it has every field Zoho's invoic
 
 ## Phase 5: moving in and out (code only)
 
-- [ ] 5.1 Excel (.xlsx) import for customers and items (Vyapar, MyBillBook). M
-- [ ] 5.2 Invoice import from CSV or Excel, with a mapping step and a dry run (Zoho, Vyapar). L
-- [ ] 5.3 Migration helpers: column maps for Zoho Invoice, MyBillBook and Vyapar exports (all). M
-- [ ] 5.4 Tally import, to complement the Tally export (SAG, Tally). M
-- [ ] 5.5 Customer and statement export per customer (all). S
+- [x] 5.1 Excel (.xlsx) import for customers and items, with the same preview and checks as CSV; the reader caps size, parts and rows because the file is untrusted (Vyapar, MyBillBook). M
+- [x] 5.2 Invoices from CSV or Excel as DRAFTS, with a dry run that checks each one and groups lines by reference; the old number is kept as the reference because Kora numbers a document only when it is issued; importing the same file twice makes nothing new (Zoho, Vyapar). L. Headings are recognised by name; there is no manual column-mapping screen
+- [x] 5.3 Column names from Zoho Invoice, MyBillBook and Vyapar exports are recognised for customers and items, with two-letter state codes. The names come from those products' public templates and help pages and are not checked against a current real export, so a changed heading shows as ignored and can be renamed (all). M
+- [x] 5.4 Customers from a Tally ledger export (Sundry Debtors only), to complement the Tally export (SAG, Tally). M. Not tried against a live Tally file; the XML tags follow Tally's documented master format
+- [x] 5.5 Statement of account per customer, as CSV, from the customer page (all). S
 
 ## Phase 6: compliance that does not need a live partner (code only)
 
@@ -102,6 +102,7 @@ Phase 1 first because it is the screen every customer judges the product on. Pha
 
 | Date | Phase | What changed |
 |---|---|---|
+| 20 Oct 2026 | Phase 5 | Excel reader, invoices as drafts from a spreadsheet, Tally ledger import, other software's column names, customer statement download (migration 0030) |
 | 20 Oct 2026 | Phase 4 | Template gallery with two new looks (Modern, Minimal), message wording editor (migration 0029), payment receipts. Languages and email attachments left open with reasons |
 | 20 Oct 2026 | Phase 3 | Saved views, column chooser, CSV export from lists, keyboard shortcuts and help sheet, team notes on documents (migration 0028). Guided tour left open |
 | 20 Oct 2026 | Phase 2.5 | Bank statement page: CSV reader for common bank formats, matching to open invoices and bills, confirmation, duplicate protection. Also fixed two contrast failures the new palette introduced (sidebar group labels, landing band) |

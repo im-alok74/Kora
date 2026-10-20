@@ -4,6 +4,8 @@ import { createItem, validateItem, type ItemInput } from './items.js';
 import { createParty, validateParty, type PartyInput } from './parties.js';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { isValidationError, ValidationError } from './validation.js';
+import { readXlsx, rowsToCsv } from './xlsx.js';
+import { parseTallyLedgers } from './tallyimport.js';
 
 /**
  * Bring customers and items in from a spreadsheet saved as CSV. A preview shows what would happen to every row first;
@@ -41,15 +43,20 @@ export function parseCsv(text: string): string[][] {
 const norm = (h: string) => h.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const ALIASES: Record<ImportKind, Record<string, string[]>> = {
   customers: {
-    name: ['name', 'customer', 'customer name', 'party', 'party name', 'company'], gstin: ['gstin', 'gst number', 'gst no', 'gstin uin'],
-    state: ['state', 'state code', 'state name', 'place of supply'], phone: ['phone', 'mobile', 'mobile number', 'phone number', 'contact'],
-    email: ['email', 'email id', 'e mail', 'email address'], address: ['address', 'address line 1', 'line 1', 'street'], city: ['city', 'town'],
-    pincode: ['pincode', 'pin code', 'pin', 'zip', 'postal code'], currency: ['currency', 'usual quote currency'],
+    name: ['name', 'customer', 'customer name', 'party', 'party name', 'company', 'display name', 'company name', 'contact name', 'ledger name'],
+    gstin: ['gstin', 'gst number', 'gst no', 'gstin uin', 'gstin no', 'gstin number', 'gst identification number gstin', 'gst in', 'party gstin'],
+    state: ['state', 'state code', 'state name', 'place of supply', 'place of contact', 'billing state', 'billing state code', 'state place of supply'],
+    phone: ['phone', 'mobile', 'mobile number', 'phone number', 'contact', 'mobilephone', 'mobile phone', 'phone no', 'mobile no', 'contact number', 'contact no'],
+    email: ['email', 'email id', 'e mail', 'email address', 'emailid', 'mail'],
+    address: ['address', 'address line 1', 'line 1', 'street', 'billing address', 'billing street', 'billing address line 1', 'address line1'],
+    city: ['city', 'town', 'billing city'],
+    pincode: ['pincode', 'pin code', 'pin', 'zip', 'postal code', 'billing code', 'billing zip', 'billing pin code', 'billing pincode'], currency: ['currency', 'usual quote currency', 'currency code'],
   },
   items: {
-    name: ['name', 'item', 'item name', 'description', 'product', 'product name'], kind: ['type', 'kind', 'item type', 'goods or service'],
-    hsn: ['hsn', 'sac', 'hsn sac', 'hsn or sac', 'hsn code', 'sac code'], unit: ['unit', 'uom', 'unit of measure'],
-    gst: ['gst', 'gst percent', 'gst rate', 'tax', 'tax rate', 'gst %'], price: ['price', 'rate', 'selling price', 'sale price', 'unit price'],
+    name: ['name', 'item', 'item name', 'description', 'product', 'product name'], kind: ['type', 'kind', 'item type', 'goods or service', 'product type'],
+    hsn: ['hsn', 'sac', 'hsn sac', 'hsn or sac', 'hsn code', 'sac code', 'hsn sac code'], unit: ['unit', 'uom', 'unit of measure', 'usage unit', 'primary unit'],
+    gst: ['gst', 'gst percent', 'gst rate', 'tax', 'tax rate', 'gst %', 'intra state tax percentage', 'intra state tax rate', 'tax percentage', 'gst tax rate', 'gst rate percentage'],
+    price: ['price', 'rate', 'selling price', 'sale price', 'unit price', 'sales price', 'selling rate'],
   },
 };
 const REQUIRED: Record<ImportKind, string[]> = { customers: ['name'], items: ['name'] };
@@ -69,9 +76,16 @@ function mapColumns(kind: ImportKind, header: string[]) {
 }
 
 const stateByName = new Map(Object.entries(STATE_NAMES).map(([code, name]) => [name.toLowerCase(), code]));
+/** Two-letter abbreviations as other billing software writes them, to the GST state code. */
+const ABBREVIATIONS: Record<string, string> = {
+  JK: '01', HP: '02', PB: '03', CH: '04', UK: '05', UT: '05', HR: '06', DL: '07', RJ: '08', UP: '09', BR: '10', SK: '11', AR: '12', NL: '13', MN: '14', MZ: '15', TR: '16', ML: '17',
+  AS: '18', WB: '19', JH: '20', OD: '21', OR: '21', CG: '22', MP: '23', GJ: '24', DD: '26', DN: '26', MH: '27', KA: '29', GA: '30', LD: '31', KL: '32', TN: '33', PY: '34', AN: '35', TS: '36', AP: '37', LA: '38',
+};
+
 function resolveState(v: string | undefined): string | undefined {
   const s = (v ?? '').trim();
   if (!s) return undefined;
+  if (/^[A-Za-z]{2}$/.test(s) && ABBREVIATIONS[s.toUpperCase()]) return ABBREVIATIONS[s.toUpperCase()];
   if (/^\d{1,2}$/.test(s)) { const code = s.padStart(2, '0'); if (STATE_NAMES[code]) return code; throw new ValidationError(`State code ${s} is not a state.`, 'state'); }
   const code = stateByName.get(s.toLowerCase());
   if (!code) throw new ValidationError(`"${s}" is not a state name Kora knows. Use the state's full name or its two-digit code.`, 'state');
@@ -197,4 +211,17 @@ export async function commitImport(sql: Sql, t: TenantSession, kind: ImportKind,
   await inTenant(sql, t, kind === 'customers' ? 'party.write' : 'item.write', (tx) =>
     tx`insert into data_export (business_id, user_id, kind, detail) values (${t.businessId}, ${t.userId}, ${'import_' + kind}, ${tx.json({ created, skipped, failed: out.failed } as never)})`);
   return out;
+}
+
+/**
+ * The file as the importer reads it: a CSV as it is, an Excel workbook (base64) turned into rows, or a Tally ledger export turned into customers.
+ * Whatever arrives, it then goes through the same checks, so a spreadsheet gets the same preview and the same plain-words errors as a CSV.
+ */
+export function importTextFrom(input: { csv?: string; xlsxBase64?: string; tallyXml?: string }): string {
+  if (input.xlsxBase64 !== undefined) {
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(input.xlsxBase64)) throw new ValidationError('The Excel file could not be read.', 'file');
+    return rowsToCsv(readXlsx(Buffer.from(input.xlsxBase64, 'base64')));
+  }
+  if (input.tallyXml !== undefined) return parseTallyLedgers(input.tallyXml);
+  return String(input.csv ?? '');
 }

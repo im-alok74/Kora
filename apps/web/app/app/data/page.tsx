@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '../../../lib/client';
+import InvoiceImport from '../../../components/InvoiceImport';
 
 type PreviewRow = { line: number; status: 'ok' | 'duplicate' | 'error'; message: string | null; name: string };
 type Preview = { kind: string; columns: { mapped: string[]; ignored: string[] }; counts: { total: number; ok: number; duplicate: number; error: number }; rows: PreviewRow[] };
@@ -37,7 +38,7 @@ export default function Data() {
 
   // import
   const [kind, setKind] = useState<'customers' | 'items'>('customers');
-  const [csv, setCsv] = useState('');
+  const [payload, setPayload] = useState<Record<string, string> | null>(null);
   const [fileName, setFileName] = useState('');
   const [preview, setPreview] = useState<Preview | null>(null);
   const [result, setResult] = useState<Result | null>(null);
@@ -45,17 +46,25 @@ export default function Data() {
   const [busy, setBusy] = useState(false);
 
   const chooseFile = async (f: File | null) => {
-    setPreview(null); setResult(null); setErr(''); setCsv(''); setFileName('');
+    setPreview(null); setResult(null); setErr(''); setPayload(null); setFileName('');
     if (!f) return;
-    if (f.size > 1_000_000) { setErr('The file is larger than 1 MB. Split it into smaller files.'); return; }
-    const text = await f.text();
-    setCsv(text); setFileName(f.name); setBusy(true);
-    try { setPreview((await api('/api/data/import', { body: { kind, csv: text } })).preview); }
+    const lower = f.name.toLowerCase();
+    const xlsx = lower.endsWith('.xlsx'), tally = lower.endsWith('.xml');
+    if (f.size > (xlsx ? 10_000_000 : tally ? 5_000_000 : 1_000_000)) { setErr(xlsx ? 'The Excel file is larger than 10 MB. Split it into smaller files.' : tally ? 'The Tally file is larger than 5 MB. Export only the ledgers you need.' : 'The file is larger than 1 MB. Split it into smaller files.'); return; }
+    let body: Record<string, string>;
+    if (xlsx) {
+      const bytes = new Uint8Array(await f.arrayBuffer());
+      let bin = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      body = { xlsx: btoa(bin) };
+    } else body = tally ? { tally: await f.text() } : { csv: await f.text() };
+    setPayload(body); setFileName(f.name); setBusy(true);
+    try { setPreview((await api('/api/data/import', { body: { kind, ...body } })).preview); }
     catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
   const doImport = async () => {
     setBusy(true); setErr('');
-    try { setResult((await api('/api/data/import', { body: { kind, csv, commit: true } })).result); setPreview(null); setCsv(''); setFileName(''); }
+    try { setResult((await api('/api/data/import', { body: { kind, ...payload, commit: true } })).result); setPreview(null); setPayload(null); setFileName(''); }
     catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
   const template = `data:text/csv;charset=utf-8,${encodeURIComponent('﻿' + TEMPLATES[kind])}`;
@@ -117,12 +126,16 @@ export default function Data() {
         <h2>Import from a spreadsheet</h2>
         {!canImport ? <p className="muted">Importing is for the owner and staff.</p> : (
           <>
-            <p className="muted">Save your sheet as CSV (in Excel: File, Save As, CSV). The first row must name the columns. Rows that already exist are skipped, so it is safe to try again.</p>
+            <p className="muted">Use a CSV or an Excel (.xlsx) file whose first row names the columns. Customers can also come from a Tally ledger export (XML). Rows that already exist are skipped, so it is safe to try again.</p>
+            <details><summary>Moving from other software</summary>
+              <p className="muted">Export your customers and items from the old software as CSV or Excel and upload them here. Kora recognises the usual column names, including those in Zoho Invoice, MyBillBook and Vyapar exports (for example Display Name, Billing City, Place of Contact, HSN/SAC, Intra State Tax Percentage), and two-letter state codes such as MH. If a column is not recognised it is listed as ignored; rename its heading and upload again.</p>
+              <p className="muted">From Tally: Export, Masters, XML, and include the ledgers. Only the ones under Sundry Debtors become customers.</p>
+            </details>
             <div className="row">
               <div><label htmlFor="ik">What are you importing?</label>
-                <select id="ik" value={kind} onChange={(e) => { setKind(e.target.value as 'customers' | 'items'); setPreview(null); setResult(null); setCsv(''); setFileName(''); setErr(''); }}>
+                <select id="ik" value={kind} onChange={(e) => { setKind(e.target.value as 'customers' | 'items'); setPreview(null); setResult(null); setPayload(null); setFileName(''); setErr(''); }}>
                   <option value="customers">Customers</option><option value="items">Items</option></select></div>
-              <div><label htmlFor="if">CSV file</label><input id="if" type="file" accept=".csv,text/csv" onChange={(e) => void chooseFile(e.target.files?.[0] ?? null)} /></div>
+              <div><label htmlFor="if">CSV file (or an Excel or Tally file)</label><input id="if" type="file" accept=".csv,text/csv,.xlsx,.xml" onChange={(e) => void chooseFile(e.target.files?.[0] ?? null)} /></div>
             </div>
             <p><a href={template} download={`kora_${kind}_template.csv`}>Download a template</a></p>
             {err && <p className="error" role="alert">{err}</p>}
@@ -146,6 +159,8 @@ export default function Data() {
               </div>)}
           </>)}
       </section>
+
+      {canImport && <InvoiceImport />}
     </>
   );
 }

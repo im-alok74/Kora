@@ -77,6 +77,7 @@ export default function Customer({ params }: { params: Promise<{ id: string }> }
                 <td>{x.status === 'draft' ? 'Draft' : x.status === 'cancelled' ? 'Cancelled' : x.payment_status === 'paid' ? 'Paid' : x.payment_status === 'part_paid' ? 'Part paid' : 'Issued'}</td></tr>))}</tbody></table>)}
         </div>)}
 
+      {tab === 'payments' && <p><a className="btn secondary sm" href={`/api/reports/statement?party=${id}&from=2017-07-01&format=csv`}>Download statement (CSV)</a></p>}
       {tab === 'payments' && credit && (
         <div className="panel" aria-label="Advances and credit">
           <h2>Advances and credit</h2>
