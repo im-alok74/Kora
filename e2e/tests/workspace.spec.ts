@@ -67,8 +67,17 @@ test('the dark theme can be switched on, is remembered, and is applied before th
   await page.getByRole('button', { name: 'Switch to the dark theme' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.getByRole('button', { name: 'Switch to the light theme' })).toHaveAttribute('aria-pressed', 'true');
-  const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  expect(bg).toBe('rgb(13, 20, 18)');
+  // The dark background is whatever the theme's own colour is, so a change of palette does not need this test changed.
+  const { bg, want } = await page.evaluate(() => {
+    const probe = document.createElement('div');
+    probe.style.background = getComputedStyle(document.documentElement).getPropertyValue('--bg');
+    document.body.appendChild(probe);
+    const want = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return { bg: getComputedStyle(document.body).backgroundColor, want };
+  });
+  expect(bg).toBe(want);
+  expect(bg).not.toBe('rgb(247, 245, 240)');                                         // and it is not the light page colour
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.getByRole('button', { name: 'Switch to the light theme' }).click();

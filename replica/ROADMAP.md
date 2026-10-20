@@ -26,9 +26,9 @@ The screen people use all day. After this phase it has every field Zoho's invoic
 - [ ] 2.2 Receipt voucher for an advance on services, which GST requires when the money is received (Zoho retainer invoices). M, **a CA must confirm the wording and tax treatment first**. Advances themselves are done (2.3)
 - [x] 2.3 Customer credit: an advance or overpayment held on the customer and applied to an invoice in one click (Zoho, QuickBooks). M
 - [x] 2.4 Refund of money held for a customer, guarded in the database so it can never be applied and refunded twice (Zoho). S
-- [ ] 2.5 Bank statement upload (CSV) with suggested matches to open invoices and bills (Vyapar, QuickBooks). L
-- [ ] 2.6 A second gateway adapter, Cashfree, behind the same interface (Zoho, Vyapar). M, **needs keys to go live**
-- [ ] 2.7 Billable expenses that turn into invoice lines (Zoho). S
+- [x] 2.5 Bank statement upload (CSV) with suggested matches to open invoices and bills, recorded on confirmation, never twice (Vyapar, QuickBooks). L. Page: Bank
+- [ ] 2.6 A second gateway adapter, Cashfree, behind the same interface (Zoho, Vyapar). M, **needs Cashfree's API documentation and test keys: the request and webhook signing formats must come from their documents, not from memory**
+- [ ] 2.7 Billable expenses that turn into invoice lines (Zoho). S, **needs a CA decision first: re-billed costs are taxed differently as a pure agent's reimbursement than as part of the supply**
 
 ## Phase 3: lists and workspace (code only)
 
@@ -102,6 +102,7 @@ Phase 1 first because it is the screen every customer judges the product on. Pha
 
 | Date | Phase | What changed |
 |---|---|---|
+| 20 Oct 2026 | Phase 2.5 | Bank statement page: CSV reader for common bank formats, matching to open invoices and bills, confirmation, duplicate protection. Also fixed two contrast failures the new palette introduced (sidebar group labels, landing band) |
 | 20 Oct 2026 | Phase 2 (part) | Advances, customer credit, refunds, pay at the counter with a PAID mark (migration 0027). E2E now builds into `.next-e2e`, so it can run beside a dev server |
 | 20 Oct 2026 | Phase 1 | Default notes and terms, extra details, salesperson, live preview tab, attachments (migrations 0025, 0026) |
 | 20 Oct 2026 | Before phase 1 | Order or PO number, subject, payment terms, discount on the whole bill, shipping helper, duplicate as draft |

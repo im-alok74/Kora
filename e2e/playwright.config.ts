@@ -32,7 +32,7 @@ export default defineConfig({
     },
     {
       // Production build, as deployed. Mocks need the explicit staging switch.
-      command: `pnpm --filter @kora/web build && pnpm --filter @kora/web exec next start -p ${PORT}`,
+      command: `pnpm --filter @kora/web build && pnpm --filter @kora/web exec next start -p ${PORT} --keepAliveTimeout 65000`,
       url: `http://localhost:${PORT}`,
       timeout: 600_000,
       reuseExistingServer: !!process.env.KORA_E2E_REUSE,
