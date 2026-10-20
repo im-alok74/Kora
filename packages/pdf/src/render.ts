@@ -93,7 +93,8 @@ export function renderDocumentHtml(i: RenderInput): string {
   const supplierName = s.trade_name || s.legal_name;
   const cell = (k: string, v: string) => `<div><span class="k">${esc(k)}</span><b>${v}</b></div>`;
   const metaCells = [cell(L.no, esc(d.number ?? 'Draft')), cell(L.date, esc(d.doc_date)), d.due_date ? cell(L.due, esc(d.due_date)) : '',
-    d.original_number ? cell(L.against, esc(d.original_number)) : '', cell(L.placeOfSupply, place)].join('');
+    d.original_number ? cell(L.against, esc(d.original_number)) : '', d.reference ? cell(L.reference, esc(d.reference)) : '', d.salesperson ? cell(L.salesperson, esc(d.salesperson)) : '', cell(L.placeOfSupply, place)].join('');
+  const extraCells = Array.isArray(d.extra) ? d.extra.map((x: { label: string; value: string }) => cell(String(x.label ?? ''), esc(x.value))).join('') : '';
   const ship = r?.shipping_address && Object.keys(r.shipping_address).length ? addr(r.shipping_address) : '';
 
   // The tax by HSN or SAC and rate: the summary a buyer and an auditor look for first.
@@ -121,10 +122,10 @@ body{margin:0;background:#fff;color:#1b2321;font:${compact ? 11 : 12.5}px/1.5 ${
 .hd{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
 .brand{color:#4a5651;line-height:1.55}.brand .nm{display:block;font-size:1.5em;font-weight:700;color:#1b2321;line-height:1.25}
 .logo{max-height:58px;max-width:170px;display:block;margin-bottom:8px}
-.doc{text-align:right}
+.doc{text-align:right}.subj{margin-top:6px;color:#4a5651;max-width:320px;margin-left:auto;font-size:1.02em}
 h1{font-size:${compact ? 20 : 28}px;margin:0;color:${accent};font-weight:700;letter-spacing:-.01em;line-height:1.1}
 .meta4{display:flex;flex-wrap:wrap;margin:${compact ? 12 : 20}px 0 14px;border:1px solid #e1e7e4;border-radius:10px;overflow:hidden;background:color-mix(in srgb,${accent} 5%,#fff)}
-.meta4>div{flex:1 1 130px;padding:9px 14px;border-right:1px solid #e1e7e4}.meta4>div:last-child{border-right:0}
+.meta4>div{flex:1 1 130px;padding:9px 14px;border-right:1px solid #e1e7e4}.meta4>div:last-child{border-right:0}.meta4.extra{margin-top:-6px;background:#fff}
 .k,.lbl{display:block;font-size:.78em;text-transform:uppercase;letter-spacing:.06em;color:#66726d;margin-bottom:3px}
 .parties{display:flex;gap:14px;margin:0 0 16px}.card{flex:1;border:1px solid #e1e7e4;border-radius:10px;padding:11px 14px}
 .card b.who{font-size:1.1em}
@@ -157,8 +158,8 @@ tr,.card,.totbox,.payrow{break-inside:avoid}
 </style></head><body><div class="page">${draftMark}
 <div class="hd"><div class="brand">${logo}<span class="nm">${esc(supplierName)}</span>${supplierName !== s.legal_name ? `${esc(s.legal_name)}<br>` : ''}${addr(s.address)}${s.phone ? `<br>Ph: ${esc(s.phone)}` : ''}${s.email ? `<br>${esc(s.email)}` : ''}
 ${s.gstin ? `<br><b>GSTIN:</b> ${esc(s.gstin)}` : ''}</div>
-<div class="doc"><h1>${esc(title)}</h1></div></div>
-<div class="meta4">${metaCells}</div>
+<div class="doc"><h1>${esc(title)}</h1>${d.subject ? `<div class="subj">${esc(d.subject)}</div>` : ''}</div></div>
+<div class="meta4">${metaCells}</div>${extraCells ? `<div class="meta4 extra">${extraCells}</div>` : ''}
 <div class="parties"><div class="card"><span class="lbl">${esc(L.billTo)}</span>${r ? `<b class="who">${esc(r.name)}</b><br>${addr(r.billing_address)}${r.gstin ? `<br><b>GSTIN:</b> ${esc(r.gstin)}` : ''}${r.phone ? `<br>Ph: ${esc(r.phone)}` : ''}` : esc(L.walkIn)}</div>
 ${ship ? `<div class="card"><span class="lbl">${esc(L.shipTo)}</span>${ship}</div>` : ''}</div>
 <table class="items"><thead>${narrative ? `<tr><th>#</th><th>Particulars of professional services</th><th>SAC</th><th class="n">Fee</th>${taxHead}</tr>` : `<tr><th>#</th><th>${esc(L.description)}</th><th>HSN/SAC</th><th class="n">${esc(L.qty)}</th><th class="n">${esc(L.rate)}</th><th class="n">${esc(L.discount)}</th><th class="n">${esc(L.taxable)}</th>${taxHead}</tr>`}</thead><tbody>${rows}</tbody></table>

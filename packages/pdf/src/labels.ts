@@ -11,7 +11,7 @@ export interface Labels {
   billTo: string; placeOfSupply: string; shipTo: string; no: string; date: string; due: string; against: string;
   description: string; qty: string; rate: string; discount: string; taxable: string; taxableValue: string; total: string; amountDue: string;
   notes: string; terms: string; payTo: string; signatory: string; reverseCharge: string; scanToPay: string; roundOff: string; tdsLess: string; netPayable: string; inclusive: string;
-  thanks: string; items: string; walkIn: string;
+  thanks: string; items: string; walkIn: string; reference: string; salesperson: string;
 }
 
 const en: Labels = {
@@ -20,6 +20,8 @@ const en: Labels = {
   description: 'Description', qty: 'Qty', rate: 'Rate', discount: 'Disc.', taxable: 'Taxable', taxableValue: 'Taxable value', total: 'Total', amountDue: 'Amount due',
   notes: 'Notes', terms: 'Terms', payTo: 'Pay to', signatory: 'Authorised signatory', reverseCharge: 'Tax is payable on reverse charge.', scanToPay: 'Scan to pay', roundOff: 'Round off',
   tdsLess: 'Less: TDS to be deducted', netPayable: 'Net payable by customer', inclusive: 'incl. GST', thanks: 'Thank you. Visit again.', items: 'Items', walkIn: 'Walk-in customer',
+  reference: 'Reference',
+  salesperson: 'Salesperson',
 };
 
 const hi: Labels = {
@@ -28,6 +30,8 @@ const hi: Labels = {
   description: 'विवरण', qty: 'मात्रा', rate: 'दर', discount: 'छूट', taxable: 'कर योग्य मूल्य', taxableValue: 'कर योग्य मूल्य', total: 'कुल', amountDue: 'देय राशि',
   notes: 'टिप्पणी', terms: 'शर्तें', payTo: 'भुगतान करें', signatory: 'अधिकृत हस्ताक्षरकर्ता', reverseCharge: 'इस पर कर का भुगतान रिवर्स चार्ज के अंतर्गत प्राप्तकर्ता द्वारा किया जाएगा।', scanToPay: 'भुगतान के लिए स्कैन करें', roundOff: 'पूर्णांक समायोजन',
   tdsLess: 'घटाएँ: काटा जाने वाला टीडीएस', netPayable: 'ग्राहक द्वारा देय शुद्ध राशि', inclusive: 'जीएसटी सहित', thanks: 'धन्यवाद। फिर पधारें।', items: 'सामान', walkIn: 'खुला ग्राहक',
+  reference: 'ऑर्डर संदर्भ',
+  salesperson: 'विक्रय प्रतिनिधि',
 };
 
 const mr: Labels = {
@@ -36,6 +40,8 @@ const mr: Labels = {
   description: 'तपशील', qty: 'प्रमाण', rate: 'दर', discount: 'सूट', taxable: 'करपात्र मूल्य', taxableValue: 'करपात्र मूल्य', total: 'एकूण', amountDue: 'देय रक्कम',
   notes: 'टीप', terms: 'अटी', payTo: 'येथे भरणा करा', signatory: 'अधिकृत स्वाक्षरीकर्ता', reverseCharge: 'या वरील कर रिव्हर्स चार्जअंतर्गत प्राप्तकर्त्याने भरावयाचा आहे.', scanToPay: 'भरण्यासाठी स्कॅन करा', roundOff: 'पूर्णांक समायोजन',
   tdsLess: 'वजा: कापला जाणारा टीडीएस', netPayable: 'ग्राहकाने भरावयाची निव्वळ रक्कम', inclusive: 'जीएसटीसह', thanks: 'धन्यवाद. पुन्हा भेट द्या.', items: 'वस्तू', walkIn: 'सामान्य ग्राहक',
+  reference: 'ऑर्डर संदर्भ',
+  salesperson: 'विक्रेता प्रतिनिधी',
 };
 
 const gu: Labels = {
@@ -44,6 +50,8 @@ const gu: Labels = {
   description: 'વિગત', qty: 'જથ્થો', rate: 'દર', discount: 'ડિસ્કાઉન્ટ', taxable: 'કરપાત્ર મૂલ્ય', taxableValue: 'કરપાત્ર મૂલ્ય', total: 'કુલ', amountDue: 'ચૂકવવાપાત્ર રકમ',
   notes: 'નોંધ', terms: 'શરતો', payTo: 'અહીં ચૂકવો', signatory: 'અધિકૃત સહી કરનાર', reverseCharge: 'આ પર કર રિવર્સ ચાર્જ હેઠળ મેળવનારે ચૂકવવાનો છે.', scanToPay: 'ચૂકવવા સ્કેન કરો', roundOff: 'રાઉન્ડ ઑફ',
   tdsLess: 'બાદ: કપાતો ટીડીએસ', netPayable: 'ગ્રાહકે ચૂકવવાની ચોખ્ખી રકમ', inclusive: 'જીએસટી સહિત', thanks: 'આભાર. ફરી પધારજો.', items: 'વસ્તુઓ', walkIn: 'સામાન્ય ગ્રાહક',
+  reference: 'ઓર્ડર સંદર્ભ',
+  salesperson: 'વેચાણ પ્રતિનિધિ',
 };
 
 const ALL: Record<Language, Labels> = { en, hi, mr, gu };

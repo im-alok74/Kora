@@ -27,6 +27,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
   const [reason, setReason] = useState('');
   const [role, setRole] = useState('');
   const [payments, setPayments] = useState<Doc[]>([]);
+  const [files, setFiles] = useState<Doc[]>([]);
   const [pay, setPay] = useState({ amount: '', method: 'cash', receivedOn: '', note: '' });
   const toTyped = useRef(false);
   const amountTyped = useRef(false); // a refresh must never overwrite what the user is typing
@@ -38,6 +39,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
     const d = await api(`/api/documents/${id}`);
     setData(d);
     setHtml((await api(`/api/documents/${id}/html`)).html);
+    api(`/api/documents/${id}/files`).then((r) => setFiles(r.files)).catch(() => {});
     if (d.document.einvoice_status && d.document.einvoice_status !== 'none') setEinv(await api(`/api/documents/${id}/einvoice`));
     if (d.document.status !== 'draft') {
       setViews((await api(`/api/documents/${id}/share`)).stats.views);
@@ -116,11 +118,12 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
       <div className="doc-head">
         <div>
           <h1>{label} {d.number ?? ''}</h1>
+          {d.subject && <p className="doc-subject">{d.subject}</p>}
           <div className="meta">
           {est ? <span className={`chip ${EST_CHIP[est.status] ?? 'issued'}`} data-testid="estimate-status">{EST_LABEL[est.status] ?? est.status}</span> : (
           <span className={`chip ${d.status === 'issued' && d.payment_status === 'paid' ? 'paid' : d.status}`}>
             {d.status === 'draft' ? 'Draft' : d.status === 'cancelled' ? 'Cancelled' : d.payment_status === 'paid' ? 'Paid' : d.payment_status === 'part_paid' ? 'Part paid' : 'Issued'}</span>)}
-          <span className="muted">{d.party_name ?? 'Walk-in customer'} · {d.doc_date}{foreignCur ? ` · ${money(d.grand_total_paise)} at 1 ${foreignCur} = Rs ${(Number(d.exchange_rate_micro) / 1_000_000).toString()}` : ''}{est && d.due_date ? ` · valid until ${d.due_date}` : ''}</span>
+          <span className="muted">{d.party_name ?? 'Walk-in customer'} · {d.doc_date}{d.reference ? ` · PO ${d.reference}` : ''}{foreignCur ? ` · ${money(d.grand_total_paise)} at 1 ${foreignCur} = Rs ${(Number(d.exchange_rate_micro) / 1_000_000).toString()}` : ''}{est && d.due_date ? ` · valid until ${d.due_date}` : ''}</span>
           </div>
         </div>
         {(isDraft || d.status === 'cancelled' || !receivable) && (
@@ -137,6 +140,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
           {estAnswerable && canIssue && est!.decision !== 'declined' && <button className="secondary" disabled={busy} onClick={() => run(async () => { await api(`/api/documents/${id}/estimate`, { body: { action: 'decline' } }); await load(); setMsg('Marked as declined.'); })}>Mark declined</button>}
           {estAnswerable && canIssue && est!.status !== 'declined' && <button disabled={busy} onClick={() => run(async () => { const r = await api(`/api/documents/${id}/estimate`, { body: { action: 'convert' } }); window.location.href = `/app/invoices/${r.id}/edit`; })}>Convert to invoice</button>}
           {est?.converted_to_id && <a className="btn secondary" href={`/app/invoices/${est.converted_to_id}`}>View invoice {est.converted_number ?? '(draft)'}</a>}
+          {canIssue && !['credit_note', 'debit_note'].includes(d.doc_type) && <button className="secondary" disabled={busy} onClick={() => run(async () => { const r = await api(`/api/documents/${id}/duplicate`, { body: {} }); window.location.href = `/app/invoices/${r.id}/edit`; })}>Duplicate</button>}
           <a className="btn secondary" href={`/api/documents/${id}/pdf`} target="_blank" rel="noreferrer">Download PDF</a>
         </div>
       </div>
@@ -292,6 +296,28 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
                 <li key={x.id}><span>{x.channel} to {x.to_address}</span><span className={x.status === 'failed' ? 'error' : 'muted'}>{x.status}{x.error_message ? `: ${x.error_message}` : ''}</span></li>))}</ul>
             </>
           )}
+        </div>
+      )}
+
+      {d.status !== 'cancelled' && (
+        <div className="panel" aria-label="Attachments">
+          <h2>Attachments</h2>
+          <p className="muted">Supporting files for your team, such as a purchase order or a signed quote. JPEG, PNG or PDF, up to 2 MB each, at most three.</p>
+          {files.length > 0 && (
+            <ul className="plain">{files.map((f) => (
+              <li key={f.id}><a href={`/api/documents/${id}/files/${f.id}`} target="_blank" rel="noreferrer">{f.file_name}</a>
+                <span className="muted">{Math.max(1, Math.round(Number(f.size_bytes) / 1024))} KB {canIssue && <button className="link" onClick={() => run(async () => { await api(`/api/documents/${id}/files/${f.id}`, { method: 'DELETE' }); await load(); })} aria-label={`Remove ${f.file_name}`}>Remove</button>}</span></li>))}</ul>)}
+          {canIssue && files.length < 3 && (
+            <><label htmlFor="af">Add a file</label>
+              <input id="af" type="file" accept="image/jpeg,image/png,application/pdf" onChange={(e) => {
+                const f = e.target.files?.[0]; e.target.value = '';
+                if (!f) return;
+                void run(async () => {
+                  const data = await new Promise<string>((ok, bad) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] ?? ''); r.onerror = () => bad(new Error('The file could not be read.')); r.readAsDataURL(f); });
+                  await api(`/api/documents/${id}/files`, { body: { name: f.name, type: f.type, data } });
+                  await load(); setMsg('File attached.');
+                });
+              }} /></>)}
         </div>
       )}
 

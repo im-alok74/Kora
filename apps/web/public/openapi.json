@@ -224,6 +224,29 @@
             "items": {
               "$ref": "#/components/schemas/Line"
             }
+          },
+          "reference": {
+            "type": "string",
+            "maxLength": 60,
+            "description": "The buyer's order or PO number"
+          },
+          "subject": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "One line printed under the title"
+          },
+          "paymentTerms": {
+            "type": "string",
+            "enum": [
+              "receipt",
+              "net15",
+              "net30",
+              "net45",
+              "net60",
+              "eom",
+              "custom"
+            ],
+            "description": "A preset other than custom fills dueDate when it is left out"
           }
         }
       },

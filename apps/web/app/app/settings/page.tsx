@@ -10,7 +10,7 @@ type Tpl = { accent: string; font: string; layout: string; paper: string; langua
 export default function Settings() {
   const [role, setRole] = useState('');
   const [p, setP] = useState({ legalName: '', tradeName: '', gstin: '', line1: '', line2: '', city: '', pincode: '', phone: '', email: '', upiVpa: '',
-    accountName: '', accountNumber: '', ifsc: '', bankName: '', turnoverBand: 'under_5cr', einvoiceEnabled: false, crossedThreshold: false });
+    accountName: '', accountNumber: '', ifsc: '', bankName: '', turnoverBand: 'under_5cr', einvoiceEnabled: false, crossedThreshold: false, defaultNotes: '', defaultTerms: '' });
   const [tpl, setTpl] = useState<Tpl | null>(null);
   const [rem, setRem] = useState<Rem | null>(null);
   const [offsetsText, setOffsetsText] = useState('');
@@ -25,7 +25,7 @@ export default function Settings() {
       setP({ legalName: b.legal_name, tradeName: b.trade_name ?? '', gstin: b.gstin ?? '', line1: b.address?.line1 ?? '', line2: b.address?.line2 ?? '', city: b.address?.city ?? '',
         pincode: b.address?.pincode ?? '', phone: b.phone ?? '', email: b.email ?? '', upiVpa: b.upi_vpa ?? '', accountName: b.bank_details?.accountName ?? '',
         accountNumber: b.bank_details?.accountNumber ?? '', ifsc: b.bank_details?.ifsc ?? '', bankName: b.bank_details?.bankName ?? '', turnoverBand: b.turnover_band,
-        einvoiceEnabled: !!b.einvoice_enabled, crossedThreshold: !!b.crossed_einvoice_threshold });
+        einvoiceEnabled: !!b.einvoice_enabled, crossedThreshold: !!b.crossed_einvoice_threshold, defaultNotes: b.default_notes ?? '', defaultTerms: b.default_terms ?? '' });
     });
     api('/api/template').then((r) => { setTpl(r.template); setLocked(r.locked); });
     api('/api/reminders').then((r) => { setRem(r.config); setOffsetsText(r.config.offsets.join(', ')); });
@@ -47,7 +47,7 @@ export default function Settings() {
       await api('/api/business', { method: 'PUT', body: { legalName: p.legalName, tradeName: p.tradeName || null, gstin: p.gstin || null,
         address: { line1: p.line1, line2: p.line2, city: p.city, pincode: p.pincode }, phone: p.phone || null, email: p.email || null, upiVpa: p.upiVpa || null,
         bank: { accountName: p.accountName, accountNumber: p.accountNumber, ifsc: p.ifsc, bankName: p.bankName }, turnoverBand: p.turnoverBand,
-        einvoiceEnabled: p.einvoiceEnabled, crossedThreshold: p.crossedThreshold } });
+        einvoiceEnabled: p.einvoiceEnabled, crossedThreshold: p.crossedThreshold, defaultNotes: p.defaultNotes, defaultTerms: p.defaultTerms } });
       setMsg('Business details saved.');
     } catch (x) { setErr((x as Error).message); }
   };
@@ -98,6 +98,12 @@ export default function Settings() {
             <div><label htmlFor="if">IFSC</label><input id="if" value={p.ifsc} onChange={set('ifsc')} /></div>
             <div><label htmlFor="bn">Bank</label><input id="bn" value={p.bankName} onChange={set('bankName')} /></div>
           </div>
+          <h3 style={{ marginTop: 16 }}>Prefilled on every new document</h3>
+          <div className="row">
+            <div><label htmlFor="dn">Default notes</label><textarea id="dn" maxLength={2000} value={p.defaultNotes} onChange={(e) => setP({ ...p, defaultNotes: e.target.value })} /></div>
+            <div><label htmlFor="dt2">Default terms</label><textarea id="dt2" maxLength={2000} value={p.defaultTerms} onChange={(e) => setP({ ...p, defaultTerms: e.target.value })} /></div>
+          </div>
+          <p className="muted">You can change them on each document. Documents already issued keep what they had.</p>
           <button>Save business details</button>
         </fieldset>
       </form>

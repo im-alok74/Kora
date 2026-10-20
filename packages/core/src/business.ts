@@ -7,7 +7,7 @@ import type { Address } from './parties.js';
 export async function getBusiness(sql: Sql, t: TenantSession) {
   const rows = await inTenant(sql, t, 'document.read', (tx) => tx`
     select id, legal_name, trade_name, gstin, registration_type, state_code, turnover_band, address, phone, email,
-           upi_vpa, bank_details, timezone, default_currency, einvoice_enabled, crossed_einvoice_threshold
+           upi_vpa, bank_details, timezone, default_currency, einvoice_enabled, crossed_einvoice_threshold, default_notes, default_terms
       from business where id = ${t.businessId}`);
   return rows[0]!;
 }
@@ -20,6 +20,9 @@ export interface BusinessProfileInput {
   /** Has aggregate turnover crossed the e-invoice limit in any year since 2017-18? Once true, it stays a reason to e-invoice. */
   crossedThreshold?: boolean;
   einvoiceEnabled?: boolean;
+  /** Prefilled on every new document. Send an empty string to clear; leave out to keep what is there. */
+  defaultNotes?: string | null;
+  defaultTerms?: string | null;
 }
 
 export async function updateBusinessProfile(sql: Sql, t: TenantSession, i: BusinessProfileInput): Promise<void> {
@@ -29,6 +32,8 @@ export async function updateBusinessProfile(sql: Sql, t: TenantSession, i: Busin
   if (upi && !/^[a-zA-Z0-9._-]{2,100}@[a-zA-Z]{2,64}$/.test(upi)) throw new ValidationError('Enter a UPI ID like name@bank.', 'upiVpa');
   const ifsc = str(i.bank?.ifsc, 'IFSC', { max: 11 })?.toUpperCase();
   if (ifsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) throw new ValidationError('IFSC is 11 characters, like HDFC0001234.', 'ifsc');
+  const notesIn = i.defaultNotes === undefined ? null : str(i.defaultNotes ?? '', 'Default notes', { max: 2000 }) ?? '';
+  const termsIn = i.defaultTerms === undefined ? null : str(i.defaultTerms ?? '', 'Default terms', { max: 2000 }) ?? '';
   const band = i.turnoverBand ?? null;
   if (band && !['under_5cr', 'over_5cr'].includes(band)) throw new ValidationError('Choose a turnover band.', 'turnoverBand');
   await inTenant(sql, t, 'settings.write', async (tx) => {
@@ -44,7 +49,9 @@ export async function updateBusinessProfile(sql: Sql, t: TenantSession, i: Busin
                                           ifsc: ifsc ?? null, bankName: str(i.bank?.bankName, 'Bank name') } as any)},
                turnover_band = coalesce(${band}, turnover_band),
                crossed_einvoice_threshold = coalesce(${i.crossedThreshold ?? null}, crossed_einvoice_threshold),
-               einvoice_enabled = coalesce(${i.einvoiceEnabled ?? null}, einvoice_enabled)
+               einvoice_enabled = coalesce(${i.einvoiceEnabled ?? null}, einvoice_enabled),
+               default_notes = case when ${notesIn}::text is null then default_notes else nullif(${notesIn ?? ''}, '') end,
+               default_terms = case when ${termsIn}::text is null then default_terms else nullif(${termsIn ?? ''}, '') end
                where id = ${t.businessId}`;
     } catch (e) {
       const c = (e as { code?: string }).code;

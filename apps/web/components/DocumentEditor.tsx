@@ -1,10 +1,11 @@
 'use client';
 import Icon from './Icon';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CURRENCIES, formatMoney, gstinValid, STATE_NAMES } from '@kora/tax';
+import { CURRENCIES, dueDateFor, formatMoney, gstinValid, PAYMENT_TERMS, STATE_NAMES } from '@kora/tax';
 import { api, ApiError, DOC_LABEL, rupees as rupeesInr, TAX_RATES } from '../lib/client';
 import { cacheGet, cacheSet, getDraft, isNetworkError, newId, putDraft, removeDraft, type LocalDraft } from '../lib/offline';
 import { localTotals, type BusinessFacts, type PartyFacts } from '../lib/localTotals';
+import { effectiveDiscounts, shippingRateBp } from '../lib/discounts';
 import { syncDrafts } from '../lib/sync';
 
 type Line = { key: number; itemId: string | null; name: string; hsnSac: string; quantity: string; rate: string; discount: string; taxRateBp: number; kind: 'goods' | 'service'; taxInclusive: boolean };
@@ -48,6 +49,16 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
   const [rate, setRate] = useState('');
   const [tcsPct, setTcsPct] = useState('');
   const [tdsPct, setTdsPct] = useState('');
+  const [reference, setReference] = useState('');
+  const [subject, setSubject] = useState('');
+  const [paymentTerms, setPaymentTerms] = useState('');
+  const [billDiscount, setBillDiscount] = useState('');
+  const [salesperson, setSalesperson] = useState('');
+  const [extra, setExtra] = useState<{ label: string; value: string }[]>([]);
+  const [view, setView] = useState<'edit' | 'preview'>('edit');
+  const [previewHtml, setPreviewHtml] = useState('');
+  const [previewErr, setPreviewErr] = useState('');
+  const todayLocal = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
   const quote = docType === 'estimate' || docType === 'proforma';
   const rupees = (p: string | bigint | null | undefined) => (currency === 'INR' ? rupeesInr(p) : formatMoney(BigInt(p ?? 0), currency));
   const [lines, setLines] = useState<Line[]>([blankLine()]);
@@ -82,6 +93,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
   const fill = (p: Record<string, any>) => {
     setDocType(p.docType); setPartyId(p.partyId ?? ''); setDocDate(p.docDate ?? ''); setDueDate(p.dueDate ?? ''); setNotes(p.notes ?? ''); setTerms(p.terms ?? '');
     setRcm(!!p.reverseCharge); setOriginal(p.originalDocumentId ?? null); setTcsPct(bpToPct(p.tcsBp)); setTdsPct(bpToPct(p.tdsBp)); setCurrency(p.currency ?? 'INR'); setRate(p.exchangeRate ?? '');
+    setReference(p.reference ?? ''); setSubject(p.subject ?? ''); setPaymentTerms(p.paymentTerms ?? ''); setSalesperson(p.salesperson ?? ''); setExtra(p.extra ?? []);
     setLines((p.lines as any[]).map((l) => ({ key: seq++, itemId: l.itemId ?? null, name: l.name, hsnSac: l.hsnSac ?? '', quantity: String(l.quantity), rate: String(l.rate),
       discount: l.discount ?? '', taxRateBp: l.taxRateBp, kind: l.kind ?? 'goods', taxInclusive: !!l.taxInclusive })));
   };
@@ -102,12 +114,20 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
             setClientRef(d.client_ref ?? newId()); setBaseRev(Number(d.rev));
             setDocType(d.doc_type); setPartyId(d.party_id ?? ''); setDocDate(d.doc_date); setDueDate(d.due_date ?? ''); setNotes(d.notes ?? ''); setTerms(d.terms ?? '');
             setRcm(d.reverse_charge); setOriginal(d.original_document_id); setTcsPct(bpToPct(d.tcs_bp)); setTdsPct(bpToPct(d.tds_bp)); setCurrency(d.currency ?? 'INR'); setRate(d.currency && d.currency !== 'INR' ? microToText(d.exchange_rate_micro) : '');
+            setReference(d.reference ?? ''); setSubject(d.subject ?? ''); setPaymentTerms(d.payment_terms ?? ''); setSalesperson(d.salesperson ?? ''); setExtra(d.extra ?? []);
             setLines(ls.map((l: any) => ({ key: seq++, itemId: l.item_id, name: l.item_name, hsnSac: l.hsn_sac ?? '', quantity: String(l.quantity).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '') || '1',
               rate: rs(l.rate_paise), discount: BigInt(l.discount_paise) > 0n ? rs(l.discount_paise) : '', taxRateBp: l.tax_rate_bp, kind: 'goods', taxInclusive: !!l.price_includes_tax })));
           } catch (e) {
             setErr(isNetworkError(e) ? 'This draft is on the server and cannot be opened while you are offline.' : (e as Error).message); return;
           }
-        } else setClientRef(newId());
+        } else {
+          setClientRef(newId());
+          try {
+            const b = await fromServerOrDevice<any>('business-defaults', '/api/business', (r) => r.business, null);
+            if (b?.default_notes) setNotes(b.default_notes);
+            if (b?.default_terms) setTerms(b.default_terms);
+          } catch { /* the defaults are a convenience */ }
+        }
         setReady(true);
       } catch (e) { setErr((e as Error).message); }
     })();
@@ -116,10 +136,16 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
   const payload = useMemo(() => ({
     docType, partyId: partyId || null, docDate: docDate || undefined, dueDate: dueDate || null, notes, terms, reverseCharge,
     originalDocumentId: original, tcsBp: pctToBp(tcsPct) ?? 0, tdsBp: pctToBp(tdsPct) ?? 0,
+    reference: reference.trim() || null, subject: subject.trim() || null, paymentTerms: paymentTerms || null, salesperson: salesperson.trim() || null,
+    extra: extra.filter((x) => x.label.trim() || x.value.trim()),
     ...(currency !== 'INR' && quote ? { currency, exchangeRate: rate } : {}),
-    lines: lines.filter((l) => l.name.trim() || l.rate).map((l) => ({ itemId: l.itemId, name: l.name, hsnSac: l.hsnSac || null, quantity: l.quantity || '0',
-      rate: l.rate || '0', discount: l.discount || undefined, taxRateBp: l.taxRateBp, kind: l.kind, taxInclusive: l.taxInclusive || undefined })),
-  }), [docType, partyId, docDate, dueDate, notes, terms, reverseCharge, lines, original, tcsPct, tdsPct, currency, rate, quote]);
+    lines: (() => {
+      const kept = lines.filter((l) => l.name.trim() || l.rate);
+      const disc = effectiveDiscounts(kept, billDiscount);
+      return kept.map((l, i) => ({ itemId: l.itemId, name: l.name, hsnSac: l.hsnSac || null, quantity: l.quantity || '0',
+        rate: l.rate || '0', discount: disc[i] || undefined, taxRateBp: l.taxRateBp, kind: l.kind, taxInclusive: l.taxInclusive || undefined }));
+    })(),
+  }), [docType, partyId, docDate, dueDate, notes, terms, reverseCharge, lines, original, tcsPct, tdsPct, currency, rate, quote, reference, subject, paymentTerms, billDiscount, salesperson, extra]);
 
   // Live totals. The server is the authority; offline, the same tax library runs on this device.
   useEffect(() => {
@@ -139,6 +165,17 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
     }, 250);
     return () => clearTimeout(h);
   }, [payload, ready, business, parties, partyId]);
+
+  // The paper preview is drawn by the server with the same renderer as the PDF. Only fetched while the Preview tab is open.
+  useEffect(() => {
+    if (view !== 'preview' || !ready) return;
+    if (payload.lines.length === 0) { setPreviewHtml(''); setPreviewErr('Add a line to see the document.'); return; }
+    const h = setTimeout(async () => {
+      try { setPreviewHtml((await api('/api/documents/preview-html', { body: payload })).html); setPreviewErr(''); }
+      catch (e) { setPreviewHtml(''); setPreviewErr(isNetworkError(e) ? 'The preview needs a connection. Your totals are still worked out on this device.' : (e as Error).message); }
+    }, 400);
+    return () => clearTimeout(h);
+  }, [view, payload, ready]);
 
   const setLine = (key: number, patch: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   const pickName = (key: number, name: string) => {
@@ -243,6 +280,16 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
       {!online && <p className="warn" role="status" data-testid="offline-note">You are offline. Totals are worked out on this device and checked again when the draft syncs.</p>}
       <div className="editor">
       <div className="editor-main">
+      <div className="tabs" role="tablist" aria-label="Editor view">
+        <button type="button" role="tab" aria-selected={view === 'edit'} onClick={() => setView('edit')}>Edit</button>
+        <button type="button" role="tab" aria-selected={view === 'preview'} onClick={() => setView('preview')}>Preview</button>
+      </div>
+      {view === 'preview' && (
+        <div className="paper-stage" role="tabpanel" aria-label="Document preview">
+          {previewHtml ? <iframe className="preview" title="Draft preview" sandbox="" srcDoc={previewHtml} /> : <p className="muted" role="status">{previewErr || 'Preparing the preview'}</p>}
+        </div>
+      )}
+      <div hidden={view === 'preview'}>
       <section className="panel" aria-label="Customer and dates">
         <p className="section-label">Customer and dates</p>
         <div className="grid2">
@@ -269,8 +316,24 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
               {Object.entries(DOC_LABEL).filter(([k]) => original ? k === docType : !['credit_note', 'debit_note'].includes(k)).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
-          <div><label htmlFor="dd">Date</label><input id="dd" type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} /></div>
-          <div><label htmlFor="du">{docType === 'estimate' ? 'Valid until' : 'Due date'}</label><input id="du" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>
+          <div><label htmlFor="dd">Date</label><input id="dd" type="date" value={docDate} onChange={(e) => {
+            const v = e.target.value; setDocDate(v);
+            const due = paymentTerms && paymentTerms !== 'custom' ? dueDateFor(v || todayLocal(), paymentTerms) : null;
+            if (due) setDueDate(due);
+          }} /></div>
+          <div><label htmlFor="pt">Payment terms</label>
+            <select id="pt" value={paymentTerms} onChange={(e) => {
+              const k = e.target.value; setPaymentTerms(k);
+              const due = k && k !== 'custom' ? dueDateFor(docDate || todayLocal(), k) : null;
+              if (due) setDueDate(due);
+            }}>
+              <option value="">No terms</option>
+              {PAYMENT_TERMS.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+            </select></div>
+          <div><label htmlFor="du">{docType === 'estimate' ? 'Valid until' : 'Due date'}</label><input id="du" type="date" value={dueDate} onChange={(e) => { setDueDate(e.target.value); if (paymentTerms) setPaymentTerms('custom'); }} /></div>
+          <div><label htmlFor="rf">Order or PO number</label><input id="rf" maxLength={60} value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Optional" /></div>
+          <div><label htmlFor="sp">Salesperson</label><input id="sp" maxLength={80} value={salesperson} onChange={(e) => setSalesperson(e.target.value)} placeholder="Optional" /></div>
+          <div style={{ gridColumn: '1 / -1' }}><label htmlFor="sj">Subject</label><input id="sj" maxLength={200} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="For example: Website redesign, phase 2" /></div>
         </div>
         {newCust && online && (
           <fieldset style={{ border: '1px solid var(--border)', borderRadius: 8, marginTop: 12 }}>
@@ -312,7 +375,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
                     <label className="incl"><input type="checkbox" aria-label={`Line ${i + 1} price includes GST`} checked={l.taxInclusive} onChange={(e) => setLine(l.key, { taxInclusive: e.target.checked })} /> price has GST in it</label></div></td>
                 <td className="n" data-label="Quantity"><input aria-label={`Line ${i + 1} quantity`} inputMode="decimal" value={l.quantity} onChange={(e) => setLine(l.key, { quantity: e.target.value })} /></td>
                 <td className="n" data-label="Rate"><input aria-label={`Line ${i + 1} rate`} inputMode="decimal" value={l.rate} onChange={(e) => setLine(l.key, { rate: e.target.value })} /></td>
-                <td className="n" data-label="Discount"><input aria-label={`Line ${i + 1} discount`} inputMode="decimal" value={l.discount} onChange={(e) => setLine(l.key, { discount: e.target.value })} /></td>
+                <td className="n" data-label="Discount"><input aria-label={`Line ${i + 1} discount`} placeholder="Rs or %" inputMode="text" value={l.discount} onChange={(e) => setLine(l.key, { discount: e.target.value })} /></td>
                 <td data-label="GST"><select aria-label={`Line ${i + 1} GST rate`} value={l.taxRateBp} onChange={(e) => setLine(l.key, { taxRateBp: Number(e.target.value) })}>
                   {TAX_RATES.map((r) => <option key={r.bp} value={r.bp}>{r.label}</option>)}</select></td>
                 <td className="n line-amount" data-label="Amount">{idx >= 0 && totals?.lines[idx]?.total ? rupees(totals.lines[idx]!.total) : ''}</td>
@@ -323,13 +386,27 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
         </tbody>
       </table>
       <datalist id="items-list">{items.map((i) => <option key={i.id} value={i.name} />)}</datalist>
-      <button type="button" className="secondary sm" style={{ marginTop: 10 }} onClick={() => setLines((ls) => [...ls, blankLine()])}><Icon name="plus" size={16} />Add line</button>
+      <div className="items-foot">
+        <button type="button" className="secondary sm" onClick={() => setLines((ls) => [...ls, blankLine()])}><Icon name="plus" size={16} />Add line</button>
+        <button type="button" className="secondary sm" onClick={() => setLines((ls) => [...ls, { ...blankLine(), name: 'Shipping and handling', hsnSac: '996511', kind: 'service', taxRateBp: shippingRateBp(ls.filter((x) => x.name.trim() || x.rate).map((x) => x.taxRateBp)) }])}>Add shipping charge</button>
+        <div className="bill-discount"><label htmlFor="bd">Discount on the whole bill</label>
+          <input id="bd" inputMode="text" placeholder="Rs or %, for example 500 or 10%" value={billDiscount} onChange={(e) => setBillDiscount(e.target.value)} />
+          <span className="muted">Shared across the lines to the paisa, so the tax stays right on each line.</span></div>
+      </div>
       </section>
 
       <section className="panel" aria-label="Notes and extras">
       <p className="section-label">Notes and extras</p>
       <div>
         <div>
+          <p className="section-label" style={{ marginTop: 0 }}>Extra details printed under the header</p>
+          {extra.map((x, i) => (
+            <div className="extra-row" key={i}>
+              <input aria-label={`Extra detail ${i + 1} name`} placeholder="Name, for example Vehicle no." maxLength={40} value={x.label} onChange={(e) => setExtra((xs) => xs.map((y, k) => (k === i ? { ...y, label: e.target.value } : y)))} />
+              <input aria-label={`Extra detail ${i + 1} value`} placeholder="Value" maxLength={120} value={x.value} onChange={(e) => setExtra((xs) => xs.map((y, k) => (k === i ? { ...y, value: e.target.value } : y)))} />
+              <button type="button" className="link" aria-label={`Remove extra detail ${i + 1}`} onClick={() => setExtra((xs) => xs.filter((_, k) => k !== i))}>Remove</button>
+            </div>))}
+          {extra.length < 5 && <button type="button" className="secondary sm" style={{ marginTop: 6 }} onClick={() => setExtra((xs) => [...xs, { label: '', value: '' }])}><Icon name="plus" size={16} />Add an extra detail</button>}
           <label htmlFor="nt" style={{ marginTop: 0 }}>Notes</label><textarea id="nt" value={notes} onChange={(e) => setNotes(e.target.value)} />
           <label htmlFor="tm">Terms</label><textarea id="tm" value={terms} onChange={(e) => setTerms(e.target.value)} />
           <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" style={{ width: 'auto', height: 'auto' }} checked={reverseCharge} onChange={(e) => setRcm(e.target.checked)} /> Tax is payable by the recipient (reverse charge)</label>
@@ -342,6 +419,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
         </div>
       </div>
       </section>
+      </div>
       </div>
 
       <aside className="editor-side" aria-label="Summary">

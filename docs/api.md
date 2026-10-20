@@ -59,6 +59,10 @@ Authorization: Bearer kora_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 | `GET /invoices?type=&status=&q=` | read | List documents of every type |
 | `GET /invoices/{id}` | read | One document with its lines and payments |
 | `POST /invoices` | write | Make a draft, or issue it straight away with `"issue": true` |
+
+A document body may also carry `reference` (the buyer's order or PO number, up to 60 characters), `subject` (up to 200) and `paymentTerms` (`receipt`, `net15`, `net30`, `net45`, `net60`, `eom` or `custom`). A preset other than `custom` fills `dueDate` when you leave it out; a `dueDate` you send always wins. These freeze when the document is issued, like everything else on it.
+
+On the web app, `POST /api/documents/{id}/duplicate` makes a new draft from an existing document.
 | `POST /invoices/{id}/issue` | write | Issue a draft: gives it its number and locks it |
 | `POST /invoices/{id}/payments` | write | Record a payment: `{ amount: "500.00", method, receivedOn?, note? }` |
 | `GET /invoices/{id}/payments` | read | Payments on a document |

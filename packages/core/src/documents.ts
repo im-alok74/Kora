@@ -1,5 +1,5 @@
 import {
-  assertCreditWithinOriginal, checkHsn, computeDocument, CURRENCIES, isTaxError, parseExchangeRate, parseQuantity, parseRupees, resolvePlaceOfSupply,
+  assertCreditWithinOriginal, checkHsn, computeDocument, CURRENCIES, dueDateFor, isPaymentTerm, isTaxError, parseExchangeRate, parseQuantity, parseRupees, resolvePlaceOfSupply,
   type DocType, type DocumentResult, type LineInput, type TurnoverBand,
 } from '@kora/tax';
 import type { Sql, Tx } from '@kora/db';
@@ -42,6 +42,16 @@ export interface DocIn {
   lines: LineIn[];
   notes?: string | null;
   terms?: string | null;
+  /** The buyer's order or PO number, printed on the document. */
+  reference?: string | null;
+  /** One line under the title, for example "Website redesign, phase 2". */
+  subject?: string | null;
+  /** One of PAYMENT_TERMS. A preset other than "custom" fills the due date when none is given. */
+  paymentTerms?: string | null;
+  /** Up to five label and value pairs printed under the document's header, for things like a vehicle number or a project code. */
+  extra?: { label: string; value: string }[] | null;
+  /** Who made the sale, as the person wants it printed. */
+  salesperson?: string | null;
   tcsBp?: number;
   tdsBp?: number;
   originalDocumentId?: string | null;
@@ -95,6 +105,7 @@ async function build(tx: Tx, t: TenantSession, input: DocIn): Promise<Built> {
   const docDate = input.docDate ?? todayIn(biz.timezone as string);
   if (!isDate(docDate)) throw new ValidationError('Enter the date as YYYY-MM-DD.', 'docDate');
   if (input.dueDate && !isDate(input.dueDate)) throw new ValidationError('Enter the due date as YYYY-MM-DD.', 'dueDate');
+  if (input.paymentTerms && !isPaymentTerm(input.paymentTerms)) throw new ValidationError('Choose one of the payment terms.', 'paymentTerms');
   if (!input.lines?.length) throw new ValidationError('Add at least one line.', 'lines');
   if (input.lines.length > 200) throw new ValidationError('A document can have at most 200 lines.', 'lines');
 
@@ -182,7 +193,11 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
     tcs: s(r.tcsPaise), tds: s(r.tdsPaise), round_off: s(r.roundOffPaise), grand: s(r.grandTotalPaise),
     notes: str(input.notes, 'Notes', { max: 2000 }), terms: str(input.terms, 'Terms', { max: 2000 }),
     original: input.originalDocumentId ?? null, tcs_bp: input.tcsBp ?? 0, tds_bp: input.tdsBp ?? 0, currency: b.currency, rate: b.rateMicro.toString(),
+    reference: str(input.reference, 'Reference', { max: 60 }), subject: str(input.subject, 'Subject', { max: 200 }), payment_terms: input.paymentTerms || null,
+    extra: cleanExtra(input.extra), salesperson: str(input.salesperson, 'Salesperson', { max: 80 }),
   };
+  // A preset fills the due date when the person left it empty. An explicit date always wins.
+  if (!fields.due_date && fields.payment_terms) fields.due_date = dueDateFor(b.docDate, fields.payment_terms);
   let docId = id;
   if (id) {
     const [cur] = await tx`select status from document where id = ${id} for update`;
@@ -194,16 +209,18 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
              taxable_paise = ${fields.taxable}, cgst_paise = ${fields.cgst}, sgst_paise = ${fields.sgst}, igst_paise = ${fields.igst},
              cess_paise = ${fields.cess}, tcs_paise = ${fields.tcs}, tds_paise = ${fields.tds}, round_off_paise = ${fields.round_off},
              grand_total_paise = ${fields.grand}, notes = ${fields.notes}, terms = ${fields.terms}, original_document_id = ${fields.original},
-             tcs_bp = ${fields.tcs_bp}, tds_bp = ${fields.tds_bp}, currency = ${fields.currency}, exchange_rate_micro = ${fields.rate}
+             tcs_bp = ${fields.tcs_bp}, tds_bp = ${fields.tds_bp}, currency = ${fields.currency}, exchange_rate_micro = ${fields.rate},
+             reference = ${fields.reference}, subject = ${fields.subject}, payment_terms = ${fields.payment_terms},
+             extra = ${fields.extra === null ? null : tx.json(fields.extra as any)}, salesperson = ${fields.salesperson}
              where id = ${id}`;
   } else {
     const [row] = await tx`
       insert into document (business_id, doc_type, party_id, place_of_supply, reverse_charge, doc_date, due_date, taxable_paise, cgst_paise,
                             sgst_paise, igst_paise, cess_paise, tcs_paise, tds_paise, round_off_paise, grand_total_paise, notes, terms,
-                            original_document_id, created_by, client_ref, tcs_bp, tds_bp, currency, exchange_rate_micro)
+                            original_document_id, created_by, client_ref, tcs_bp, tds_bp, currency, exchange_rate_micro, reference, subject, payment_terms, extra, salesperson)
       values (${t.businessId}, ${fields.doc_type}, ${fields.party_id}, ${fields.place_of_supply}, ${fields.reverse_charge}, ${fields.doc_date},
               ${fields.due_date}, ${fields.taxable}, ${fields.cgst}, ${fields.sgst}, ${fields.igst}, ${fields.cess}, ${fields.tcs}, ${fields.tds},
-              ${fields.round_off}, ${fields.grand}, ${fields.notes}, ${fields.terms}, ${fields.original}, ${t.userId}, ${clientRef}, ${fields.tcs_bp}, ${fields.tds_bp}, ${fields.currency}, ${fields.rate})
+              ${fields.round_off}, ${fields.grand}, ${fields.notes}, ${fields.terms}, ${fields.original}, ${t.userId}, ${clientRef}, ${fields.tcs_bp}, ${fields.tds_bp}, ${fields.currency}, ${fields.rate}, ${fields.reference}, ${fields.subject}, ${fields.payment_terms}, ${fields.extra === null ? null : tx.json(fields.extra as any)}, ${fields.salesperson})
       returning id`;
     docId = row!.id as string;
   }
@@ -384,6 +401,50 @@ export async function deleteDraft(sql: Sql, t: TenantSession, id: string): Promi
   });
 }
 
+/** Keeps the rows that have both a label and a value, trimmed, at most five. Anything past five is an error, not silently dropped. */
+export function cleanExtra(rows: { label?: unknown; value?: unknown }[] | null | undefined): { label: string; value: string }[] | null {
+  if (!rows || rows.length === 0) return null;
+  const out: { label: string; value: string }[] = [];
+  for (const r of rows) {
+    const label = str(r?.label as string, 'Extra detail name', { max: 40 });
+    const value = str(r?.value as string, 'Extra detail value', { max: 120 });
+    if (!label && !value) continue;
+    if (!label || !value) throw new ValidationError('Give each extra detail both a name and a value.', 'extra');
+    out.push({ label, value });
+  }
+  if (out.length > 5) throw new ValidationError('A document can have at most five extra details.', 'extra');
+  return out.length ? out : null;
+}
+
+/** Everything the renderer needs to draw a draft that is not saved yet. Same build as saving, nothing is written. */
+export async function previewDocumentData(sql: Sql, t: TenantSession, input: DocIn) {
+  return inTenant(sql, t, 'document.read', async (tx) => {
+    const b = await build(tx, t, input);
+    const r = b.result;
+    const s = (x: bigint) => x.toString();
+    const [supplier] = await tx`select legal_name, trade_name, gstin, state_code, address, phone, email, upi_vpa, bank_details from business where id = ${t.businessId}`;
+    const [recipient] = input.partyId ? await tx`select name, gstin, billing_address, shipping_address, phone, email from party where id = ${input.partyId}` : [];
+    const [original] = input.originalDocumentId ? await tx`select number from document where id = ${input.originalDocumentId}` : [];
+    const doc = {
+      doc_type: input.docType, status: 'draft', number: null, doc_date: b.docDate,
+      due_date: input.dueDate || (input.paymentTerms ? dueDateFor(b.docDate, input.paymentTerms) : null),
+      place_of_supply: b.placeOfSupply, reverse_charge: input.reverseCharge ?? false, currency: b.currency, exchange_rate_micro: b.rateMicro.toString(),
+      taxable_paise: s(r.taxablePaise), cgst_paise: s(r.cgstPaise), sgst_paise: s(r.sgstPaise), igst_paise: s(r.igstPaise), cess_paise: s(r.cessPaise),
+      tcs_paise: s(r.tcsPaise), tds_paise: s(r.tdsPaise), round_off_paise: s(r.roundOffPaise), grand_total_paise: s(r.grandTotalPaise),
+      notes: str(input.notes, 'Notes', { max: 2000 }), terms: str(input.terms, 'Terms', { max: 2000 }), reference: str(input.reference, 'Reference', { max: 60 }),
+      subject: str(input.subject, 'Subject', { max: 200 }), extra: cleanExtra(input.extra), salesperson: str(input.salesperson, 'Salesperson', { max: 80 }),
+      original_number: original?.number ?? null,
+    };
+    const lines = b.lines.map((l, i) => {
+      const c = r.lines[i]!;
+      return { item_name: l.input.name, hsn_sac: l.hsn, unit: l.unit, quantity: milliStr(l.quantityMilli), rate_paise: s(l.rate), discount_paise: s(c.discountPaise),
+        taxable_paise: s(c.taxablePaise), tax_rate_bp: c.taxRateBp, cgst_paise: s(c.cgstPaise), sgst_paise: s(c.sgstPaise), igst_paise: s(c.igstPaise),
+        cess_paise: s(c.cessPaise), line_total_paise: s(c.lineTotalPaise), price_includes_tax: !!l.input.taxInclusive };
+    });
+    return { doc, lines, supplier: supplier ?? {}, recipient: recipient ?? null };
+  });
+}
+
 /** Maps stored lines back to editor input, for drafts made from an existing document. */
 export function linesToInput(lines: Record<string, unknown>[], rateMicro: bigint = 1_000_000n): LineIn[] {
   // Amounts in another currency become rupees at the rate (millionths of a rupee per unit), rounded half up to the paisa.
@@ -402,6 +463,28 @@ export async function startNote(sql: Sql, t: TenantSession, originalId: string, 
   const input: DocIn = {
     docType: kind, partyId: src.document.party_id as string | null, originalDocumentId: originalId,
     placeOfSupply: src.document.place_of_supply as string, reverseCharge: src.document.reverse_charge as boolean,
+    lines: linesToInput(src.lines),
+  };
+  return saveDraft(sql, t, input);
+}
+
+/**
+ * A new draft that copies an existing document of the same kind: the customer, the lines, the notes and the terms.
+ * The date is today and the number is given only when it is issued. Credit and debit notes are not copied, because
+ * each one answers a particular invoice.
+ */
+export async function duplicateDocument(sql: Sql, t: TenantSession, sourceId: string) {
+  const src = await inTenant(sql, t, 'document.read', (tx) => getDocumentTx(tx, sourceId));
+  if (!src) throw new ValidationError('Document not found.');
+  const d = src.document;
+  if (d.doc_type === 'credit_note' || d.doc_type === 'debit_note') throw new ValidationError('A note answers one invoice. Start a new note from the invoice instead.');
+  const rateMicro = BigInt(String(d.exchange_rate_micro ?? 1_000_000));
+  const foreign = !!d.currency && d.currency !== 'INR';
+  const input: DocIn = {
+    docType: d.doc_type as DocType, partyId: d.party_id as string | null, placeOfSupply: d.place_of_supply as string, reverseCharge: d.reverse_charge as boolean,
+    notes: d.notes as string | null, terms: d.terms as string | null, reference: d.reference as string | null, subject: d.subject as string | null,
+    paymentTerms: d.payment_terms as string | null, extra: d.extra as { label: string; value: string }[] | null, salesperson: d.salesperson as string | null, tcsBp: Number(d.tcs_bp ?? 0), tdsBp: Number(d.tds_bp ?? 0),
+    ...(foreign ? { currency: d.currency as string, exchangeRate: `${rateMicro / 1_000_000n}.${(rateMicro % 1_000_000n).toString().padStart(6, '0')}` } : {}),
     lines: linesToInput(src.lines),
   };
   return saveDraft(sql, t, input);

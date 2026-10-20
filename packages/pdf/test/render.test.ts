@@ -21,6 +21,28 @@ function sample(over: Partial<RenderInput> = {}, docOver: Record<string, any> = 
 afterAll(async () => { await closePdfBrowser(); });
 
 describe('renderDocumentHtml', () => {
+  it('prints extra details and the salesperson under the header, escaped', () => {
+    const h = renderDocumentHtml(sample({}, { salesperson: 'Asha', extra: [{ label: 'Vehicle no.', value: 'MH12 <i>AB</i>' }, { label: 'Project', value: 'P-9' }] }));
+    expect(h).toContain('>Salesperson<');
+    expect(h).toContain('Asha');
+    expect(h).toContain('Vehicle no.');
+    expect(h).toContain('MH12 &lt;i&gt;AB&lt;/i&gt;');
+    expect(h).toContain('class="meta4 extra"');
+    const plain = renderDocumentHtml(sample());
+    expect(plain).not.toContain('class="meta4 extra"');
+    expect(plain).not.toContain('>Salesperson<');
+  });
+
+  it('prints the order reference and the subject when there are some, and nothing when there are not', () => {
+    const h = renderDocumentHtml(sample({}, { reference: 'PO-7781', subject: 'Website <b>redesign</b>' }));
+    expect(h).toContain('PO-7781');
+    expect(h).toContain('Website &lt;b&gt;redesign&lt;/b&gt;');                 // escaped, never raw HTML
+    expect(h).toContain('>Reference<');
+    const plain = renderDocumentHtml(sample());
+    expect(plain).not.toContain('>Reference<');
+    expect(plain).not.toContain('class="subj"');
+  });
+
   it('prints every statutory field', () => {
     const h = renderDocumentHtml(sample());
     for (const needle of ['Tax Invoice', 'INV/26-27/0001', '2026-10-18', 'GSTIN:</b> 27AAPFU0939F1ZV', 'Maharashtra (27)', '8471',
