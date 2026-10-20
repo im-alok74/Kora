@@ -29,6 +29,8 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
   const [payments, setPayments] = useState<Doc[]>([]);
   const [files, setFiles] = useState<Doc[]>([]);
   const [held, setHeld] = useState('0');
+  const [notes, setNotes] = useState<{ id: string; body: string; createdAt: string; author: string; mine: boolean }[]>([]);
+  const [note, setNote] = useState('');
   const [pay, setPay] = useState({ amount: '', method: 'cash', receivedOn: '', note: '' });
   const toTyped = useRef(false);
   const amountTyped = useRef(false); // a refresh must never overwrite what the user is typing
@@ -41,6 +43,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
     setData(d);
     setHtml((await api(`/api/documents/${id}/html`)).html);
     api(`/api/documents/${id}/files`).then((r) => setFiles(r.files)).catch(() => {});
+    api(`/api/documents/${id}/comments`).then((r) => setNotes(r.comments)).catch(() => {});
     if (d.document.party_id && d.document.status === 'issued') api(`/api/parties/${d.document.party_id}/credit`).then((r) => setHeld(r.totalPaise)).catch(() => {});
     if (d.document.einvoice_status && d.document.einvoice_status !== 'none') setEinv(await api(`/api/documents/${id}/einvoice`));
     if (d.document.status !== 'draft') {
@@ -305,6 +308,21 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
           )}
         </div>
       )}
+
+      <div className="panel" aria-label="Team notes">
+        <h2>Team notes</h2>
+        <p className="muted">Notes for the people in your business. The customer never sees them.</p>
+        {notes.length > 0 && (
+          <ul className="plain notes">{notes.map((n) => (
+            <li key={n.id}><div><b>{n.author}</b> <span className="muted">{new Date(n.createdAt).toLocaleString('en-IN')}</span><p>{n.body}</p></div>
+              {(n.mine || role === 'owner') && canIssue && <button className="link" aria-label={`Remove the note by ${n.author}`} onClick={() => run(async () => { await api(`/api/documents/${id}/comments/${n.id}`, { method: 'DELETE' }); await load(); })}>Remove</button>}</li>))}</ul>)}
+        {canIssue && (
+          <form onSubmit={(e) => { e.preventDefault(); void run(async () => { await api(`/api/documents/${id}/comments`, { body: { body: note } }); setNote(''); await load(); }); }}>
+            <label htmlFor="tn">Add a note</label>
+            <textarea id="tn" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="For example: customer promised to pay on Friday" />
+            <button disabled={busy || !note.trim()}>Add note</button>
+          </form>)}
+      </div>
 
       {d.status !== 'cancelled' && (
         <div className="panel" aria-label="Attachments">

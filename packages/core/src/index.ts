@@ -47,3 +47,4 @@ export * from './registers.js';
 export * from './attachments.js';
 export * from './credit.js';
 export * from './bankstatement.js';
+export * from './comments.js';

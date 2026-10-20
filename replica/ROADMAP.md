@@ -32,12 +32,12 @@ The screen people use all day. After this phase it has every field Zoho's invoic
 
 ## Phase 3: lists and workspace (code only)
 
-- [ ] 3.1 Saved views on the documents list: filters, sort and columns remembered by name (Zoho, QuickBooks). M
-- [ ] 3.2 Column chooser on the documents, customers and items lists (Zoho). S
-- [ ] 3.3 Keyboard shortcuts: new invoice, search, go to a page, with a help sheet (Zoho, QuickBooks). S
-- [ ] 3.4 In-app help: a short guided tour on first sign-in and a help panel on each page (Zoho, FreshBooks). M
-- [ ] 3.5 Comments on a document, visible to the team only (Zoho, QuickBooks). M
-- [ ] 3.6 Export any list to CSV or Excel from the list itself (all). S
+- [x] 3.1 Saved views on the documents list: filters, sort and columns remembered by name, on this device (Zoho, QuickBooks). M. Views follow the browser, not the account
+- [x] 3.2 Column chooser on the documents list (Zoho). S. Customers and items are short lists and keep their fixed columns
+- [x] 3.3 Keyboard shortcuts: n for a new invoice, g then a letter to go to a page, ? for the help sheet, with a help button in the top bar (Zoho, QuickBooks). S
+- [ ] 3.4 In-app help: a short guided tour on first sign-in (Zoho, FreshBooks). M. The help sheet with shortcuts and where things are is done; the tour is not
+- [x] 3.5 Notes on a document, visible to the team only, removable by the writer or an owner (Zoho, QuickBooks). M
+- [x] 3.6 Export the list you are looking at to a spreadsheet-safe CSV, from documents, customers and items (all). S
 
 ## Phase 4: templates, languages and messages (code only)
 
@@ -102,6 +102,7 @@ Phase 1 first because it is the screen every customer judges the product on. Pha
 
 | Date | Phase | What changed |
 |---|---|---|
+| 20 Oct 2026 | Phase 3 | Saved views, column chooser, CSV export from lists, keyboard shortcuts and help sheet, team notes on documents (migration 0028). Guided tour left open |
 | 20 Oct 2026 | Phase 2.5 | Bank statement page: CSV reader for common bank formats, matching to open invoices and bills, confirmation, duplicate protection. Also fixed two contrast failures the new palette introduced (sidebar group labels, landing band) |
 | 20 Oct 2026 | Phase 2 (part) | Advances, customer credit, refunds, pay at the counter with a PAID mark (migration 0027). E2E now builds into `.next-e2e`, so it can run beside a dev server |
 | 20 Oct 2026 | Phase 1 | Default notes and terms, extra details, salesperson, live preview tab, attachments (migrations 0025, 0026) |

@@ -96,6 +96,7 @@ export default function TopBar() {
                   </li>))}</ul>)}
             </div>)}
         </div>
+        <button type="button" className="iconbtn" onClick={() => window.dispatchEvent(new Event('kora:help'))} aria-label="Keyboard shortcuts and help"><span aria-hidden="true" style={{ fontWeight: 700 }}>?</span></button>
         <button type="button" className="iconbtn" onClick={toggleTheme} aria-label={dark ? 'Switch to the light theme' : 'Switch to the dark theme'} aria-pressed={dark}><Icon name={dark ? 'sun' : 'moon'} size={19} /></button>
       </div>
 

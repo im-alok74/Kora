@@ -4,12 +4,16 @@ import { formatMoney } from '@kora/tax';
 import Icon from '../../../components/Icon';
 import { api, DOC_LABEL, rupees } from '../../../lib/client';
 import { isNetworkError, listDrafts, onDraftsChanged, type LocalDraft } from '../../../lib/offline';
+import { csvText, deleteView, downloadCsv, loadViews, rupeesPlain, saveView, type SavedView } from '../../../lib/listTools';
 
 type Row = { id: string; doc_type: string; status: string; number: string | null; doc_date: string; grand_total_paise: string;
   payment_status: string; party_name: string | null; einvoice_status: string; estimate_status?: string | null; currency?: string; due_date: string | null; amount_settled_paise: string };
 
 const EST_LABEL: Record<string, string> = { draft: 'Draft', open: 'Open', accepted: 'Accepted', declined: 'Declined', expired: 'Expired', invoiced: 'Invoiced', cancelled: 'Cancelled' };
 const EST_CHIP: Record<string, string> = { draft: 'draft', open: 'issued', accepted: 'paid', declined: 'cancelled', expired: 'cancelled', invoiced: 'paid', cancelled: 'cancelled' };
+
+const COLS: [string, string][] = [['type', 'Type'], ['customer', 'Customer'], ['date', 'Date'], ['due', 'Due'], ['total', 'Total'], ['balance', 'Balance'], ['status', 'Status']];
+type ViewState = { type: string; status: string; q: string; sort: { key: string; dir: 1 | -1 } | null; cols: string[] };
 
 export default function Documents() {
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -23,6 +27,11 @@ export default function Documents() {
   const [offline, setOffline] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<{ key: 'number' | 'type' | 'party_name' | 'doc_date' | 'grand_total_paise' | 'status'; dir: 1 | -1 } | null>(null);
+  const [cols, setCols] = useState<Set<string>>(new Set(COLS.map(([k]) => k)));
+  const [views, setViews] = useState<SavedView<ViewState>[]>([]);
+  const [viewName, setViewName] = useState('');
+  const [viewMsg, setViewMsg] = useState('');
+  useEffect(() => { setViews(loadViews<ViewState>('documents')); }, []);
   const [bulkMsg, setBulkMsg] = useState('');
   const [bulkBusy, setBulkBusy] = useState(false);
   const [cancelReason, setCancelReason] = useState<string | null>(null);
@@ -91,6 +100,45 @@ export default function Documents() {
         {([['all', 'All', '', ''], ['invoices', 'Tax invoices', 'tax_invoice', ''], ['estimates', 'Estimates', 'estimate', ''], ['drafts', 'Drafts', '', 'draft'], ['cancelled', 'Cancelled', '', 'cancelled']] as const).map(([k, label, t, st]) => (
           <button key={k} type="button" aria-pressed={tab === k} onClick={() => pick(t, st)}>{label}</button>))}
       </div>
+      <div className="listtools" role="group" aria-label="Views, columns and export">
+        <div>
+          <label htmlFor="vw">Saved views</label>
+          <select id="vw" value="" onChange={(e) => {
+            const v = views.find((x) => x.name === e.target.value);
+            if (!v) return;
+            setType(v.state.type ?? ''); setStatus(v.state.status ?? ''); setQ(v.state.q ?? ''); setSort((v.state.sort as typeof sort) ?? null);
+            setCols(new Set((v.state.cols?.length ? v.state.cols : COLS.map(([k]) => k)))); setViewMsg(`View "${v.name}" applied.`);
+          }}>
+            <option value="">{views.length ? 'Choose a view' : 'No saved views yet'}</option>
+            {views.map((v) => <option key={v.name} value={v.name}>{v.name}</option>)}
+          </select>
+        </div>
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          const next = saveView<ViewState>('documents', viewName, { type, status, q, sort, cols: [...cols] });
+          if (next) { setViews(next); setViewMsg(`View "${viewName.trim()}" saved on this device.`); setViewName(''); } else setViewMsg('This browser would not keep the view. Check that storage is allowed.');
+        }}>
+          <label htmlFor="vn">Save this view as</label>
+          <div className="inline"><input id="vn" value={viewName} maxLength={40} onChange={(e) => setViewName(e.target.value)} placeholder="For example: Overdue invoices" />
+            <button className="secondary sm" disabled={!viewName.trim()}>Save view</button></div>
+        </form>
+        <details className="colchooser">
+          <summary>Columns</summary>
+          <div className="pop" role="group" aria-label="Choose columns">
+            {COLS.map(([k, label]) => (
+              <label key={k} className="incl"><input type="checkbox" checked={cols.has(k)} onChange={(e) => setCols((c) => { const n = new Set(c); if (e.target.checked) n.add(k); else n.delete(k); return n; })} /> {label}</label>))}
+          </div>
+        </details>
+        <button type="button" className="secondary sm" disabled={!rows || rows.length === 0} onClick={() => {
+          const list = sorted ?? rows ?? [];
+          const statusText = (r: Row) => (r.estimate_status ? (EST_LABEL[r.estimate_status] ?? r.estimate_status) : late(r) ? 'Overdue' : r.status === 'issued' ? (r.payment_status === 'paid' ? 'Paid' : r.payment_status === 'part_paid' ? 'Part paid' : 'Issued') : r.status === 'draft' ? 'Draft' : 'Cancelled');
+          downloadCsv(`documents-${today}.csv`, csvText(['Number', 'Type', 'Customer', 'Date', 'Due', 'Total', 'Balance', 'Status'],
+            list.map((r) => [r.number ?? 'Draft', DOC_LABEL[r.doc_type] ?? r.doc_type, r.party_name ?? 'Walk-in', r.doc_date, r.due_date ?? '', rupeesPlain(r.grand_total_paise), owed(r) > 0n ? rupeesPlain(owed(r)) : '', statusText(r)])));
+        }}>Export CSV</button>
+        {views.length > 0 && <details className="colchooser"><summary>Delete a view</summary><div className="pop">{views.map((v) => (
+          <button key={v.name} type="button" className="link" onClick={() => { setViews(deleteView<ViewState>('documents', v.name)); setViewMsg(`View "${v.name}" deleted.`); }}>Delete {v.name}</button>))}</div></details>}
+      </div>
+      {viewMsg && <p className="muted" role="status">{viewMsg}</p>}
       <div className="filters">
         <div style={{ flex: 2 }}><label htmlFor="q">Search</label><input id="q" type="search" placeholder="Number or customer" value={q} onChange={(e) => setQ(e.target.value)} /></div>
         <div><label htmlFor="ty">Type</label>
@@ -139,19 +187,19 @@ export default function Documents() {
         </div>)}
       {rows && rows.length > 0 && (
         <table className="t cards">
-          <thead><tr><th aria-sort={sort?.key === 'number' ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>{canIssue && <input type="checkbox" aria-label="Select all documents" checked={rows.length > 0 && rows.every((r) => picked.has(r.id))} onChange={(e) => setPicked(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())} />} <button type="button" className="thsort" onClick={() => setSort((c) => (c?.key === 'number' ? (c.dir === 1 ? { key: 'number', dir: -1 } : null) : { key: 'number', dir: 1 }))}>Number{sort?.key === 'number' ? (sort.dir === 1 ? ' \u2191' : ' \u2193') : ''}</button></th>{th('Type', 'type')}{th('Customer', 'party_name')}{th('Date', 'doc_date')}<th>Due</th>{th('Total', 'grand_total_paise', true)}<th className="n">Balance</th>{th('Status', 'status')}</tr></thead>
+          <thead><tr><th aria-sort={sort?.key === 'number' ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>{canIssue && <input type="checkbox" aria-label="Select all documents" checked={rows.length > 0 && rows.every((r) => picked.has(r.id))} onChange={(e) => setPicked(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())} />} <button type="button" className="thsort" onClick={() => setSort((c) => (c?.key === 'number' ? (c.dir === 1 ? { key: 'number', dir: -1 } : null) : { key: 'number', dir: 1 }))}>Number{sort?.key === 'number' ? (sort.dir === 1 ? ' \u2191' : ' \u2193') : ''}</button></th>{cols.has('type') && th('Type', 'type')}{cols.has('customer') && th('Customer', 'party_name')}{cols.has('date') && th('Date', 'doc_date')}{cols.has('due') && <th>Due</th>}{cols.has('total') && th('Total', 'grand_total_paise', true)}{cols.has('balance') && <th className="n">Balance</th>}{cols.has('status') && th('Status', 'status')}</tr></thead>
           <tbody>{(sorted ?? rows).map((r) => (
             <tr key={r.id}>
               <td className="c-num">{canIssue && <input type="checkbox" aria-label={`Select ${r.number ?? 'draft'} for ${r.party_name ?? 'walk-in customer'}`} checked={picked.has(r.id)} onChange={() => toggle(r.id)} />} <a href={`/app/invoices/${r.id}`}>{r.number ?? 'Draft'}</a></td>
-              <td className="c-type">{DOC_LABEL[r.doc_type]}</td>
-              <td className="c-cust">{r.party_name ?? 'Walk-in'}</td>
-              <td className="c-date">{r.doc_date}</td>
-              <td className="c-due">{r.due_date ?? ''}</td>
-              <td className="n c-total">{r.currency && r.currency !== 'INR' ? formatMoney(BigInt(r.grand_total_paise), r.currency) : rupees(r.grand_total_paise)}</td>
-              <td className="n c-bal">{owed(r) > 0n ? <span className={late(r) ? 'bad' : ''}>{rupees(owed(r))}</span> : ''}</td>
-              <td className="c-status">{r.estimate_status ? <span className={`chip ${EST_CHIP[r.estimate_status] ?? 'issued'}`}>{EST_LABEL[r.estimate_status] ?? r.estimate_status}</span> : (
+              {cols.has('type') && <td className="c-type">{DOC_LABEL[r.doc_type]}</td>}
+              {cols.has('customer') && <td className="c-cust">{r.party_name ?? 'Walk-in'}</td>}
+              {cols.has('date') && <td className="c-date">{r.doc_date}</td>}
+              {cols.has('due') && <td className="c-due">{r.due_date ?? ''}</td>}
+              {cols.has('total') && <td className="n c-total">{r.currency && r.currency !== 'INR' ? formatMoney(BigInt(r.grand_total_paise), r.currency) : rupees(r.grand_total_paise)}</td>}
+              {cols.has('balance') && <td className="n c-bal">{owed(r) > 0n ? <span className={late(r) ? 'bad' : ''}>{rupees(owed(r))}</span> : ''}</td>}
+              {cols.has('status') && <td className="c-status">{r.estimate_status ? <span className={`chip ${EST_CHIP[r.estimate_status] ?? 'issued'}`}>{EST_LABEL[r.estimate_status] ?? r.estimate_status}</span> : (
                 <span className={`chip ${late(r) ? 'cancelled' : r.status === 'issued' && r.payment_status === 'paid' ? 'paid' : r.status === 'issued' && r.payment_status === 'part_paid' ? 'due' : r.status}`}>
-                {late(r) ? 'Overdue' : r.status === 'issued' ? (r.payment_status === 'paid' ? 'Paid' : r.payment_status === 'part_paid' ? 'Part paid' : 'Issued') : r.status === 'draft' ? 'Draft' : 'Cancelled'}</span>)}</td>
+                {late(r) ? 'Overdue' : r.status === 'issued' ? (r.payment_status === 'paid' ? 'Paid' : r.payment_status === 'part_paid' ? 'Part paid' : 'Issued') : r.status === 'draft' ? 'Draft' : 'Cancelled'}</span>)}</td>}
             </tr>))}</tbody>
         </table>
       )}

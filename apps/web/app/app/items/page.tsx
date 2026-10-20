@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Icon from '../../../components/Icon';
 import { api, rupees, TAX_RATES } from '../../../lib/client';
+import { csvText, downloadCsv, rupeesPlain } from '../../../lib/listTools';
 
 type Item = {
   id: string; name: string; kind: string; hsn_sac: string | null; unit: string; default_rate_bp: number; price_paise: string; price_includes_tax: boolean;
@@ -78,6 +79,8 @@ export default function Items() {
 
       {rows === null && <p className="muted" role="status">Loading</p>}
       {rows && rows.length === 0 && <div className="panel empty"><Icon name="box" size={34} style={{ color: 'var(--text-faint)' }} /><h3>No items yet.</h3><p>Add what you sell so invoices fill in the HSN code and GST rate for you.</p></div>}
+      {rows && rows.length > 0 && <div className="listtools"><button type="button" className="secondary sm" onClick={() => downloadCsv('items.csv', csvText(['Name', 'Kind', 'HSN/SAC', 'Unit', 'GST %', 'Price', 'Price includes GST', 'Barcode', 'In stock'],
+        rows.map((i) => [i.name, i.kind, i.hsn_sac ?? '', i.unit, i.default_rate_bp / 100, rupeesPlain(i.price_paise), i.price_includes_tax ? 'Yes' : 'No', i.barcode ?? '', i.track_stock && i.qty_milli !== null ? Number(i.qty_milli) / 1000 : ''])))}>Export CSV</button></div>}
       {rows && rows.length > 0 && (
         <table className="t" aria-label="Items">
           <thead><tr><th>Name</th><th>HSN/SAC</th><th>GST</th><th className="n">Price</th><th className="n">In stock</th><th /></tr></thead>

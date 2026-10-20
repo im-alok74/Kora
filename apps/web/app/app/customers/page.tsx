@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CURRENCIES, gstinValid, STATE_NAMES } from '@kora/tax';
 import { api } from '../../../lib/client';
+import { csvText, downloadCsv } from '../../../lib/listTools';
 
 type Party = { id: string; name: string; gstin: string | null; state_code: string; phone: string | null; email: string | null; currency?: string; billing_address?: Record<string, string> };
 const EMPTY = { name: '', gstin: '', stateCode: '', phone: '', email: '', currency: 'INR', line1: '', city: '', pincode: '' };
@@ -113,6 +114,8 @@ export default function Customers() {
           </div>
           {portal.active && <p className="muted">Making a new link stops the old one.</p>}
         </div>)}
+      {rows.length > 0 && <div className="listtools"><button type="button" className="secondary sm" onClick={() => downloadCsv('customers.csv', csvText(['Name', 'GSTIN', 'State code', 'Mobile', 'Email', 'City'],
+        rows.map((p) => [p.name, p.gstin ?? '', p.state_code, p.phone ?? '', p.email ?? '', p.billing_address?.city ?? ''])))}>Export CSV</button></div>}
       <table className="t">
         <thead><tr><th>Name</th><th>GSTIN</th><th>State</th><th>Mobile</th><th /></tr></thead>
         <tbody>{rows.map((p) => (
