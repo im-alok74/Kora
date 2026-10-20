@@ -50,7 +50,7 @@ export default function Network() {
     <>
       <div className="toolbar"><div><h1>Network</h1><p className="page-sub">Trade with other businesses on Kora. Their invoices arrive by themselves, and your orders reach them without a phone call.</p></div></div>
       <div className="tabs" role="tablist" aria-label="Network">
-        {TABS.map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>{label}{k === 'received' && waiting > 0 ? ` (${waiting})` : ''}</button>)}
+        {TABS.map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{label}{k === 'received' && waiting > 0 ? ` (${waiting})` : ''}</button>)}
       </div>
       {err && <p className="error" role="alert">{err}</p>}
       {msg && <p className="ok" role="status">{msg}</p>}

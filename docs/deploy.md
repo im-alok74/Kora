@@ -159,3 +159,14 @@ exits non-zero.
 - Run `restore-check.sh` against a scratch server at least monthly. A backup that has never been restored is not yet a backup.
 - Supabase keeps its own daily backups on paid plans only. On the free plan this script is the only copy.
 - Keep the passphrase somewhere other than the backup bucket. Without it the files cannot be opened.
+
+## Watching the queue
+
+`GET /api/admin/jobs` with `Authorization: Bearer <CRON_SECRET>` shows jobs counted by queue and status, the oldest job still waiting, and the 25 latest failures (error text, no payloads). `POST /api/admin/jobs` with `{ "queue": "einvoice" }` (or an empty body for every queue) puts failed jobs back in line with a fresh attempt count. Both refuse everyone when `CRON_SECRET` is not set.
+
+## Before going live
+
+- Replace the placeholder contact addresses on the Terms and Privacy pages and have a lawyer read them.
+- Set `CRON_SECRET`, and leave `DEMO_FIXED_OTP` and `KORA_ALLOW_MOCKS` unset once real customers sign in.
+- The database is in Sydney (ap-southeast-2). Say so in the privacy policy, or move it to an Indian region if your customers need their data kept in India.
+- Rotate any database password that was ever pasted into a chat.

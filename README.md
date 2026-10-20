@@ -21,8 +21,17 @@ Kora issues legally correct GST documents, sends them on WhatsApp, collects by U
 | Late fees and other currencies | Overdue invoices offer a draft late fee debit note that you issue. Estimates and proforma invoices can be quoted in another currency and convert to a rupee invoice. |
 | Data and integrations | Export to Excel, a full backup (ZIP with CSV and JSON), and a Tally import file. Import customers and items from a spreadsheet. A JSON API with keys and signed, retrying webhooks. See [docs/api.md](docs/api.md). |
 | Reports | Sales register, sales by customer, payments received, ageing, customer statement, with CSV export that is safe to open in a spreadsheet. |
+| CA firms | One screen for every client with what is overdue and what is due, an inbox for documents clients send, and one-click switching between businesses. |
+| Lawyers | Matters with time, expenses, fees and hearing dates. Client money held in trust, with a ledger, and invoices paid from it. Matters can be made private to chosen people. |
+| Freelancers | Projects on the same engine as matters, with a timer, a rate, and billing of tracked hours. |
+| Shops | Stock with reorder levels and counts, barcodes, tax-inclusive prices, a till with an 80 mm receipt, and documents in English, Hindi, Marathi or Gujarati. |
+| Purchases and input credit | Purchase bills, payables ageing, input tax credit with eligible or blocked status, GSTR-2B import and matching, and GSTR-3B table 4 figures. |
+| Kora network | An invoice to a customer who is on Kora lands in their account and becomes a purchase bill on accept. A directory, catalogues and purchase orders that turn into invoices. |
+| Security | One-time codes plus an optional authenticator app and recovery codes, a list of signed-in devices, a security log, and closing your own account. |
+| Search and notifications | A search palette (Ctrl+K) across documents, customers, items and matters, a bell for what needs attention, bulk actions, and a dark theme. |
+| Operations | Container image, daily background tick for hosts with no worker, encrypted backups with a restore check, error reporting, shared rate limiting, a jobs admin route. See [docs/deploy.md](docs/deploy.md). |
 
-What is **not** in v1: filing returns, purchases and input tax credit, e-way bills, exports and SEZ, customer login accounts, inventory, importing invoices. See [docs/compliance.md](docs/compliance.md).
+What is **not** built yet: filing returns, e-way bills, export invoices under LUT and SEZ supplies, a live GST partner connection, customer login accounts (customers use a private link), and importing invoices from other software. See [docs/compliance.md](docs/compliance.md).
 
 ## Run it locally
 
@@ -40,7 +49,18 @@ Sign in at http://localhost:3000. In development the one-time code is printed in
 
 ## Environment variables
 
-Copy `.env.example`. Never commit `.env`.
+Copy `.env.example`. Never commit `.env`. The file lists every variable, with the live services (SMS and email sign-in codes, WhatsApp, Razorpay, Upstash rate limiting, object storage, Sentry, backups) commented out. Leave them out and Kora uses safe local mocks. The ones that matter in production:
+
+| Variable | Meaning |
+|---|---|
+| `OTP_PROVIDER=live`, `MSG91_*`, `RESEND_API_KEY`, `EMAIL_FROM` | Real sign-in codes by SMS and email |
+| `MESSENGER=live`, `WHATSAPP_*` | Invoices and reminders on WhatsApp |
+| `GATEWAY=razorpay`, `RAZORPAY_*` | Payment links; point the Razorpay webhook at `/api/webhooks/razorpay` |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Request limits shared by every server instance |
+| `BLOB_S3_*` | Files in object storage instead of the database |
+| `SENTRY_DSN` | Error reporting |
+| `CRON_SECRET` | Guards `/api/cron/tick` and `/api/admin/jobs`; 16 or more characters |
+| `DEMO_FIXED_OTP` | Staging demos only; needs `KORA_ALLOW_MOCKS=1`. Never use it with real customers |
 
 | Variable | Used by | Meaning |
 |---|---|---|

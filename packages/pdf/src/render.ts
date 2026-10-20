@@ -91,46 +91,85 @@ export function renderDocumentHtml(i: RenderInput): string {
   const logo = t.logoDataUrl && /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(t.logoDataUrl) ? `<img class="logo" src="${t.logoDataUrl}" alt="">` : '';
 
   const supplierName = s.trade_name || s.legal_name;
+  const cell = (k: string, v: string) => `<div><span class="k">${esc(k)}</span><b>${v}</b></div>`;
+  const metaCells = [cell(L.no, esc(d.number ?? 'Draft')), cell(L.date, esc(d.doc_date)), d.due_date ? cell(L.due, esc(d.due_date)) : '',
+    d.original_number ? cell(L.against, esc(d.original_number)) : '', cell(L.placeOfSupply, place)].join('');
+  const ship = r?.shipping_address && Object.keys(r.shipping_address).length ? addr(r.shipping_address) : '';
+
+  // The tax by HSN or SAC and rate: the summary a buyer and an auditor look for first.
+  const byHsn = new Map<string, { hsn: string; bp: number; taxable: bigint; tax: bigint }>();
+  for (const l of lines) {
+    const k = `${l.hsn_sac ?? ''}|${l.tax_rate_bp}`;
+    const g = byHsn.get(k) ?? { hsn: String(l.hsn_sac ?? ''), bp: Number(l.tax_rate_bp), taxable: 0n, tax: 0n };
+    g.taxable += BigInt(l.taxable_paise); g.tax += BigInt(l.cgst_paise) + BigInt(l.sgst_paise) + BigInt(l.igst_paise);
+    byHsn.set(k, g);
+  }
+  const taxSummary = showTax && !narrative && byHsn.size > 0
+    ? `<table class="hsn"><thead><tr><th>HSN/SAC</th><th class="n">${esc(L.taxable)}</th><th class="n">GST %</th><th class="n">GST</th></tr></thead><tbody>${[...byHsn.values()]
+        .map((g) => `<tr><td>${esc(g.hsn) || '-'}</td><td class="n">${money(g.taxable)}</td><td class="n">${pct(g.bp)}</td><td class="n">${money(g.tax)}</td></tr>`).join('')}</tbody></table>` : '';
+  const payRow = bankBlock || upiBlock ? `<div class="payrow">${bankBlock}${upiBlock}</div>` : '';
+  const tdsRows = BigInt(d.tds_paise ?? 0) > 0n
+    ? `<tr class="sub"><td>${esc(L.tdsLess)}</td><td class="n">${money(d.tds_paise)}</td></tr><tr class="sub"><td>${esc(L.netPayable)}</td><td class="n">${money(BigInt(d.grand_total_paise) - BigInt(d.tds_paise))}</td></tr>` : '';
+
   return `<!doctype html><html lang="en-IN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} ${esc(d.number ?? '')}</title><style>
 @page { size: ${t.paper === 'A5' ? 'A5' : 'A4'}; margin: 12mm; }
-*{box-sizing:border-box} body{margin:0;background:#fff;color:#17201d;font:${compact ? 11 : 12.5}px/1.45 ${serif ? 'Georgia,"Source Serif 4","Noto Serif Devanagari","Noto Serif Gujarati",serif' : 'Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Devanagari","Noto Sans Gujarati",sans-serif'};font-variant-numeric:tabular-nums}
-.page{position:relative;max-width:820px;margin:0 auto;padding:${compact ? 12 : 24}px}
-h1{font-size:${compact ? 18 : 22}px;margin:0;color:${accent};letter-spacing:.02em;text-transform:uppercase}
-.top{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid ${accent};padding-bottom:10px}
-.logo{max-height:56px;max-width:160px;display:block;margin-bottom:6px}
-.meta td{padding:1px 0 1px 12px}.meta td:first-child{color:#55605b;padding-left:0}
-.parties{display:flex;gap:24px;margin:12px 0}.parties>div{flex:1}.lbl{color:#55605b;font-size:.85em;text-transform:uppercase;letter-spacing:.04em}
-table.items{width:100%;border-collapse:collapse;margin-top:6px}
-table.items th{background:${accent};color:#fff;text-align:left;padding:5px 6px;font-weight:600;font-size:.9em}
-table.items td{padding:5px 6px;border-bottom:1px solid #dfdbd2;vertical-align:top}
+*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{margin:0;background:#fff;color:#1b2321;font:${compact ? 11 : 12.5}px/1.5 ${serif ? 'Georgia,"Source Serif 4","Noto Serif Devanagari","Noto Serif Gujarati",serif' : 'Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Devanagari","Noto Sans Gujarati",sans-serif'};font-variant-numeric:tabular-nums}
+.page{position:relative;max-width:820px;margin:0 auto;padding:${compact ? 12 : 28}px}
+.page:before{content:"";display:block;height:6px;border-radius:3px;background:${accent};margin-bottom:${compact ? 10 : 20}px}
+.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+.brand{color:#4a5651;line-height:1.55}.brand .nm{display:block;font-size:1.5em;font-weight:700;color:#1b2321;line-height:1.25}
+.logo{max-height:58px;max-width:170px;display:block;margin-bottom:8px}
+.doc{text-align:right}
+h1{font-size:${compact ? 20 : 28}px;margin:0;color:${accent};font-weight:700;letter-spacing:-.01em;line-height:1.1}
+.meta4{display:flex;flex-wrap:wrap;margin:${compact ? 12 : 20}px 0 14px;border:1px solid #e1e7e4;border-radius:10px;overflow:hidden;background:color-mix(in srgb,${accent} 5%,#fff)}
+.meta4>div{flex:1 1 130px;padding:9px 14px;border-right:1px solid #e1e7e4}.meta4>div:last-child{border-right:0}
+.k,.lbl{display:block;font-size:.78em;text-transform:uppercase;letter-spacing:.06em;color:#66726d;margin-bottom:3px}
+.parties{display:flex;gap:14px;margin:0 0 16px}.card{flex:1;border:1px solid #e1e7e4;border-radius:10px;padding:11px 14px}
+.card b.who{font-size:1.1em}
+table.items{width:100%;border-collapse:collapse;font-size:.97em}
+table.items th{background:color-mix(in srgb,${accent} 9%,#fff);color:#33403b;text-align:left;padding:8px;font-weight:600;font-size:.78em;text-transform:uppercase;letter-spacing:.05em;border-top:1px solid #dae2de;border-bottom:1px solid #dae2de}
+table.items td{padding:9px 8px;border-bottom:1px solid #edf0ee;vertical-align:top}
+table.items tbody tr:last-child td{border-bottom:1px solid #dae2de}
 .n{text-align:right;white-space:nowrap} table.items th.n{text-align:right}
-.bottom{display:flex;gap:24px;margin-top:12px;align-items:flex-start}.bottom>div{flex:1}
-table.tot{width:100%;border-collapse:collapse}.tot td{padding:3px 0}.tot tr.g td{border-top:2px solid ${accent};font-weight:700;font-size:1.15em;padding-top:6px}
-.note{margin-top:8px;color:#17201d}.words{margin-top:10px;font-style:italic}
-.sign{margin-top:28px;text-align:right}.sign div{display:inline-block;border-top:1px solid #7a766c;padding-top:4px;min-width:180px;text-align:center}
-.upi{display:flex;gap:10px;align-items:center;margin-top:10px}.upi img{width:96px;height:96px}
-.rcm{margin-top:8px;font-weight:600}.irn{display:flex;justify-content:space-between;gap:12px;border:1px solid #dfdbd2;padding:8px;margin-top:10px;word-break:break-all}.irn img{width:96px;height:96px}
-.foot{margin-top:16px;color:#55605b;text-align:center;font-size:.9em}
-.mark{position:absolute;top:40%;left:15%;font-size:84px;font-weight:800;color:rgba(168,39,39,.12);transform:rotate(-20deg);pointer-events:none}
-@media(max-width:640px){.top,.parties,.bottom{flex-direction:column}table.items{display:block;overflow-x:auto}}
+small{color:#66726d}
+.bottom{display:flex;gap:22px;margin-top:16px;align-items:flex-start}.bottom>div{flex:1}
+.totbox{border:1px solid #e1e7e4;border-radius:10px;overflow:hidden}
+table.tot{width:100%;border-collapse:collapse}.tot td{padding:6px 14px;color:#4a5651}.tot td.n{color:#1b2321}
+.tot tr.g td{background:${accent};color:#fff;font-weight:700;font-size:1.2em;padding:11px 14px}
+.tot tr.sub td{font-size:.92em;color:#66726d}
+.words{font-weight:600;color:#33403b;margin-bottom:8px}
+.rcm{margin:8px 0;font-weight:600;color:#8a4b00}
+.payrow{display:flex;flex-direction:column;gap:10px;margin-top:10px}.payrow>div{flex:1;margin:0;border:1px solid #e1e7e4;border-radius:10px;padding:10px 14px}
+.upi{display:flex;gap:12px;align-items:center}.upi img{width:92px;height:92px}
+.note{margin-top:10px;color:#33403b}
+table.hsn{width:100%;border-collapse:collapse;margin-top:18px;font-size:.88em}
+table.hsn th{text-align:left;padding:6px 8px;color:#66726d;font-weight:600;font-size:.85em;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #dae2de}
+table.hsn th.n{text-align:right}
+table.hsn td{padding:5px 8px;border-bottom:1px solid #edf0ee}
+.irn{display:flex;justify-content:space-between;gap:12px;border:1px solid #e1e7e4;border-radius:10px;padding:10px 14px;margin-top:14px;word-break:break-all}.irn img{width:92px;height:92px}
+.sign{margin-top:30px;text-align:right}.sign div{display:inline-block;border-top:1px solid #8a948f;padding-top:5px;min-width:200px;text-align:center;color:#33403b}
+.foot{margin-top:18px;padding-top:10px;border-top:1px solid #e1e7e4;color:#66726d;text-align:center;font-size:.9em}
+.mark{position:absolute;top:38%;left:14%;font-size:92px;font-weight:800;color:rgba(168,39,39,.11);transform:rotate(-20deg);pointer-events:none}
+tr,.card,.totbox,.payrow{break-inside:avoid}
+@media(max-width:640px){.hd,.parties,.bottom,.payrow{flex-direction:column}.doc{text-align:left}table.items{display:block;overflow-x:auto}}
 </style></head><body><div class="page">${draftMark}
-<div class="top"><div>${logo}<b style="font-size:1.25em">${esc(supplierName)}</b>${supplierName !== s.legal_name ? `<br>${esc(s.legal_name)}` : ''}<br>${addr(s.address)}${s.phone ? `<br>Ph: ${esc(s.phone)}` : ''}${s.email ? `<br>${esc(s.email)}` : ''}
+<div class="hd"><div class="brand">${logo}<span class="nm">${esc(supplierName)}</span>${supplierName !== s.legal_name ? `${esc(s.legal_name)}<br>` : ''}${addr(s.address)}${s.phone ? `<br>Ph: ${esc(s.phone)}` : ''}${s.email ? `<br>${esc(s.email)}` : ''}
 ${s.gstin ? `<br><b>GSTIN:</b> ${esc(s.gstin)}` : ''}</div>
-<div style="text-align:right"><h1>${esc(title)}</h1><table class="meta" style="margin-left:auto"><tr><td>${esc(L.no)}</td><td><b>${esc(d.number ?? 'Draft')}</b></td></tr>
-<tr><td>${esc(L.date)}</td><td>${esc(d.doc_date)}</td></tr>${d.due_date ? `<tr><td>${esc(L.due)}</td><td>${esc(d.due_date)}</td></tr>` : ''}
-${d.original_number ? `<tr><td>${esc(L.against)}</td><td>${esc(d.original_number)}</td></tr>` : ''}</table></div></div>
-<div class="parties"><div><div class="lbl">${esc(L.billTo)}</div>${r ? `<b>${esc(r.name)}</b><br>${addr(r.billing_address)}${r.gstin ? `<br><b>GSTIN:</b> ${esc(r.gstin)}` : ''}${r.phone ? `<br>Ph: ${esc(r.phone)}` : ''}` : esc(L.walkIn)}</div>
-<div><div class="lbl">${esc(L.placeOfSupply)}</div><b>${place}</b>${r?.shipping_address && Object.keys(r.shipping_address).length ? `<div class="lbl" style="margin-top:8px">${esc(L.shipTo)}</div>${addr(r.shipping_address)}` : ''}</div></div>
+<div class="doc"><h1>${esc(title)}</h1></div></div>
+<div class="meta4">${metaCells}</div>
+<div class="parties"><div class="card"><span class="lbl">${esc(L.billTo)}</span>${r ? `<b class="who">${esc(r.name)}</b><br>${addr(r.billing_address)}${r.gstin ? `<br><b>GSTIN:</b> ${esc(r.gstin)}` : ''}${r.phone ? `<br>Ph: ${esc(r.phone)}` : ''}` : esc(L.walkIn)}</div>
+${ship ? `<div class="card"><span class="lbl">${esc(L.shipTo)}</span>${ship}</div>` : ''}</div>
 <table class="items"><thead>${narrative ? `<tr><th>#</th><th>Particulars of professional services</th><th>SAC</th><th class="n">Fee</th>${taxHead}</tr>` : `<tr><th>#</th><th>${esc(L.description)}</th><th>HSN/SAC</th><th class="n">${esc(L.qty)}</th><th class="n">${esc(L.rate)}</th><th class="n">${esc(L.discount)}</th><th class="n">${esc(L.taxable)}</th>${taxHead}</tr>`}</thead><tbody>${rows}</tbody></table>
 <div class="bottom"><div>${t.showAmountInWords && !foreign ? `<div class="words">${esc(rupeesInWords(BigInt(d.grand_total_paise)))}</div>` : ''}
 ${rcm ? `<div class="rcm">${esc(L.reverseCharge)}</div>` : ''}
-${bankBlock}${upiBlock}${optional(t.showNotes, L.notes, d.notes)}${optional(t.showTerms, L.terms, d.terms)}</div>
-<div><table class="tot">${totalRows}<tr class="g"><td>${rcm ? L.amountDue : L.total}${foreign ? ` (${esc(d.currency)})` : ''}</td><td class="n">${money(d.grand_total_paise)}</td></tr>
-${rcm && showTax ? `<tr><td colspan="2" style="color:#55605b;font-size:.9em">Tax shown above is payable by the recipient.</td></tr>` : ''}
-${foreign ? `<tr><td colspan="2" style="color:#55605b;font-size:.9em">All amounts are in ${esc(d.currency)}. Exchange rate used: 1 ${esc(d.currency)} = Rs ${rateText}. This is not a tax invoice.</td></tr>` : ''}
-${BigInt(d.tds_paise ?? 0) > 0n ? `<tr><td style="color:#55605b">${esc(L.tdsLess)}</td><td class="n" style="color:#55605b">${money(d.tds_paise)}</td></tr><tr><td style="color:#55605b">${esc(L.netPayable)}</td><td class="n" style="color:#55605b">${money(BigInt(d.grand_total_paise) - BigInt(d.tds_paise))}</td></tr>` : ''}</table></div></div>
-${irnBlock}${t.showSignature ? `<div class="sign"><div>${esc(L.signatory)}<br>${esc(supplierName)}</div></div>` : ''}
+${payRow}${optional(t.showNotes, L.notes, d.notes)}${optional(t.showTerms, L.terms, d.terms)}</div>
+<div><div class="totbox"><table class="tot">${totalRows}<tr class="g"><td>${rcm ? L.amountDue : L.total}${foreign ? ` (${esc(d.currency)})` : ''}</td><td class="n">${money(d.grand_total_paise)}</td></tr>
+${rcm && showTax ? `<tr class="sub"><td colspan="2">Tax shown above is payable by the recipient.</td></tr>` : ''}
+${foreign ? `<tr class="sub"><td colspan="2">All amounts are in ${esc(d.currency)}. Exchange rate used: 1 ${esc(d.currency)} = Rs ${rateText}. This is not a tax invoice.</td></tr>` : ''}
+${tdsRows}</table></div></div></div>
+${taxSummary}${irnBlock}${t.showSignature ? `<div class="sign"><div>${esc(L.signatory)}<br>${esc(supplierName)}</div></div>` : ''}
 ${t.footerText ? `<div class="foot">${esc(t.footerText)}</div>` : ''}
 </div></body></html>`;
 }

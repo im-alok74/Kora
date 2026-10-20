@@ -62,3 +62,11 @@ Parity (`replica/features.csv`): **68.6 / 100**, must-haves 25 of 32 done. The 7
 8. **A practising CA** to sign off `replica/tax-cases.md`, the rate seed and the GSTR-1 output.
 9. **A lawyer** for privacy notice, terms and data processing terms.
 10. Real prices from the partner and WhatsApp rate cards in `replica/cost-model.md`.
+
+## Update, 20 October 2026: segments, hosting and security
+
+Built since the report above: CA firm tools (clients screen, inbox), lawyer matters with client money and private access, freelancer projects with a timer, shop stock and till with tax-inclusive prices and Hindi, Marathi and Gujarati documents, purchases with input tax credit and GSTR-2B matching, the Kora network (invoices between businesses, directory, catalogue, purchase orders), an authenticator app and recovery codes, search, notifications and a dark theme, a public API for matters, purchases and stock, a jobs admin route, a container image, a daily background tick, encrypted backups with a restore check, and Terms and Privacy pages.
+
+Still not built: export invoices under LUT, e-way bills, a live GST partner connection, customer login accounts.
+
+Needs you: put the live-service keys in the environment (see `.env.example`), set `CRON_SECRET`, apply migrations 0021 to 0023 to the hosted database, replace the placeholder contact addresses on the legal pages, and have a lawyer and a CA read them.

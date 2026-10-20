@@ -10,8 +10,8 @@ The owner makes keys under **Developers**. A key is shown once. Only a hash is k
 
 | Access | Can do |
 |---|---|
-| Read only | List and read customers, items, invoices, payments |
-| Read and write | The above, plus create customers, items, invoices and payments, issue drafts, make share links |
+| Read only | List and read customers, items, invoices, payments, matters, purchase bills, stock |
+| Read and write | The above, plus create customers, items, invoices, payments, matters, time entries and purchase bills, adjust stock, issue drafts, make share links |
 
 No key can cancel an invoice, change settings, manage people or make more keys. A key stops working at once when it is revoked, and also if the person who made it is removed from the business. At most 20 live keys per business.
 
@@ -64,6 +64,14 @@ Authorization: Bearer kora_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 | `GET /invoices/{id}/payments` | read | Payments on a document |
 | `POST /invoices/{id}/share` | write | A public link the customer can open (valid 30 days) |
 | `GET /payments?from=&to=` | read | Payments received in a period (this month by default) |
+| `GET /matters?status=&kind=&q=` | read | Matters and projects. `kind` is `matter` or `project` |
+| `GET /matters/{id}` | read | One matter with time, expenses, fees, client money and dates |
+| `POST /matters` | write | Open one: `{ partyId, title, kind? }` |
+| `POST /matters/{id}/time` | write | Log time: `{ duration: "1:30", description, date?, rate?, billable? }` |
+| `GET /purchases?q=&state=&from=&to=` | read | Purchase bills |
+| `POST /purchases` | write | Record a bill: vendor, bill number and date, and lines with rate and tax |
+| `GET /stock?q=&low=1` | read | Stock on hand for tracked items; `low=1` lists those at or under their reorder level |
+| `POST /stock/{itemId}/adjust` | write | `{ mode: "in" \| "out" \| "count", quantity, note?, date? }` |
 
 ### Making an invoice
 

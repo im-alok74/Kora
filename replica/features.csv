@@ -72,3 +72,25 @@ Retainer and fixed-fee billing,lawyer,should,yes,yes,"lump-sum fee entries (a fi
 Per-matter access and confidentiality,lawyer,should,yes,yes,"owner makes a matter private to chosen people; enforced by the database on the matter, its entries, client money and dates; an invoice made from it is an ordinary invoice; unit and browser tested"
 Hearing dates and deadlines,lawyer,should,yes,partial,"dates per matter with done and remove, and a coming-up list across matters (overdue first, next 30 days); no reminders sent yet"
 Legal invoice layout,lawyer,should,yes,yes,"template layout with particulars and fee instead of quantity and rate; SAC, tax and every statutory field still printed"
+Client list with overdue and due dates (CA firm),ca,must,yes,yes,firm page; e2e tested
+Document inbox from clients (CA firm),ca,should,yes,yes,inbox page; e2e tested
+Matters with time fees and hearing dates,legal,must,yes,yes,matters engine; 26 unit tests
+Client money held in trust with ledger,legal,must,yes,yes,pays invoices from held funds
+Private matters (access list),legal,should,yes,yes,row-level security
+Projects with timer and billing,freelance,must,yes,yes,same engine as matters
+Stock with reorder levels and counts,shop,must,yes,yes,database triggers; 13 unit tests
+Barcode lookup and till,shop,must,yes,yes,80 mm receipt
+Tax-inclusive (MRP) pricing,shop,must,yes,yes,CGST equals SGST kept
+Hindi Marathi Gujarati documents,shop,should,yes,yes,labels per language
+Purchase bills and payables ageing,purchases,must,yes,yes,
+Input tax credit and GSTR-2B matching,purchases,must,yes,yes,GSTR-3B table 4 figures
+Invoices delivered between Kora businesses,network,should,no,yes,accept becomes purchase bill
+Directory catalogue and purchase orders,network,should,no,yes,order becomes invoice
+Authenticator app and recovery codes,security,must,yes,yes,RFC 6238
+Search palette and notifications,workspace,should,yes,yes,Ctrl+K
+Public API for matters purchases stock,api,should,no,yes,openapi.json updated
+Jobs admin route,ops,should,no,yes,guarded by CRON_SECRET
+Export invoices under LUT,compliance,could,yes,no,not built: mixes currencies in ageing
+E-way bill,compliance,could,yes,no,not built
+Live GST partner connection,compliance,must,yes,no,needs partner credentials
+Customer login accounts,portal,could,yes,no,not built: private link instead

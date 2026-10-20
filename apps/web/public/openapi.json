@@ -5,114 +5,1062 @@
     "version": "1.0.0",
     "description": "Read your data and create customers, invoices and payments from other software. Money in answers is whole paise as strings; in requests it is rupees as text. See docs/api.md for the full guide, including webhooks."
   },
-  "servers": [{ "url": "/api/v1" }],
-  "security": [{ "bearerKey": [] }],
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "security": [
+    {
+      "bearerKey": []
+    }
+  ],
   "components": {
     "securitySchemes": {
-      "bearerKey": { "type": "http", "scheme": "bearer", "description": "An API key made under Developers, starting kora_." }
+      "bearerKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "An API key made under Developers, starting kora_."
+      }
     },
     "parameters": {
-      "Limit": { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 } },
-      "Offset": { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0, "default": 0 } },
-      "Search": { "name": "q", "in": "query", "schema": { "type": "string" } },
-      "Id": { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 50
+        }
+      },
+      "Offset": {
+        "name": "offset",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        }
+      },
+      "Search": {
+        "name": "q",
+        "in": "query",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Id": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
       "IdempotencyKey": {
-        "name": "Idempotency-Key", "in": "header", "required": false,
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": false,
         "description": "8 to 64 letters, digits, - or _. A retry with the same key returns the same document instead of making a second.",
-        "schema": { "type": "string", "pattern": "^[A-Za-z0-9_-]{8,64}$" }
+        "schema": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{8,64}$"
+        }
       }
     },
     "responses": {
       "Error": {
         "description": "Something is wrong with the request. The message says how, in plain words.",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
       }
     },
     "schemas": {
       "Error": {
-        "type": "object", "required": ["error"],
-        "properties": { "error": { "type": "object", "required": ["code", "message"], "properties": {
-          "code": { "type": "string", "enum": ["invalid_request", "unauthorized", "forbidden", "not_found", "conflict", "unsupported_media_type", "rate_limited", "server_error"] },
-          "message": { "type": "string" }, "field": { "type": "string" } } } }
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "invalid_request",
+                  "unauthorized",
+                  "forbidden",
+                  "not_found",
+                  "conflict",
+                  "unsupported_media_type",
+                  "rate_limited",
+                  "server_error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "field": {
+                "type": "string"
+              }
+            }
+          }
+        }
       },
       "Line": {
-        "type": "object", "required": ["name", "quantity", "rate", "taxRateBp"],
+        "type": "object",
+        "required": [
+          "name",
+          "quantity",
+          "rate",
+          "taxRateBp"
+        ],
         "properties": {
-          "name": { "type": "string" }, "hsnSac": { "type": "string", "pattern": "^[0-9]{4,8}$", "nullable": true },
-          "quantity": { "type": "string", "example": "2" }, "rate": { "type": "string", "description": "Rupees, as text.", "example": "500.00" },
-          "discount": { "type": "string", "example": "0.00" }, "taxRateBp": { "type": "integer", "description": "GST in basis points: 1800 is 18%.", "example": 1800 },
-          "kind": { "type": "string", "enum": ["goods", "service"] }, "unit": { "type": "string", "example": "NOS" }
+          "name": {
+            "type": "string"
+          },
+          "hsnSac": {
+            "type": "string",
+            "pattern": "^[0-9]{4,8}$",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "string",
+            "example": "2"
+          },
+          "rate": {
+            "type": "string",
+            "description": "Rupees, as text.",
+            "example": "500.00"
+          },
+          "discount": {
+            "type": "string",
+            "example": "0.00"
+          },
+          "taxRateBp": {
+            "type": "integer",
+            "description": "GST in basis points: 1800 is 18%.",
+            "example": 1800
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "goods",
+              "service"
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "example": "NOS"
+          }
         }
       },
       "DocumentInput": {
-        "type": "object", "required": ["docType", "lines"],
+        "type": "object",
+        "required": [
+          "docType",
+          "lines"
+        ],
         "properties": {
-          "docType": { "type": "string", "enum": ["tax_invoice", "bill_of_supply", "estimate", "proforma", "delivery_challan"] },
-          "partyId": { "type": "string", "format": "uuid", "nullable": true }, "docDate": { "type": "string", "format": "date" }, "dueDate": { "type": "string", "format": "date", "nullable": true },
-          "reverseCharge": { "type": "boolean" }, "tcsBp": { "type": "integer" }, "tdsBp": { "type": "integer" }, "notes": { "type": "string" }, "terms": { "type": "string" },
-          "issue": { "type": "boolean", "description": "Issue the document straight away instead of leaving a draft." },
-          "lines": { "type": "array", "minItems": 1, "maxItems": 200, "items": { "$ref": "#/components/schemas/Line" } }
+          "docType": {
+            "type": "string",
+            "enum": [
+              "tax_invoice",
+              "bill_of_supply",
+              "estimate",
+              "proforma",
+              "delivery_challan"
+            ]
+          },
+          "partyId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "docDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "reverseCharge": {
+            "type": "boolean"
+          },
+          "tcsBp": {
+            "type": "integer"
+          },
+          "tdsBp": {
+            "type": "integer"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "terms": {
+            "type": "string"
+          },
+          "issue": {
+            "type": "boolean",
+            "description": "Issue the document straight away instead of leaving a draft."
+          },
+          "lines": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/components/schemas/Line"
+            }
+          }
         }
       },
       "DocumentCreated": {
-        "type": "object", "properties": {
-          "id": { "type": "string", "format": "uuid" }, "status": { "type": "string", "enum": ["draft", "issued"] }, "number": { "type": "string", "nullable": true },
-          "warnings": { "type": "array", "items": { "type": "string" } } }
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "issued"
+            ]
+          },
+          "number": {
+            "type": "string",
+            "nullable": true
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       },
       "CustomerInput": {
-        "type": "object", "required": ["name"],
+        "type": "object",
+        "required": [
+          "name"
+        ],
         "properties": {
-          "name": { "type": "string" }, "gstin": { "type": "string", "nullable": true }, "stateCode": { "type": "string", "example": "27" },
-          "phone": { "type": "string" }, "email": { "type": "string" }, "currency": { "type": "string", "example": "INR" },
-          "billingAddress": { "type": "object", "properties": { "line1": { "type": "string" }, "city": { "type": "string" }, "pincode": { "type": "string" } } }
+          "name": {
+            "type": "string"
+          },
+          "gstin": {
+            "type": "string",
+            "nullable": true
+          },
+          "stateCode": {
+            "type": "string",
+            "example": "27"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string",
+            "example": "INR"
+          },
+          "billingAddress": {
+            "type": "object",
+            "properties": {
+              "line1": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "pincode": {
+                "type": "string"
+              }
+            }
+          }
         }
       },
       "ItemInput": {
-        "type": "object", "required": ["name", "defaultRateBp"],
-        "properties": { "name": { "type": "string" }, "kind": { "type": "string", "enum": ["goods", "service"] }, "hsnSac": { "type": "string" }, "unit": { "type": "string" },
-          "defaultRateBp": { "type": "integer", "example": 1800 }, "price": { "type": "string", "example": "250.00" } }
+        "type": "object",
+        "required": [
+          "name",
+          "defaultRateBp"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "goods",
+              "service"
+            ]
+          },
+          "hsnSac": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "defaultRateBp": {
+            "type": "integer",
+            "example": 1800
+          },
+          "price": {
+            "type": "string",
+            "example": "250.00"
+          }
+        }
       },
       "PaymentInput": {
-        "type": "object", "required": ["amount", "method"],
-        "properties": { "amount": { "type": "string", "example": "500.00" }, "method": { "type": "string", "enum": ["cash", "upi", "bank_transfer", "cheque", "card", "netbanking", "tds", "other"] },
-          "receivedOn": { "type": "string", "format": "date" }, "note": { "type": "string" } }
+        "type": "object",
+        "required": [
+          "amount",
+          "method"
+        ],
+        "properties": {
+          "amount": {
+            "type": "string",
+            "example": "500.00"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "cash",
+              "upi",
+              "bank_transfer",
+              "cheque",
+              "card",
+              "netbanking",
+              "tds",
+              "other"
+            ]
+          },
+          "receivedOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
       },
-      "Created": { "type": "object", "properties": { "id": { "type": "string", "format": "uuid" } } }
+      "Created": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
     }
   },
   "paths": {
-    "/me": { "get": { "summary": "The business and the key's access", "responses": { "200": { "description": "OK" }, "401": { "$ref": "#/components/responses/Error" } } } },
-    "/customers": {
-      "get": { "summary": "List customers", "parameters": [{ "$ref": "#/components/parameters/Search" }, { "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Offset" }], "responses": { "200": { "description": "OK" } } },
-      "post": { "summary": "Make a customer (write access)", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CustomerInput" } } } },
-        "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Created" } } } }, "400": { "$ref": "#/components/responses/Error" }, "403": { "$ref": "#/components/responses/Error" } } }
+    "/me": {
+      "get": {
+        "summary": "The business and the key's access",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     },
-    "/customers/{id}": { "get": { "summary": "One customer", "parameters": [{ "$ref": "#/components/parameters/Id" }], "responses": { "200": { "description": "OK" }, "404": { "$ref": "#/components/responses/Error" } } } },
+    "/customers": {
+      "get": {
+        "summary": "List customers",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Search"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "summary": "Make a customer (write access)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Created"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/customers/{id}": {
+      "get": {
+        "summary": "One customer",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/items": {
-      "get": { "summary": "List items", "parameters": [{ "$ref": "#/components/parameters/Search" }, { "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Offset" }], "responses": { "200": { "description": "OK" } } },
-      "post": { "summary": "Make an item (write access)", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ItemInput" } } } },
-        "responses": { "201": { "description": "Created" }, "400": { "$ref": "#/components/responses/Error" }, "403": { "$ref": "#/components/responses/Error" } } }
+      "get": {
+        "summary": "List items",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Search"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "summary": "Make an item (write access)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     },
     "/invoices": {
-      "get": { "summary": "List documents of every type", "parameters": [
-        { "name": "type", "in": "query", "schema": { "type": "string" } }, { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["draft", "issued", "cancelled"] } },
-        { "$ref": "#/components/parameters/Search" }, { "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Offset" }], "responses": { "200": { "description": "OK" } } },
-      "post": { "summary": "Make a draft, or issue it straight away (write access)", "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DocumentInput" } } } },
-        "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DocumentCreated" } } } },
-          "200": { "description": "A retry with the same Idempotency-Key: the document that was already made" }, "400": { "$ref": "#/components/responses/Error" }, "403": { "$ref": "#/components/responses/Error" } } }
+      "get": {
+        "summary": "List documents of every type",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "issued",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Search"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "summary": "Make a draft, or issue it straight away (write access)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentCreated"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "A retry with the same Idempotency-Key: the document that was already made"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     },
-    "/invoices/{id}": { "get": { "summary": "One document with its lines and payments", "parameters": [{ "$ref": "#/components/parameters/Id" }], "responses": { "200": { "description": "OK" }, "404": { "$ref": "#/components/responses/Error" } } } },
-    "/invoices/{id}/issue": { "post": { "summary": "Issue a draft (write access)", "parameters": [{ "$ref": "#/components/parameters/Id" }], "requestBody": { "content": { "application/json": { "schema": { "type": "object" } } } },
-      "responses": { "200": { "description": "Issued" }, "400": { "$ref": "#/components/responses/Error" } } } },
+    "/invoices/{id}": {
+      "get": {
+        "summary": "One document with its lines and payments",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/invoices/{id}/issue": {
+      "post": {
+        "summary": "Issue a draft (write access)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Issued"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/invoices/{id}/payments": {
-      "get": { "summary": "Payments on a document", "parameters": [{ "$ref": "#/components/parameters/Id" }], "responses": { "200": { "description": "OK" } } },
-      "post": { "summary": "Record a payment (write access)", "parameters": [{ "$ref": "#/components/parameters/Id" }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentInput" } } } },
-        "responses": { "201": { "description": "Recorded" }, "400": { "$ref": "#/components/responses/Error" } } }
+      "get": {
+        "summary": "Payments on a document",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "summary": "Record a payment (write access)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Recorded"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     },
-    "/invoices/{id}/share": { "post": { "summary": "A public link to an issued document (write access)", "parameters": [{ "$ref": "#/components/parameters/Id" }], "requestBody": { "content": { "application/json": { "schema": { "type": "object" } } } },
-      "responses": { "201": { "description": "Created: { url }" } } } },
-    "/payments": { "get": { "summary": "Payments received in a period", "parameters": [{ "name": "from", "in": "query", "schema": { "type": "string", "format": "date" } }, { "name": "to", "in": "query", "schema": { "type": "string", "format": "date" } }], "responses": { "200": { "description": "OK" } } } }
+    "/invoices/{id}/share": {
+      "post": {
+        "summary": "A public link to an issued document (write access)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created: { url }"
+          }
+        }
+      }
+    },
+    "/payments": {
+      "get": {
+        "summary": "Payments received in a period",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/matters": {
+      "get": {
+        "summary": "List matters and projects",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "open, closed or on_hold"
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "matter or project"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search text"
+          }
+        ]
+      },
+      "post": {
+        "summary": "Open a matter or project (write access)",
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "partyId and title are required",
+                "properties": {
+                  "partyId": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/matters/{id}": {
+      "get": {
+        "summary": "One matter with its time, expenses, fees, client money and dates",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/matters/{id}/time": {
+      "post": {
+        "summary": "Log time on a matter (write access)",
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "duration is \"1:30\" or \"1.5\"",
+                "properties": {
+                  "duration": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "date": {
+                    "type": "string"
+                  },
+                  "rate": {
+                    "type": "string"
+                  },
+                  "billable": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchases": {
+      "get": {
+        "summary": "List purchase bills",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Vendor or bill number"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Bill state"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "From date"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "To date"
+          }
+        ]
+      },
+      "post": {
+        "summary": "Record a purchase bill (write access)",
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Vendor, bill number and date, and lines with rate and tax",
+                "properties": {
+                  "vendorId": {
+                    "type": "string"
+                  },
+                  "billNumber": {
+                    "type": "string"
+                  },
+                  "billDate": {
+                    "type": "string"
+                  },
+                  "lines": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stock": {
+      "get": {
+        "summary": "Stock on hand for items that are tracked",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search text"
+          },
+          {
+            "name": "low",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "1 for only items at or under their reorder level"
+          }
+        ]
+      }
+    },
+    "/stock/{itemId}/adjust": {
+      "post": {
+        "summary": "Add, remove or count stock (write access)",
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "mode is in, out or count",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "in",
+                      "out",
+                      "count"
+                    ]
+                  },
+                  "quantity": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "date": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }

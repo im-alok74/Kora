@@ -45,7 +45,7 @@ export default function Customer({ params }: { params: Promise<{ id: string }> }
       </div>
 
       <div className="tabs" role="tablist" aria-label="Customer">
-        {TABS.map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>{label}</button>)}
+        {TABS.map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{label}</button>)}
       </div>
 
       {tab === 'overview' && (<>

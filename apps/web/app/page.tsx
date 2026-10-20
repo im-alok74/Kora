@@ -15,6 +15,14 @@ const FEATURES: [React.ComponentProps<typeof Icon>['name'], string, string][] = 
   ['team', 'Built for a team', 'Owners, staff and accountants each see what they should. Run more than one business from one login.'],
 ];
 
+const SEGMENTS: [React.ComponentProps<typeof Icon>['name'], string, string][] = [
+  ['team', 'CA firms', 'See every client on one screen, with what is overdue and what is due. Collect documents through an inbox, match purchases to GSTR-2B and keep input credit clean, and jump into any client in one click.'],
+  ['briefcase', 'Lawyers', 'Matters with fees, hearing dates and notes. Hold client money in trust and pay invoices from it, with a ledger that shows where every rupee came from. Make a matter private to the people on it.'],
+  ['clock', 'Freelancers', 'Projects with a timer and a rate. Turn tracked hours into an invoice, send a pay link and let the reminders chase for you.'],
+  ['cart', 'Shops', 'A till that scans barcodes, prints an 80 mm receipt and keeps stock right. Prices can include tax, and bills come out in English, Hindi, Marathi or Gujarati.'],
+  ['database', 'Businesses that trade together', 'Send an invoice to a customer who is on Kora and it lands in their account, ready to become a purchase bill. Find suppliers in a directory, browse their catalogue and send purchase orders.'],
+];
+
 const STEPS: [string, string][] = [
   ['Add your business', 'Your GSTIN, address and the state you supply from. Takes a minute.'],
   ['Create an invoice', 'Pick a customer, add lines, and watch the tax work itself out. Save a draft or issue it.'],
@@ -35,6 +43,7 @@ export default function Landing() {
         <a className="l-brand" href="/" aria-label="Kora home"><span className="brand-mark" aria-hidden="true">k</span>kora</a>
         <nav aria-label="Primary">
           <a href="#features">Features</a>
+          <a href="#who">Who it is for</a>
           <a href="#how">How it works</a>
           <a href="#trust">Your CA and Kora</a>
           <a className="btn secondary" href="/login">Sign in</a>
@@ -89,6 +98,16 @@ export default function Landing() {
           <p className="l-sub">Quotes, invoices, payments, reminders and returns data, in one place that stays correct.</p>
           <div className="l-grid">
             {FEATURES.map(([ic, t, d]) => (
+              <article key={t} className="l-card"><div className="ico"><Icon name={ic} size={22} /></div><h3>{t}</h3><p>{d}</p></article>
+            ))}
+          </div>
+        </section>
+
+        <section id="who" className="l-section" aria-labelledby="w-h">
+          <h2 id="w-h">One product, whoever you bill</h2>
+          <p className="l-sub">The same careful invoicing underneath, with the tools your kind of work needs on top.</p>
+          <div className="l-grid">
+            {SEGMENTS.map(([ic, t, d]) => (
               <article key={t} className="l-card"><div className="ico"><Icon name={ic} size={22} /></div><h3>{t}</h3><p>{d}</p></article>
             ))}
           </div>
