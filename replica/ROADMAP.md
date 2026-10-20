@@ -41,11 +41,11 @@ The screen people use all day. After this phase it has every field Zoho's invoic
 
 ## Phase 4: templates, languages and messages (code only)
 
-- [ ] 4.1 Template gallery with live preview: Classic, Compact, Modern, Minimal, plus the existing narrative and thermal (Zoho, Ninja, Vyapar). M
-- [ ] 4.2 More fixed-word languages: Tamil, Telugu, Kannada, Bengali, Malayalam, Punjabi (Zoho 10+). M, **words need a native reader's review**
-- [ ] 4.3 Editable message templates for WhatsApp, SMS and email, with placeholders (Zoho, MyBillBook). M
-- [ ] 4.4 PDF attached to the email, not only a link (Zoho, FreshBooks). S
-- [ ] 4.5 Receipt for a payment, as a document the customer can download (Zoho, QuickBooks). S
+- [x] 4.1 Template gallery with live samples in the business's own colour and details: Classic, Modern, Minimal, Compact, Professional fees; thermal stays a per-document choice (Zoho, Ninja, Vyapar). M
+- [ ] 4.2 More fixed-word languages: Tamil, Telugu, Kannada, Bengali, Malayalam, Punjabi (Zoho 10+). M, **needs a native reader's review of every word, and the Noto fonts for those scripts added to the container image (the image installs no extra fonts today)**
+- [x] 4.3 Editable message wording for invoices and reminders, with placeholders, a live preview and a reset to Kora's wording (Zoho, MyBillBook). M. Live WhatsApp still needs an approved Meta template whose single variable carries this text
+- [ ] 4.4 PDF attached to the email, not only a link (Zoho, FreshBooks). M, **the PDF builder (UPI QR, e-invoice block) lives in the web app; it must move to a shared package before the worker can attach it, and the Resend adapter needs attachment support**
+- [x] 4.5 Receipt for a payment, as a PDF from the invoice page and the customer page (Zoho, QuickBooks). S
 
 ## Phase 5: moving in and out (code only)
 
@@ -102,6 +102,7 @@ Phase 1 first because it is the screen every customer judges the product on. Pha
 
 | Date | Phase | What changed |
 |---|---|---|
+| 20 Oct 2026 | Phase 4 | Template gallery with two new looks (Modern, Minimal), message wording editor (migration 0029), payment receipts. Languages and email attachments left open with reasons |
 | 20 Oct 2026 | Phase 3 | Saved views, column chooser, CSV export from lists, keyboard shortcuts and help sheet, team notes on documents (migration 0028). Guided tour left open |
 | 20 Oct 2026 | Phase 2.5 | Bank statement page: CSV reader for common bank formats, matching to open invoices and bills, confirmation, duplicate protection. Also fixed two contrast failures the new palette introduced (sidebar group labels, landing band) |
 | 20 Oct 2026 | Phase 2 (part) | Advances, customer credit, refunds, pay at the counter with a PAID mark (migration 0027). E2E now builds into `.next-e2e`, so it can run beside a dev server |

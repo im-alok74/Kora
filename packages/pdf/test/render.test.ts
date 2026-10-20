@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from 'vitest';
-import { closePdfBrowser, esc, paperFor, renderDocumentHtml, renderPdf, type RenderInput } from '../src/index.js';
+import { closePdfBrowser, esc, LAYOUTS, paperFor, receiptNumber, renderDocumentHtml, renderPdf, renderReceiptHtml, renderSample, type RenderInput } from '../src/index.js';
 
 const TEMPLATE = { accent: '#0b5d4f', font: 'sans', layout: 'classic', paper: 'A4', logoDataUrl: null, showBank: true, showTerms: true,
   showNotes: true, showSignature: true, showAmountInWords: true, footerText: '' };
@@ -182,4 +182,59 @@ describe('languages, receipts and prices that include GST', () => {
     expect(w).toBeGreaterThan(78); expect(w).toBeLessThan(82);
     expect(hgt).toBeGreaterThan(60); expect(hgt).toBeLessThan(250);
   }, 60_000);
+});
+
+describe('payment receipts', () => {
+  const pay = { id: '3f2a9c1e-0000-4000-8000-000000000000', amount_paise: '118000', method: 'upi', received_on: '2026-10-20', note: 'Part of the <b>order</b>' };
+  const supplier = { legal_name: 'Acme Traders', gstin: '27AAPFU0939F1ZV', address: { line1: '1 Main Road', city: 'Pune' } };
+  it('numbers a receipt from its date and id, and shows what was paid and against which invoice', () => {
+    expect(receiptNumber(pay)).toBe('RCPT-20261020-3F2A9C');
+    const h = renderReceiptHtml({ payment: pay, supplier, recipient: { name: 'Local Buyer', gstin: null },
+      allocations: [{ number: 'INV/26-27/0001', doc_type: 'tax_invoice', grand_total_paise: '236000', settled_paise: '118000', allocated_paise: '118000' }] });
+    for (const needle of ['Payment Receipt', 'RCPT-20261020-3F2A9C', 'Local Buyer', '1,180.00', 'Rupees One Thousand One Hundred Eighty Only', 'UPI', 'INV/26-27/0001', '2,360.00', 'It is not a tax invoice']) expect(h).toContain(needle);
+    expect(h).toContain('Part of the &lt;b&gt;order&lt;/b&gt;');                      // the note is escaped
+    expect(h).not.toContain('held as an advance');
+  });
+  it('says an unapplied payment is held, and marks an invoice paid in full', () => {
+    const adv = renderReceiptHtml({ payment: pay, supplier, recipient: null, allocations: [] });
+    expect(adv).toContain('Rs 1,180.00 of this payment is held as an advance');
+    expect(adv).toContain('the customer');
+    const full = renderReceiptHtml({ payment: pay, supplier, recipient: null, allocations: [{ number: 'INV/1', doc_type: 'tax_invoice', grand_total_paise: '118000', settled_paise: '118000', allocated_paise: '118000' }] });
+    expect(full).toContain('Paid in full');
+  });
+  it('falls back to the default colour for an unsafe one, and makes a real PDF', async () => {
+    const h = renderReceiptHtml({ payment: pay, supplier, recipient: null, allocations: [], accent: 'red;}</style><script>x' });
+    expect(h).toContain('#0b5d4f');
+    expect(h).not.toContain('<script>');
+    const pdf = await renderPdf(h, 'A5');
+    expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
+  });
+});
+
+describe('the looks', () => {
+  const NEEDLES = ['Tax Invoice', 'INV/26-27/0001', 'GSTIN:</b> 27AAPFU0939F1ZV', 'Maharashtra (27)', 'HSN/SAC', 'CGST', 'SGST', '1,180.00', 'Rupees One Thousand One Hundred Eighty Only'];
+  it('every look prints every statutory field', () => {
+    for (const layout of ['classic', 'compact', 'modern', 'minimal'] as const) {
+      const h = renderDocumentHtml(sample({ template: { ...TEMPLATE, layout } }));
+      for (const needle of NEEDLES) expect(h, `${layout}: ${needle}`).toContain(needle);
+    }
+  });
+  it('modern and minimal carry their own class, and classic carries neither', () => {
+    expect(renderDocumentHtml(sample({ template: { ...TEMPLATE, layout: 'modern' } }))).toContain('class="page lay-modern"');
+    expect(renderDocumentHtml(sample({ template: { ...TEMPLATE, layout: 'minimal' } }))).toContain('class="page lay-minimal"');
+    expect(renderDocumentHtml(sample())).toContain('class="page lay-classic"');
+  });
+  it('lists each look once and draws a sample of it', () => {
+    expect(LAYOUTS.map((l) => l.key)).toEqual(['classic', 'modern', 'minimal', 'compact', 'narrative']);
+    const h = renderSample({ legal_name: 'Acme', state_code: '27', gstin: '27AAPFU0939F1ZV' }, { ...TEMPLATE, layout: 'modern' });
+    expect(h).toContain('lay-modern');
+    expect(h).toContain('Sample Customer');
+    expect(h).toContain('PO-2041');
+  });
+  it('makes a real PDF in each look', async () => {
+    for (const layout of ['modern', 'minimal'] as const) {
+      const pdf = await renderPdf(renderDocumentHtml(sample({ template: { ...TEMPLATE, layout } })), 'A4');
+      expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
+    }
+  });
 });

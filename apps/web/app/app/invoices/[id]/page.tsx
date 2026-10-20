@@ -247,7 +247,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
                 <tr key={p.allocation_id}><td>{p.received_on ?? ''}</td>
                   <td>{p.credit_note_number ? `Credit note ${p.credit_note_number}` : p.gateway ? `${p.method} via ${p.gateway}` : p.method}</td>
                   <td className="n">{rupees(p.allocated_paise)}</td><td>{p.note ?? ''}</td>
-                  <td className="n">{role === 'owner' && p.payment_id && !p.gateway && <button className="link" onClick={() => run(async () => { await api(`/api/payments/${p.payment_id}`, { method: 'DELETE' }); await load(); })}>Remove</button>}</td></tr>))}</tbody>
+                  <td className="n">{p.payment_id && <a href={`/api/payments/${p.payment_id}/receipt`} target="_blank" rel="noreferrer">Receipt</a>} {role === 'owner' && p.payment_id && !p.gateway && <button className="link" onClick={() => run(async () => { await api(`/api/payments/${p.payment_id}`, { method: 'DELETE' }); await load(); })}>Remove</button>}</td></tr>))}</tbody>
             </table>
           )}
           {outstanding > 0n ? (

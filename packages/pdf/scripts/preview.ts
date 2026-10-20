@@ -25,7 +25,7 @@ const out = renderDocumentHtml({
   recipient: { name: 'Mehta Textiles Pvt Ltd', gstin: '27AABCM1234F1Z5', billing_address: { line1: '221 Textile Market', city: 'Mumbai', pincode: '400002' }, phone: '99887 76655',
     shipping_address: { line1: 'Godown 4, Bhiwandi Road', city: 'Thane', pincode: '421302' } },
   upi: { qrDataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', vpa: 'kapoor@okhdfc', amountText: 'Rs 19,971.00' },
-  template: { accent: '#0b5d4f', font: 'sans', layout: 'classic', paper: 'A4', logoDataUrl: null, showBank: true, showTerms: true, showNotes: true, showSignature: true,
+  template: { accent: process.argv[4] ?? '#0b5d4f', font: 'sans', layout: process.argv[3] ?? 'classic', paper: 'A4', logoDataUrl: null, showBank: true, showTerms: true, showNotes: true, showSignature: true,
     showAmountInWords: true, footerText: 'Subject to Pune jurisdiction. This is a computer generated invoice.' },
 });
 writeFileSync(process.argv[2] ?? 'preview.html', out);

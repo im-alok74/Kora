@@ -4,6 +4,7 @@ import type { Messenger } from '@kora/adapters';
 import { SYSTEM_USER, withTenant, type Sql } from '@kora/db';
 import { normaliseIdentifier } from './identifier.js';
 import { enqueue, PermanentJobError, type JobRow } from './jobs.js';
+import { fillMessage } from './messages.js';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { ValidationError } from './validation.js';
 
@@ -68,7 +69,8 @@ export async function processDeliveryJob(sql: Sql, deps: { messenger: Messenger;
     const [del] = await tx`select id, status from delivery where id = ${p.deliveryId} for update`;
     if (!del) throw new PermanentJobError('Delivery not found.');
     if (del.status === 'sent') return null;
-    const [d] = await tx`select d.status, d.doc_type, d.number, d.due_date, d.currency, d.grand_total_paise, d.amount_settled_paise, b.legal_name, b.trade_name
+    const [d] = await tx`select d.status, d.doc_type, d.number, d.due_date, d.currency, d.grand_total_paise, d.amount_settled_paise, b.legal_name, b.trade_name, b.message_templates,
+                                 (select name from party where id = d.party_id) as customer
                            from document d join business b on b.id = d.business_id where d.id = ${p.documentId}`;
     const stop = async (why: string) => {
       await tx`update delivery set status = 'failed', error_message = ${why} where id = ${p.deliveryId}`;
@@ -82,10 +84,16 @@ export async function processDeliveryJob(sql: Sql, deps: { messenger: Messenger;
     await tx`insert into share_link (business_id, document_id, token_hash) values (${job.business_id}, ${p.documentId}, ${createHash('sha256').update(token).digest()})`;
     const url = `${deps.appUrl.replace(/\/$/, '')}/i/${token}`;
     const from = (d.trade_name ?? d.legal_name) as string;
-    const text = messageText({
-      label: docLabel(d.doc_type as string), number: d.number as string, total: BigInt(d.grand_total_paise as string), currency: d.currency as string, from, url,
-      reminder: p.reminderId ? { outstanding, dueDate: d.due_date as string | null } : undefined,
-    });
+    const own = ((d.message_templates ?? {}) as { invoice?: string; reminder?: string })[p.reminderId ? 'reminder' : 'invoice'];
+    const text = own
+      ? fillMessage(own, {
+        customer: (d.customer as string | null) ?? 'Customer', type: docLabel(d.doc_type as string), number: d.number as string, amount: formatMoney(BigInt(d.grand_total_paise as string), d.currency as string),
+        outstanding: formatMoney(outstanding, d.currency as string), due_date: (d.due_date as string | null) ?? '', business: from, link: url,
+      })
+      : messageText({
+        label: docLabel(d.doc_type as string), number: d.number as string, total: BigInt(d.grand_total_paise as string), currency: d.currency as string, from, url,
+        reminder: p.reminderId ? { outstanding, dueDate: d.due_date as string | null } : undefined,
+      });
     return { url, text, subject: `${docLabel(d.doc_type as string)} ${d.number} from ${from}` };
   });
   if (!prep) return;

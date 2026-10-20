@@ -1,5 +1,7 @@
 'use client';
 import LateFeeSettings from '../../../components/LateFeeSettings';
+import MessagesPanel from '../../../components/MessagesPanel';
+import TemplateGallery from '../../../components/TemplateGallery';
 import { useEffect, useState } from 'react';
 import { api } from '../../../lib/client';
 
@@ -108,6 +110,8 @@ export default function Settings() {
         </fieldset>
       </form>
 
+      <MessagesPanel canWrite={role === 'owner'} />
+
       {rem && (
         <form className="panel" onSubmit={async (e) => {
           e.preventDefault(); setErr(''); setMsg('');
@@ -135,6 +139,8 @@ export default function Settings() {
       {tpl && (
         <div className="panel">
           <h2>Invoice template</h2>
+          <p className="muted">Choose a look. Every look prints the fields the law needs; only the style changes.</p>
+          <TemplateGallery template={tpl} current={tpl.layout} disabled={readOnly} onPick={(k) => setT({ layout: k })} />
           <div className="grid2">
             <div>
               <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0 }}>
@@ -143,7 +149,7 @@ export default function Settings() {
                   <div><label htmlFor="tf">Font</label><select id="tf" value={tpl.font} onChange={(e) => setT({ font: e.target.value })}><option value="sans">Sans-serif</option><option value="serif">Serif</option></select></div>
                 </div>
                 <div className="row">
-                  <div><label htmlFor="tl">Layout</label><select id="tl" value={tpl.layout} onChange={(e) => setT({ layout: e.target.value })}><option value="classic">Classic</option><option value="compact">Compact</option><option value="narrative">Professional services (particulars and fee)</option><option value="thermal">Receipt (80 mm roll)</option></select></div>
+                  <div><label htmlFor="tl">Layout</label><select id="tl" value={tpl.layout} onChange={(e) => setT({ layout: e.target.value })}><option value="classic">Classic</option><option value="compact">Compact</option><option value="modern">Modern</option><option value="minimal">Minimal</option><option value="narrative">Professional services (particulars and fee)</option><option value="thermal">Receipt (80 mm roll)</option></select></div>
                   <div><label htmlFor="tp">Paper</label><select id="tp" value={tpl.paper} onChange={(e) => setT({ paper: e.target.value })}><option value="A4">A4</option><option value="A5">A5</option></select></div>
                   <div><label htmlFor="tg">Language</label><select id="tg" value={tpl.language ?? 'en'} onChange={(e) => setT({ language: e.target.value })}><option value="en">English</option><option value="hi">Hindi</option><option value="mr">Marathi</option><option value="gu">Gujarati</option></select></div>
                 </div>

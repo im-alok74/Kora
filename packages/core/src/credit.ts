@@ -107,3 +107,17 @@ export async function refundCredit(sql: Sql, t: TenantSession, paymentId: string
     return { refundId: row!.id as string };
   });
 }
+
+/** Everything a receipt for one payment shows: who paid, how much, and which invoices it settled. */
+export async function paymentReceiptData(sql: Sql, t: TenantSession, paymentId: string) {
+  return inTenant(sql, t, 'payment.read', async (tx) => {
+    const [p] = await tx`select id, party_id, amount_paise::text as amount_paise, method, received_on::text as received_on, note from payment where id = ${paymentId}`;
+    if (!p) return null;
+    const allocations = await tx`
+      select d.number, d.doc_type, d.grand_total_paise::text as grand_total_paise, d.amount_settled_paise::text as settled_paise, a.amount_paise::text as allocated_paise
+        from payment_allocation a join document d on d.id = a.document_id where a.payment_id = ${paymentId} order by a.created_at`;
+    const [supplier] = await tx`select legal_name, trade_name, gstin, address, phone from business where id = ${t.businessId}`;
+    const [recipient] = p.party_id ? await tx`select name, gstin from party where id = ${p.party_id}` : [];
+    return { payment: p, allocations, supplier: supplier ?? {}, recipient: recipient ?? null };
+  });
+}

@@ -9,7 +9,7 @@ import { ValidationError } from './validation.js';
 export interface TemplateConfig {
   accent: string;                 // #rrggbb
   font: 'sans' | 'serif';
-  layout: 'classic' | 'compact' | 'narrative' | 'thermal';
+  layout: 'classic' | 'compact' | 'modern' | 'minimal' | 'narrative' | 'thermal';
   paper: 'A4' | 'A5';
   /** The language of the fixed words on the document. */
   language: 'en' | 'hi' | 'mr' | 'gu';
@@ -47,7 +47,7 @@ export function sanitiseTemplate(raw: unknown): TemplateConfig {
   const font = r.font === undefined ? d.font : r.font;
   if (font !== 'sans' && font !== 'serif') throw new ValidationError('Choose a font.', 'font');
   const layout = r.layout === undefined ? d.layout : r.layout;
-  if (layout !== 'classic' && layout !== 'compact' && layout !== 'narrative' && layout !== 'thermal') throw new ValidationError('Choose a layout.', 'layout');
+  if (layout !== 'classic' && layout !== 'compact' && layout !== 'modern' && layout !== 'minimal' && layout !== 'narrative' && layout !== 'thermal') throw new ValidationError('Choose a layout.', 'layout');
   const paper = r.paper === undefined ? d.paper : r.paper;
   if (paper !== 'A4' && paper !== 'A5') throw new ValidationError('Choose A4 or A5.', 'paper');
   const language = r.language === undefined ? d.language : r.language;

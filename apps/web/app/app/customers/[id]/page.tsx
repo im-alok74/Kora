@@ -113,8 +113,8 @@ export default function Customer({ params }: { params: Promise<{ id: string }> }
       {tab === 'payments' && (
         <div className="panel">
           {d.payments.length === 0 ? <p className="muted">No payments received yet.</p> : (
-            <table className="t" aria-label="Payments"><thead><tr><th>Date</th><th>Method</th><th>Note</th><th className="n">Amount</th></tr></thead>
-              <tbody>{d.payments.map((x) => (<tr key={x.id}><td>{x.received_on}</td><td>{x.method.replace(/_/g, ' ')}</td><td>{x.note ?? ''}</td><td className="n">{rupees(x.amount_paise)}</td></tr>))}</tbody></table>)}
+            <table className="t" aria-label="Payments"><thead><tr><th>Date</th><th>Method</th><th>Note</th><th className="n">Amount</th><th /></tr></thead>
+              <tbody>{d.payments.map((x) => (<tr key={x.id}><td>{x.received_on}</td><td>{x.method.replace(/_/g, ' ')}</td><td>{x.note ?? ''}</td><td className="n">{rupees(x.amount_paise)}</td><td className="n"><a href={`/api/payments/${x.id}/receipt`} target="_blank" rel="noreferrer">Receipt</a></td></tr>))}</tbody></table>)}
         </div>)}
 
       {tab === 'details' && (

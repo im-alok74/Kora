@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { makeTestDb, type TestDb } from '@kora/db/src/testing.js';
-import { addMember, applyCredit, createBusiness, createParty, getDocument, issueDocument, listPayments, listUnallocated, partyCredit, recordAdvance, refundCredit, resolveTenant, saveDraft, voidPayment, type TenantSession } from '../src/index.js';
+import { addMember, applyCredit, createBusiness, createParty, getDocument, issueDocument, listPayments, listUnallocated, partyCredit, paymentReceiptData, recordAdvance, refundCredit, resolveTenant, saveDraft, voidPayment, type TenantSession } from '../src/index.js';
 
 let db: TestDb;
 let owner: TenantSession, accountant: TenantSession, other: TenantSession, cust: string, cust2: string;
@@ -96,5 +96,27 @@ describe('refunding money that is held', () => {
     const heldByCredit = BigInt((await partyCredit(db.web, owner, cust2)).totalPaise) + BigInt((await partyCredit(db.web, owner, cust)).totalPaise);
     const heldByList = (await listUnallocated(db.web, owner)).reduce((a, r) => a + BigInt(r.unallocated_paise as string), 0n);
     expect(heldByList).toBe(heldByCredit);
+  });
+});
+
+describe('receipt data for a payment', () => {
+  it('lists the invoices a payment settled and what is left, and says nothing for an advance still held', async () => {
+    const fresh = await createParty(db.web, owner, { kind: 'customer', name: 'Holds Money', stateCode: '27' });   // nothing else held, so this advance is the one applied
+    const id = await inv(fresh, '700');
+    const advance = (await recordAdvance(db.web, owner, { partyId: fresh, amount: '300', method: 'upi', receivedOn: '2026-10-09' })).paymentId;
+    const heldBefore = await paymentReceiptData(db.web, owner, advance);
+    expect(heldBefore!.allocations).toEqual([]);
+    expect(heldBefore!.payment).toMatchObject({ amount_paise: '30000', method: 'upi', received_on: '2026-10-09' });
+    expect(heldBefore!.recipient).toMatchObject({ name: 'Holds Money' });
+    await applyCredit(db.web, owner, { documentId: id, amount: '300' });
+    const after = await paymentReceiptData(db.web, owner, advance);
+    expect(after!.allocations).toHaveLength(1);
+    expect(after!.allocations[0]).toMatchObject({ grand_total_paise: '70000', settled_paise: '30000', allocated_paise: '30000' });
+    expect(after!.supplier).toMatchObject({ legal_name: 'Credit Co' });
+  });
+  it('is not available for a missing payment or to another business', async () => {
+    expect(await paymentReceiptData(db.web, owner, '00000000-0000-0000-0000-000000000000')).toBeNull();
+    const any = (await db.owner`select id from payment limit 1`)[0]!.id as string;
+    expect(await paymentReceiptData(db.web, other, any)).toBeNull();
   });
 });

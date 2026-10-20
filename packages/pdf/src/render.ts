@@ -19,6 +19,23 @@ const TITLES: Record<string, string> = {
   delivery_challan: 'Delivery Challan', credit_note: 'Credit Note', debit_note: 'Debit Note',
 };
 
+/** The two extra looks. They only restyle the same blocks, so every statutory field is still printed. */
+const LAYOUT_CSS = (accent: string) => `
+.lay-modern:before,.lay-minimal:before{display:none}
+.lay-modern .hd{background:${accent};color:#fff;border-radius:12px;padding:20px 22px}
+.lay-modern .hd .brand,.lay-modern .hd .brand .nm,.lay-modern h1,.lay-modern .subj{color:#fff}
+.lay-modern .paidtag{border-color:#fff;color:#fff}
+.lay-modern table.items th{background:${accent};color:#fff;border:0}
+.lay-modern .meta4{border-color:transparent;background:color-mix(in srgb,${accent} 8%,#fff)}
+.lay-minimal h1{color:#1b2321;font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:22px}
+.lay-minimal .card,.lay-minimal .totbox,.lay-minimal .payrow>div,.lay-minimal .irn{border:0;border-radius:0;background:transparent;padding-left:0;padding-right:0}
+.lay-minimal .meta4{border:0;border-top:1px solid #1b2321;border-bottom:1px solid #1b2321;border-radius:0;background:transparent}
+.lay-minimal .meta4>div{border-right:0;padding-left:0}
+.lay-minimal table.items th{background:transparent;border-top:1px solid #1b2321;border-bottom:1px solid #1b2321;color:#1b2321}
+.lay-minimal .tot tr.g td{background:transparent;color:#1b2321;border-top:2px solid #1b2321;border-bottom:2px solid #1b2321}
+.lay-minimal .paidtag{border-color:#1b2321;color:#1b2321}
+`;
+
 export function esc(v: unknown): string {
   return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 }
@@ -42,6 +59,7 @@ export function renderDocumentHtml(i: RenderInput): string {
   const L = labelsFor(t.language);
   const narrative = t.layout === 'narrative';
   const compact = t.layout === 'compact';
+  const lay = t.layout === 'modern' || t.layout === 'minimal' ? t.layout : 'classic';
   const serif = t.font === 'serif';
   const accent = accentColour(t);
   const intra = s.state_code === d.place_of_supply;
@@ -155,7 +173,7 @@ table.hsn td{padding:5px 8px;border-bottom:1px solid #edf0ee}
 .mark{position:absolute;top:38%;left:14%;font-size:92px;font-weight:800;color:rgba(168,39,39,.11);transform:rotate(-20deg);pointer-events:none}
 tr,.card,.totbox,.payrow{break-inside:avoid}
 @media(max-width:640px){.hd,.parties,.bottom,.payrow{flex-direction:column}.doc{text-align:left}table.items{display:block;overflow-x:auto}}
-</style></head><body><div class="page">${draftMark}
+${LAYOUT_CSS(accent)}</style></head><body><div class="page lay-${lay}">${draftMark}
 <div class="hd"><div class="brand">${logo}<span class="nm">${esc(supplierName)}</span>${supplierName !== s.legal_name ? `${esc(s.legal_name)}<br>` : ''}${addr(s.address)}${s.phone ? `<br>Ph: ${esc(s.phone)}` : ''}${s.email ? `<br>${esc(s.email)}` : ''}
 ${s.gstin ? `<br><b>GSTIN:</b> ${esc(s.gstin)}` : ''}</div>
 <div class="doc"><h1>${esc(title)}</h1>${d.status === 'issued' && d.payment_status === 'paid' && d.doc_type !== 'estimate' ? `<div class="paidtag">${esc(L.paid)}</div>` : ''}${d.subject ? `<div class="subj">${esc(d.subject)}</div>` : ''}</div></div>

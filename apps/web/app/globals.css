@@ -510,3 +510,13 @@ main.legal ul { padding-left: 22px; } main.legal li { margin: 6px 0; }
 .keys { margin: 12px 0 18px; display: grid; gap: 6px; } .keys > div { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: center; } .keys dt, .keys dd { margin: 0; }
 kbd { display: inline-block; min-width: 24px; padding: 1px 7px; text-align: center; border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 6px; background: var(--surface-sunken); font: 600 12.5px ui-monospace, Menlo, Consolas, monospace; }
 ul.notes li { align-items: flex-start; } ul.notes li p { margin: 2px 0 0; white-space: pre-wrap; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; } .chips button { margin: 0; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; height: 30px; padding: 0 10px; }
+
+/* ---------------------------------------------------------------- template gallery */
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; margin: 8px 0 18px; }
+.look { display: flex; flex-direction: column; align-items: stretch; gap: 6px; height: auto; margin: 0; padding: 10px; text-align: left; white-space: normal; background: var(--surface-raised); color: var(--text); border: 2px solid var(--border); box-shadow: var(--shadow-card); }
+.look:hover:not(:disabled) { border-color: var(--accent); background: var(--surface-raised); color: var(--text); }
+.look.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.look .muted { font-size: 12.5px; line-height: 17px; font-weight: 400; }
+.look .thumb { display: block; position: relative; height: 230px; overflow: hidden; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+.look .thumb iframe { position: absolute; top: 0; left: 0; width: 820px; height: 1100px; border: 0; transform: scale(.205); transform-origin: top left; pointer-events: none; }
