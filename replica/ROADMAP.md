@@ -22,10 +22,10 @@ The screen people use all day. After this phase it has every field Zoho's invoic
 
 ## Phase 2: money in, completely (code only)
 
-- [ ] 2.1 Sales receipts: a paid-at-the-time document for any business, not only the till (Zoho, Vyapar). M
-- [ ] 2.2 Retainer or advance invoices that later invoices draw down (Zoho). M
-- [ ] 2.3 Customer credit balance: an advance or overpayment held on the customer and applied to the next invoice (Zoho, QuickBooks). M
-- [ ] 2.4 Refund of a payment, recorded against the payment and the credit note (Zoho). S
+- [x] 2.1 Pay at the counter: tick "The customer has paid in full" when issuing; the payment is recorded in the same step and the invoice carries a PAID mark (Zoho sales receipts, Vyapar). M
+- [ ] 2.2 Receipt voucher for an advance on services, which GST requires when the money is received (Zoho retainer invoices). M, **a CA must confirm the wording and tax treatment first**. Advances themselves are done (2.3)
+- [x] 2.3 Customer credit: an advance or overpayment held on the customer and applied to an invoice in one click (Zoho, QuickBooks). M
+- [x] 2.4 Refund of money held for a customer, guarded in the database so it can never be applied and refunded twice (Zoho). S
 - [ ] 2.5 Bank statement upload (CSV) with suggested matches to open invoices and bills (Vyapar, QuickBooks). L
 - [ ] 2.6 A second gateway adapter, Cashfree, behind the same interface (Zoho, Vyapar). M, **needs keys to go live**
 - [ ] 2.7 Billable expenses that turn into invoice lines (Zoho). S
@@ -102,5 +102,6 @@ Phase 1 first because it is the screen every customer judges the product on. Pha
 
 | Date | Phase | What changed |
 |---|---|---|
+| 20 Oct 2026 | Phase 2 (part) | Advances, customer credit, refunds, pay at the counter with a PAID mark (migration 0027). E2E now builds into `.next-e2e`, so it can run beside a dev server |
 | 20 Oct 2026 | Phase 1 | Default notes and terms, extra details, salesperson, live preview tab, attachments (migrations 0025, 0026) |
 | 20 Oct 2026 | Before phase 1 | Order or PO number, subject, payment terms, discount on the whole bill, shipping helper, duplicate as draft |

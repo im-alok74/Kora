@@ -54,9 +54,10 @@ export async function listPayments(sql: Sql, t: TenantSession, documentId: strin
 export async function listUnallocated(sql: Sql, t: TenantSession) {
   return inTenant(sql, t, 'payment.read', (tx) => tx`
     select p.id, p.amount_paise, p.method, p.received_on, p.gateway, pa.name as party_name,
-           (p.amount_paise - coalesce(sum(a.amount_paise), 0))::text as unallocated_paise
+           (p.amount_paise - coalesce(sum(a.amount_paise), 0) - coalesce((select sum(r.amount_paise) from payment_refund r where r.payment_id = p.id), 0))::text as unallocated_paise
       from payment p left join payment_allocation a on a.payment_id = p.id left join party pa on pa.id = p.party_id
-     group by p.id, pa.name having p.amount_paise > coalesce(sum(a.amount_paise), 0) order by p.received_on desc`);
+     group by p.id, pa.name having p.amount_paise > coalesce(sum(a.amount_paise), 0) + coalesce((select sum(r.amount_paise) from payment_refund r where r.payment_id = p.id), 0)
+     order by p.received_on desc`);
 }
 
 /** Removes a manual payment entered by mistake. Gateway payments are refunded at the gateway instead. */
@@ -66,6 +67,8 @@ export async function voidPayment(sql: Sql, t: TenantSession, paymentId: string)
     if (!p) throw new ValidationError('Payment not found.');
     if (p.gateway) throw new ValidationError('A payment taken through the gateway is refunded at the gateway, not removed here.');
     if (p.method === 'client_money') throw new ValidationError('This payment was made from money held for the client. The client money ledger is never edited, so it cannot be removed here.');
+    const [rf] = await tx`select count(*)::int as n from payment_refund where payment_id = ${paymentId}`;
+    if ((rf!.n as number) > 0) throw new ValidationError('Part of this payment has been refunded, so it cannot be removed.');
     await tx`delete from payment_allocation where payment_id = ${paymentId}`;
     await tx`delete from payment where id = ${paymentId}`;
   });

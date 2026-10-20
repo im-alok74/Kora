@@ -56,6 +56,8 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
   const [salesperson, setSalesperson] = useState('');
   const [extra, setExtra] = useState<{ label: string; value: string }[]>([]);
   const [view, setView] = useState<'edit' | 'preview'>('edit');
+  const [paidNow, setPaidNow] = useState(false);
+  const [paidVia, setPaidVia] = useState('cash');
   const [previewHtml, setPreviewHtml] = useState('');
   const [previewErr, setPreviewErr] = useState('');
   const todayLocal = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
@@ -230,7 +232,18 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
         throw e;
       }
       if (localId) await removeDraft(localId);
-      if (issue) await api(`/api/documents/${r.id}/issue`, { body: {} });
+      if (issue) {
+        await api(`/api/documents/${r.id}/issue`, { body: {} });
+        // Pay at the counter: the money is recorded in the same step, so the invoice goes out already settled.
+        if (paidNow && ['tax_invoice', 'bill_of_supply'].includes(docType)) {
+          try {
+            // The total comes from the saved document, never from the live preview, which may still be on its way.
+            const total = (await api(`/api/documents/${r.id}`)).document.grand_total_paise as string;
+            if (BigInt(total) > 0n) await api(`/api/documents/${r.id}/payments`, { body: { amount: rs(total), method: paidVia } });
+          }
+          catch (e) { window.location.href = `/app/invoices/${r.id}?payfail=${encodeURIComponent((e as Error).message)}`; return; }
+        }
+      }
       window.location.href = `/app/invoices/${r.id}${issue ? '?sent=0' : ''}`;
     } catch (e) {
       if (isNetworkError(e) && !issue) await saveLocal(); else setErr((e as Error).message);
@@ -445,6 +458,13 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
               {totals.warnings.map((w) => <div key={w} className="warn">{w}</div>)}
             </>) : <div className="muted">{hint || 'Add a line to see the total.'}</div>}
           </div>
+          {['tax_invoice', 'bill_of_supply'].includes(docType) && pctToBp(tdsPct) === 0 && online && (
+            <div className="paid-now">
+              <label className="incl"><input type="checkbox" checked={paidNow} onChange={(e) => setPaidNow(e.target.checked)} /> The customer has paid in full</label>
+              {paidNow && (
+                <select aria-label="Paid by" value={paidVia} onChange={(e) => setPaidVia(e.target.value)}>
+                  <option value="cash">Cash</option><option value="upi">UPI</option><option value="card">Card</option><option value="bank_transfer">Bank transfer</option><option value="cheque">Cheque</option></select>)}
+            </div>)}
           {err && <p className="error" role="alert">{err}</p>}
           {savedLocally && <p className="ok" role="status" data-testid="saved-locally">Saved on this device. It will sync when you are back online.</p>}
           <div className="actions">

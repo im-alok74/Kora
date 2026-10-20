@@ -28,6 +28,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
   const [role, setRole] = useState('');
   const [payments, setPayments] = useState<Doc[]>([]);
   const [files, setFiles] = useState<Doc[]>([]);
+  const [held, setHeld] = useState('0');
   const [pay, setPay] = useState({ amount: '', method: 'cash', receivedOn: '', note: '' });
   const toTyped = useRef(false);
   const amountTyped = useRef(false); // a refresh must never overwrite what the user is typing
@@ -40,6 +41,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
     setData(d);
     setHtml((await api(`/api/documents/${id}/html`)).html);
     api(`/api/documents/${id}/files`).then((r) => setFiles(r.files)).catch(() => {});
+    if (d.document.party_id && d.document.status === 'issued') api(`/api/parties/${d.document.party_id}/credit`).then((r) => setHeld(r.totalPaise)).catch(() => {});
     if (d.document.einvoice_status && d.document.einvoice_status !== 'none') setEinv(await api(`/api/documents/${id}/einvoice`));
     if (d.document.status !== 'draft') {
       setViews((await api(`/api/documents/${id}/share`)).stats.views);
@@ -61,6 +63,8 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
       }
     }).catch((e) => setErr(e.message));
     api('/api/business').then((b) => setRole(b.role));
+    const why = new URLSearchParams(window.location.search).get('payfail');
+    if (why) setErr(`The invoice was issued, but recording the payment did not work: ${why}. Record it below.`);
   }, [load]);
 
   // While the worker is registering the e-invoice, keep the screen current.
@@ -246,6 +250,9 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
           {outstanding > 0n ? (
             <>
               <p><b>{rupees(outstanding)}</b> still due.</p>
+              {canIssue && BigInt(held) > 0n && (
+                <p><button className="secondary" style={{ marginTop: 0 }} disabled={busy} onClick={() => run(async () => { const r = await api(`/api/documents/${id}/apply-credit`, { body: {} }); await load(); setMsg(`Applied Rs ${r.applied} held for this customer.`); })}>
+                  Apply {rupees(BigInt(held) < outstanding ? held : outstanding)} held for this customer</button></p>)}
               {canIssue && (
                 <form onSubmit={(e) => { e.preventDefault(); void run(async () => { await api(`/api/documents/${id}/payments`, { body: { amount: pay.amount, method: pay.method, receivedOn: pay.receivedOn || undefined, note: pay.note || undefined } }); amountTyped.current = false; await load(); setMsg('Payment recorded.'); }); }}>
                   <div className="row">

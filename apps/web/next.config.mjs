@@ -15,6 +15,8 @@ const SECURITY_HEADERS = [
 
 /** @type {import('next').NextConfig} */
 export default {
+  // The browser tests build into their own folder, so they can run while a dev server is using .next.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   transpilePackages: ['@kora/core', '@kora/db', '@kora/adapters', '@kora/tax', '@kora/pdf'],
   serverExternalPackages: ['postgres', 'playwright', 'playwright-core', '@sparticuz/chromium'],
   // The serverless Chromium is a packed binary; make sure it is shipped with the two routes that make PDFs.

@@ -9,6 +9,7 @@ type Overview = {
   documents: { id: string; number: string | null; doc_type: string; status: string; doc_date: string; total_paise: string; payment_status: string; currency: string }[];
   payments: { id: string; received_on: string; amount_paise: string; method: string; note: string | null }[];
 };
+const ADV_METHODS: [string, string][] = [['bank_transfer', 'Bank transfer'], ['upi', 'UPI'], ['cash', 'Cash'], ['cheque', 'Cheque'], ['card', 'Card'], ['netbanking', 'Net banking'], ['other', 'Other']];
 const TABS = [['overview', 'Overview'], ['documents', 'Documents'], ['payments', 'Payments'], ['details', 'Details']] as const;
 
 /** One customer: what they owe, how they pay, their documents and payments, all in one place. */
@@ -18,6 +19,13 @@ export default function Customer({ params }: { params: Promise<{ id: string }> }
   const [tab, setTab] = useState<(typeof TABS)[number][0]>('overview');
   const [role, setRole] = useState('');
   const [err, setErr] = useState('');
+  const [credit, setCredit] = useState<{ totalPaise: string; payments: { id: string; available_paise: string; method: string; received_on: string; note: string | null }[] } | null>(null);
+  const [adv, setAdv] = useState({ amount: '', method: 'bank_transfer', note: '' });
+  const [ref, setRef] = useState<{ id: string; amount: string; method: string; note: string } | null>(null);
+  const [msg, setMsg] = useState('');
+  const loadCredit = () => api(`/api/parties/${id}/credit`).then(setCredit).catch(() => {});
+  useEffect(() => { void loadCredit(); }, [id]);
+  const act = async (fn: () => Promise<void>) => { setErr(''); setMsg(''); try { await fn(); await loadCredit(); } catch (e) { setErr((e as Error).message); } };
   useEffect(() => { api(`/api/parties/${id}/overview`).then(setD).catch((e) => setErr(e.message)); api('/api/business').then((b) => setRole(b.role)); }, [id]);
 
   if (!d) return <p className={err ? 'error' : 'muted'} role={err ? 'alert' : 'status'}>{err || 'Loading'}</p>;
@@ -67,6 +75,39 @@ export default function Customer({ params }: { params: Promise<{ id: string }> }
             <table className="t" aria-label="Documents"><thead><tr><th>Number</th><th>Type</th><th>Date</th><th className="n">Total</th><th>Status</th></tr></thead>
               <tbody>{d.documents.map((x) => (<tr key={x.id}><td><a href={`/app/invoices/${x.id}`}>{x.number ?? 'Draft'}</a></td><td>{DOC_LABEL[x.doc_type] ?? x.doc_type}</td><td>{x.doc_date}</td><td className="n">{rupees(x.total_paise)}</td>
                 <td>{x.status === 'draft' ? 'Draft' : x.status === 'cancelled' ? 'Cancelled' : x.payment_status === 'paid' ? 'Paid' : x.payment_status === 'part_paid' ? 'Part paid' : 'Issued'}</td></tr>))}</tbody></table>)}
+        </div>)}
+
+      {tab === 'payments' && credit && (
+        <div className="panel" aria-label="Advances and credit">
+          <h2>Advances and credit</h2>
+          <p><b data-testid="credit-held">{rupees(credit.totalPaise)}</b> held for this customer. It is applied to the next invoice you choose, or returned.</p>
+          {msg && <p className="ok" role="status">{msg}</p>}
+          {err && <p className="error" role="alert">{err}</p>}
+          {credit.payments.length > 0 && (
+            <table className="t" aria-label="Money held"><thead><tr><th>Received</th><th>Method</th><th>Note</th><th className="n">Held</th><th /></tr></thead>
+              <tbody>{credit.payments.map((x) => (
+                <tr key={x.id}><td>{x.received_on}</td><td>{x.method.replace(/_/g, ' ')}</td><td>{x.note ?? ''}</td><td className="n">{rupees(x.available_paise)}</td>
+                  <td className="n">{canWrite && <button className="link" onClick={() => setRef({ id: x.id, amount: (Number(x.available_paise) / 100).toFixed(2), method: 'bank_transfer', note: '' })}>Refund</button>}</td></tr>))}</tbody></table>)}
+          {ref && canWrite && (
+            <form onSubmit={(e) => { e.preventDefault(); void act(async () => { await api(`/api/payments/${ref.id}/refund`, { body: { amount: ref.amount, method: ref.method, note: ref.note || undefined } }); setRef(null); setMsg('Refund recorded.'); }); }}>
+              <div className="row">
+                <div><label htmlFor="ra">Amount to return (Rs)</label><input id="ra" inputMode="decimal" value={ref.amount} onChange={(e) => setRef({ ...ref, amount: e.target.value })} required /></div>
+                <div><label htmlFor="rm">How</label><select id="rm" value={ref.method} onChange={(e) => setRef({ ...ref, method: e.target.value })}>{ADV_METHODS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+                <div><label htmlFor="rn">Note</label><input id="rn" value={ref.note} onChange={(e) => setRef({ ...ref, note: e.target.value })} /></div>
+                <button>Record refund</button><button type="button" className="secondary" onClick={() => setRef(null)}>Cancel</button>
+              </div>
+            </form>)}
+          {canWrite && (
+            <form onSubmit={(e) => { e.preventDefault(); void act(async () => { await api(`/api/parties/${id}/credit`, { body: { amount: adv.amount, method: adv.method, note: adv.note || undefined } }); setAdv({ amount: '', method: adv.method, note: '' }); setMsg('Advance recorded.'); }); }}>
+              <h3 style={{ marginTop: 16 }}>Record an advance</h3>
+              <div className="row">
+                <div><label htmlFor="aa">Amount received (Rs)</label><input id="aa" inputMode="decimal" value={adv.amount} onChange={(e) => setAdv({ ...adv, amount: e.target.value })} required /></div>
+                <div><label htmlFor="am">Method</label><select id="am" value={adv.method} onChange={(e) => setAdv({ ...adv, method: e.target.value })}>{ADV_METHODS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+                <div><label htmlFor="an2">Note</label><input id="an2" value={adv.note} onChange={(e) => setAdv({ ...adv, note: e.target.value })} placeholder="Optional" /></div>
+                <button>Record advance</button>
+              </div>
+              <p className="muted">For an advance towards services, GST can be due when the money is received. Check with your CA whether a receipt voucher applies.</p>
+            </form>)}
         </div>)}
 
       {tab === 'payments' && (

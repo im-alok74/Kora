@@ -45,3 +45,4 @@ export * from './gstr.js';
 export * from './team.js';
 export * from './registers.js';
 export * from './attachments.js';
+export * from './credit.js';

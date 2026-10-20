@@ -10,3 +10,4 @@ playwright-report
 *.tsbuildinfo
 backups
 .backup-test
+.next-e2e

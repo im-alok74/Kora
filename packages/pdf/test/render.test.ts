@@ -21,6 +21,14 @@ function sample(over: Partial<RenderInput> = {}, docOver: Record<string, any> = 
 afterAll(async () => { await closePdfBrowser(); });
 
 describe('renderDocumentHtml', () => {
+  it('marks an invoice as paid only when it is issued and fully paid', () => {
+    expect(renderDocumentHtml(sample({}, { payment_status: 'paid' }))).toContain('class="paidtag"');
+    expect(renderDocumentHtml(sample({}, { payment_status: 'part_paid' }))).not.toContain('class="paidtag"');
+    expect(renderDocumentHtml(sample({}, { payment_status: 'paid', status: 'draft' }))).not.toContain('class="paidtag"');
+    expect(renderDocumentHtml(sample({}, { payment_status: 'paid', doc_type: 'estimate' }))).not.toContain('class="paidtag"');
+    expect(renderDocumentHtml(sample({ template: { ...TEMPLATE, language: 'hi' } }, { payment_status: 'paid' }))).toContain('भुगतान हो चुका');
+  });
+
   it('prints extra details and the salesperson under the header, escaped', () => {
     const h = renderDocumentHtml(sample({}, { salesperson: 'Asha', extra: [{ label: 'Vehicle no.', value: 'MH12 <i>AB</i>' }, { label: 'Project', value: 'P-9' }] }));
     expect(h).toContain('>Salesperson<');

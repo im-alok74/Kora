@@ -36,7 +36,7 @@ export default defineConfig({
       url: `http://localhost:${PORT}`,
       timeout: 600_000,
       reuseExistingServer: !!process.env.KORA_E2E_REUSE,
-      env: { ...ENV, KORA_ALLOW_MOCKS: '1' },
+      env: { ...ENV, KORA_ALLOW_MOCKS: '1', NEXT_DIST_DIR: '.next-e2e' },
     },
     {
       command: 'pnpm --filter @kora/worker start',
