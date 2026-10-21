@@ -71,6 +71,7 @@ test('the login screen asks for the authenticator code as a second step', async 
   const ctx2 = await browser.newContext();
   const p2 = await ctx2.newPage();
   await p2.goto('/login');
+  await p2.getByRole('button', { name: 'Use an emailed or texted code' }).click();
   await p2.getByLabel('Mobile number or email').fill(u.email);
   await p2.getByRole('button', { name: 'Send code' }).click();
   await expect(p2.getByLabel(/Six-digit code sent to/)).toBeVisible();
