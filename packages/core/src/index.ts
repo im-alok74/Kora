@@ -6,6 +6,7 @@ export * from './permissions.js';
 export * from './parties.js';
 export * from './contacts.js';
 export * from './items.js';
+export * from './pricelists.js';
 export * from './business.js';
 export * from './template.js';
 export * from './documents.js';

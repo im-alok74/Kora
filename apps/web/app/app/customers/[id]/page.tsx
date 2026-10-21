@@ -35,6 +35,12 @@ export default function Customer({ params }: { params: Promise<{ id: string }> }
   const [addresses, setAddresses] = useState<PartyAddress[]>([]);
   const [cForm, setCForm] = useState({ ...EMPTY_CONTACT, id: '' });
   const [aForm, setAForm] = useState({ ...EMPTY_ADDRESS, id: '' });
+  const [lists, setLists] = useState<{ id: string; name: string }[]>([]);
+  const [listId, setListId] = useState('');
+  useEffect(() => {
+    api('/api/price-lists').then((r) => setLists(r.priceLists)).catch(() => {});
+    api(`/api/parties/${id}`).then((r) => setListId(r.party.price_list_id ?? '')).catch(() => {});
+  }, [id]);
   const loadCredit = () => api(`/api/parties/${id}/credit`).then(setCredit).catch(() => {});
   const loadBook = async () => {
     setContacts((await api(`/api/parties/${id}/contacts`)).contacts);
@@ -235,6 +241,17 @@ export default function Customer({ params }: { params: Promise<{ id: string }> }
             <dt className="muted">Address</dt><dd style={{ margin: 0 }}>{addr || 'Not given'}</dd>
             <dt className="muted">Customer since</dt><dd style={{ margin: 0 }}>{new Date(p.since).toLocaleDateString('en-IN')}</dd>
           </dl>
+          <div style={{ marginTop: 14, maxWidth: 360 }}>
+            <label htmlFor="pl">Price list</label>
+            <select id="pl" value={lists.some((l) => l.id === listId) ? listId : ''} disabled={!canWrite}
+              onChange={(e) => { const v = e.target.value; setErr(''); setMsg(''); api(`/api/parties/${id}/price-list`, { method: 'PUT', body: { priceListId: v || null } }).then(() => { setListId(v); setMsg('Price list saved.'); }).catch((x) => setErr(x.message)); }}>
+              <option value="">None: use item prices</option>
+              {lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+            <p className="muted">New invoice lines for this customer take their price from this list. Invoices already made are not changed.</p>
+            {msg && <p className="ok" role="status">{msg}</p>}
+            {err && <p className="error" role="alert">{err}</p>}
+          </div>
           {canWrite && <p style={{ marginTop: 14 }}><a href="/app/customers">Edit this customer in the list</a></p>}
         </div>)}
     </>

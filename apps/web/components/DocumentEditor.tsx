@@ -183,6 +183,12 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
   const pickName = (key: number, name: string) => {
     const it = items.find((i) => i.name.toLowerCase() === name.toLowerCase());
     setLine(key, it ? { name, itemId: it.id, hsnSac: it.hsn_sac ?? '', rate: rs(it.price_paise), taxRateBp: it.default_rate_bp, kind: it.kind, taxInclusive: !!it.price_includes_tax } : { name, itemId: null });
+    // A customer with a price list gets that list's price. Only a convenience at entry: offline, or on any failure, the item's own price stays.
+    if (it && partyId && !original) {
+      api(`/api/price-lists/resolve?item=${it.id}&party=${partyId}`).then((r) => {
+        if (r.source === 'list') setLines((ls) => ls.map((l) => (l.key === key && l.itemId === it.id && l.rate === rs(it.price_paise) ? { ...l, rate: rs(r.pricePaise), taxInclusive: !!r.priceIncludesTax } : l)));
+      }).catch(() => {});
+    }
   };
 
   const addCustomer = async () => {
