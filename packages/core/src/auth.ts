@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { Sql } from '@kora/db';
 import type { OtpSender } from '@kora/adapters';
 import { normaliseIdentifier } from './identifier.js';
@@ -6,7 +6,7 @@ import { newRecoveryCodes, newTotpSecret, normaliseRecovery, openSecret, otpauth
 import type { RateLimiter } from './ratelimit.js';
 
 export class AuthError extends Error {
-  constructor(public code: 'rate_limited' | 'invalid_code' | 'too_soon' | 'mfa_required', message: string) { super(message); this.name = 'AuthError'; }
+  constructor(public code: 'rate_limited' | 'invalid_code' | 'too_soon' | 'mfa_required' | 'bad_credentials' | 'weak_password' | 'exists' | 'locked', message: string) { super(message); this.name = 'AuthError'; }
 }
 /** Name-based, because bundlers can load this module twice and break instanceof. */
 export const isAuthError = (e: unknown): e is AuthError => e instanceof Error && e.name === 'AuthError';
@@ -32,6 +32,23 @@ export type SignInStep = ({ needsMfa: false } & SessionResult) | { needsMfa: tru
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest();
 const clip = (s: string | null | undefined, n: number) => (s ? s.slice(0, n) : null);
+
+export const ACCOUNT_TYPES = ['business', 'ca', 'lawyer', 'freelancer'] as const;
+export type AccountType = (typeof ACCOUNT_TYPES)[number];
+
+/** scrypt with a random salt, stored as scrypt$salt$hash (both base64url). */
+export function hashPassword(password: string): string {
+  const salt = randomBytes(16);
+  return `scrypt$${salt.toString('base64url')}$${scryptSync(password, salt, 64).toString('base64url')}`;
+}
+export function checkPassword(password: string, stored: string): boolean {
+  const [alg, salt, hash] = stored.split('$');
+  if (alg !== 'scrypt' || !salt || !hash) return false;
+  const want = Buffer.from(hash, 'base64url');
+  const got = scryptSync(password, Buffer.from(salt, 'base64url'), want.length);
+  return want.length === got.length && timingSafeEqual(want, got);
+}
+const DUMMY_HASH = hashPassword('not-a-real-password');   // so a wrong address costs the same time as a wrong password
 
 export function codeHash(secret: string, identifier: string, code: string): Buffer {
   return createHmac('sha256', secret).update(`${identifier}:${code}`).digest();
@@ -102,6 +119,34 @@ export function createAuth(sql: Sql, sender: OtpSender, cfg: AuthConfig) {
     return { userId: u!.id as string, isNewUser: true };
   }
 
+  /**
+   * A code sent to the address proves the person owns it. If the account was made with a password and no proof, whoever set that
+   * password may not be the owner, so the password is removed and every session is ended.
+   */
+  async function clearUnverifiedPassword(userId: string, info: RequestInfo) {
+    const [u] = await sql`update app_user set password_hash = null, unverified_signup = false, failed_logins = 0, locked_until = null
+                           where id = ${userId} and unverified_signup returning id`;
+    if (!u) return;
+    await sql`update app_session set revoked_at = now() where user_id = ${userId} and revoked_at is null`;
+    await logEvent(userId, 'password.removed_after_code_login', info);
+  }
+
+  async function ipLimit(info: RequestInfo, what: string, max: number) {
+    if (cfg.limiter && info.ip && !(await cfg.limiter.hit(`${what}:${info.ip}`, max, 900))) throw new AuthError('rate_limited', 'Too many attempts from this network. Try again in a few minutes.');
+  }
+
+  async function afterPasswordOk(userId: string, info: RequestInfo, isNewUser: boolean): Promise<SignInStep> {
+    if (await hasMfa(userId)) {
+      const mfaToken = randomBytes(32).toString('base64url');
+      await sql`insert into mfa_challenge (user_id, token_hash, expires_at, ip, user_agent) values (${userId}, ${sha256(mfaToken)}, now() + interval '5 minutes', ${clip(info.ip, 64)}, ${clip(info.userAgent, 300)})`;
+      await logEvent(userId, 'login.password_ok_mfa_needed', info);
+      return { needsMfa: true, mfaToken, userId };
+    }
+    const token = await openSession(userId, info, false);
+    await logEvent(userId, 'login', info, { how: 'password', newUser: isNewUser });
+    return { needsMfa: false, token, userId, isNewUser };
+  }
+
   async function hasMfa(userId: string): Promise<boolean> {
     const [t] = await sql`select 1 from user_totp where user_id = ${userId} and confirmed_at is not null`;
     return !!t;
@@ -139,6 +184,7 @@ export function createAuth(sql: Sql, sender: OtpSender, cfg: AuthConfig) {
       const id = normaliseIdentifier(raw);
       await consumeCode(id, code);
       const { userId, isNewUser } = await findOrCreateUser(id);
+      await clearUnverifiedPassword(userId, info);
       if (await hasMfa(userId)) {
         const mfaToken = randomBytes(32).toString('base64url');
         await sql`insert into mfa_challenge (user_id, token_hash, expires_at, ip, user_agent) values (${userId}, ${sha256(mfaToken)}, now() + interval '5 minutes', ${clip(info.ip, 64)}, ${clip(info.userAgent, 300)})`;
@@ -148,6 +194,56 @@ export function createAuth(sql: Sql, sender: OtpSender, cfg: AuthConfig) {
       const token = await openSession(userId, info, false);
       await logEvent(userId, 'login', info, { newUser: isNewUser });
       return { needsMfa: false, token, userId, isNewUser };
+    },
+
+    /**
+     * Makes an account from an email or mobile number and a password. Nothing is sent to confirm the address, so the account is marked
+     * unverified: a later sign-in by code, which does prove the address, replaces the password (see clearUnverifiedPassword).
+     */
+    async signUp(i: { identifier: string; password: string; name: string; accountType?: string }, info: RequestInfo = {}): Promise<SignInStep> {
+      await ipLimit(info, 'signup-ip', 10);
+      const id = normaliseIdentifier(i.identifier);
+      const password = String(i.password ?? '');
+      if (password.length < 8) throw new AuthError('weak_password', 'Use a password of at least 8 characters.');
+      if (password.length > 128) throw new AuthError('weak_password', 'That password is too long. Use 128 characters or fewer.');
+      const name = String(i.name ?? '').trim();
+      if (name.length < 1 || name.length > 80) throw new AuthError('weak_password', 'Enter your name.');
+      const accountType = (i.accountType ?? 'business') as AccountType;
+      if (!ACCOUNT_TYPES.includes(accountType)) throw new AuthError('weak_password', 'Choose what kind of account this is.');
+      const col = id.channel === 'sms' ? 'phone' : 'email';
+      const [u] = await sql`insert into app_user (${sql(col)}, display_name, password_hash, account_type, unverified_signup)
+                            values (${id.value}, ${name}, ${hashPassword(password)}, ${accountType}, true)
+                            on conflict (${sql(col)}) do nothing returning id`;
+      if (!u) throw new AuthError('exists', 'An account with this number or email already exists. Sign in instead.');
+      return afterPasswordOk(u.id as string, info, true);
+    },
+
+    /** Signs in with a password. The same message for a wrong address and a wrong password; five misses lock the account for 15 minutes. */
+    async signInPassword(raw: string, password: string, info: RequestInfo = {}): Promise<SignInStep> {
+      await ipLimit(info, 'login-ip', 30);
+      const bad = () => new AuthError('bad_credentials', 'That address or password is not right.');
+      const id = normaliseIdentifier(raw);
+      const col = id.channel === 'sms' ? 'phone' : 'email';
+      const [u] = await sql`select id, password_hash, locked_until from app_user where ${sql(col)} = ${id.value}`;
+      const pw = String(password ?? '').slice(0, 128);
+      if (!u || !u.password_hash) { checkPassword(pw, DUMMY_HASH); throw bad(); }
+      if (u.locked_until && new Date(u.locked_until as string) > new Date()) throw new AuthError('locked', 'Too many wrong passwords. Try again in 15 minutes, or sign in with a code.');
+      if (!checkPassword(pw, u.password_hash as string)) {
+        await sql`update app_user set
+                    locked_until = case when failed_logins + 1 >= 5 then now() + interval '15 minutes' else locked_until end,
+                    failed_logins = case when failed_logins + 1 >= 5 then 0 else failed_logins + 1 end
+                  where id = ${u.id}`;
+        await logEvent(u.id as string, 'login.password_failed', info);
+        throw bad();
+      }
+      await sql`update app_user set failed_logins = 0, locked_until = null where id = ${u.id}`;
+      return afterPasswordOk(u.id as string, info, false);
+    },
+
+    /** What kind of account this person chose, to decide where they land. */
+    async accountType(userId: string): Promise<AccountType> {
+      const [u] = await sql`select account_type from app_user where id = ${userId}`;
+      return ((u?.account_type as AccountType | undefined) ?? 'business');
     },
 
     /** The original one-step sign-in. Refuses people who need the second step, so nobody can skip it by calling this. */

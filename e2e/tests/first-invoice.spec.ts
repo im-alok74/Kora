@@ -8,6 +8,7 @@ test('a new user signs up, issues an invoice and sends it on WhatsApp in under 6
   const step = () => { steps++; };
 
   await page.goto('/login');
+  await page.getByRole('button', { name: 'Use an emailed or texted code' }).click();
   await page.getByLabel('Mobile number or email').fill(phone); step();
   await page.getByRole('button', { name: 'Send code' }).click(); step();
   await expect(page.getByLabel(/Six-digit code/)).toBeVisible();   // the server has stored the code by now
@@ -45,6 +46,7 @@ test('a new user signs up, issues an invoice and sends it on WhatsApp in under 6
 test('login rejects a wrong code and shows the message', async ({ page }) => {
   const phone = `8${Math.floor(Math.random() * 1e9).toString().padStart(9, '0')}`;
   await page.goto('/login');
+  await page.getByRole('button', { name: 'Use an emailed or texted code' }).click();
   await page.getByLabel('Mobile number or email').fill(phone);
   await page.getByRole('button', { name: 'Send code' }).click();
   await page.getByLabel(/Six-digit code/).fill('000000');
@@ -54,6 +56,7 @@ test('login rejects a wrong code and shows the message', async ({ page }) => {
 
 test('a bad mobile number is refused before any code is sent', async ({ page }) => {
   await page.goto('/login');
+  await page.getByRole('button', { name: 'Use an emailed or texted code' }).click();
   await page.getByLabel('Mobile number or email').fill('12345');
   await page.getByRole('button', { name: 'Send code' }).click();
   await expect(page.locator('p[role="alert"]')).toContainText('valid 10-digit Indian mobile number');
