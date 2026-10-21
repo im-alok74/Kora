@@ -4,6 +4,8 @@
 271 documented operations across 21 functional modules. The API reference is used rather than
 the marketing page because it enumerates every entity and operation, not just the sellable ones.
 
+**Status:** Tier 1 in progress on branch `kora-phases`. Rows marked *done* are built.
+
 **Compared against:** Kora at commit `c477eb1`, by reading `packages/db/migrations/*.sql`,
 `packages/core/src/*.ts` and `apps/web/app/`. Every "have"/"gap" below is grounded in a file,
 not an assumption.
@@ -69,7 +71,7 @@ Ordered by how much a paying Indian SMB would miss them.
 |---|---|---|---|---|
 | G1 | **Contact persons** — a customer has one `phone`/`email`. No multiple named contacts, no primary flag. | 7 | Any company customer has AP + procurement + a signatory. Invoices go to the wrong inbox. | DB, BE, FE |
 | G2 | **Multiple addresses per contact** — `party` has exactly one `billing_address` + one `shipping_address`. | 4 | Multi-branch customers; ship-to differs per order. | DB, BE, FE |
-| G3 | **Customer statement of account** — no statement generation or emailing. | 2 | The single most-requested collections artifact. | BE, FE |
+| G3 | ~~Customer statement of account~~ — **CORRECTION: already existed** in `packages/core/src/registers.ts` (`customerStatement`), wired to `/api/reports/statement` and the portal. My first pass grepped `parties.ts` and `reports.ts` and missed it. Real gaps found while there: refunds were absent from the running balance, and there was no way to email a statement. Both fixed. | 2 | — | done |
 | G4 | **Write-off invoice / cancel write-off** — no way to write off a bad debt. | 2 | Today the only exit is `cancelled`, which is wrong accounting. | DB, BE, FE |
 | G5 | **Void vs cancel** — `status` is only `draft/issued/cancelled`; no void, no re-open a voided doc. | 3 | Zoho distinguishes void (number burnt, kept) from delete. Kora conflates. | DB, BE |
 | G6 | **Recurring expenses** — `recurring_profile` drives invoices only. | 10 | Rent, SaaS subscriptions, retainers paid out. | DB, BE, FE |

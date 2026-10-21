@@ -19,6 +19,6 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
       { status: 404, headers: HEADERS });
   }
   const html = renderDocumentHtml({ ...(await withUpi({ doc: d, lines: d.lines, supplier: d.supplier_snapshot ?? {}, recipient: d.recipient_snapshot ?? null, template: d.template })), irn: await irnBlock(d.einvoice) });
-  const bar = `<div style="position:sticky;top:0;background:#7c2130;color:#fff;padding:8px 16px;font:14px system-ui;display:flex;justify-content:space-between"><span>Shared with you</span><a style="color:#fff" href="/i/${token}/pdf">Download PDF</a></div>`;
+  const bar = `<div style="position:sticky;top:0;background:#106cd9;color:#fff;padding:8px 16px;font:14px system-ui;display:flex;justify-content:space-between"><span>Shared with you</span><a style="color:#fff" href="/i/${token}/pdf">Download PDF</a></div>`;
   return new Response(html.replace('<body>', `<body>${bar}`), { headers: HEADERS });
 }
