@@ -20,9 +20,11 @@ export default {
   transpilePackages: ['@kora/core', '@kora/db', '@kora/adapters', '@kora/tax', '@kora/pdf'],
   serverExternalPackages: ['postgres', 'playwright', 'playwright-core', '@sparticuz/chromium'],
   // The serverless Chromium is a packed binary; make sure it is shipped with the two routes that make PDFs.
+  // The real folder in the workspace store, not apps/web/node_modules/@sparticuz/chromium, which is a symlink: Vercel refuses a
+  // function package that carries files through a symlinked directory ("invalid deployment package for a Serverless Function").
   outputFileTracingIncludes: {
-    '/api/documents/[id]/pdf': ['./node_modules/@sparticuz/chromium/bin/**'],
-    '/i/[token]/pdf': ['./node_modules/@sparticuz/chromium/bin/**'],
+    '/api/documents/[id]/pdf': ['../../node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**'],
+    '/i/[token]/pdf': ['../../node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**'],
   },
   poweredByHeader: false,
   async headers() {
