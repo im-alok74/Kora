@@ -11,12 +11,12 @@ test('create an account with a password and no code, sign out, and sign in again
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page).toHaveURL(/\/setup/);                     // a new account has no business yet
 
-  await page.request.post('/api/auth/logout');
+  await page.request.post('/api/auth/logout', { data: {} });
   await page.goto('/login');
   await page.getByLabel('Mobile number or email').fill(email);
   await page.getByLabel('Password').fill('not the right one');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('not right');
+  await expect(page.locator('p.error')).toContainText('not right');
   await page.getByLabel('Password').fill('a good long password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL(/\/setup/);
