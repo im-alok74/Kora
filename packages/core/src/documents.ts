@@ -1,5 +1,5 @@
 import {
-  assertCreditWithinOriginal, checkHsn, computeDocument, CURRENCIES, dueDateFor, isPaymentTerm, isTaxError, parseExchangeRate, parseQuantity, parseRupees, resolvePlaceOfSupply,
+  assertCreditWithinOriginal, checkHsn, computeDocument, CURRENCIES, dueDateFor, isPaymentTerm, isTaxError, parseExchangeRate, parseQuantity, parseRupees, resolvePlaceOfSupply, roundHalfUp,
   type DocType, type DocumentResult, type LineInput, type TurnoverBand,
 } from '@kora/tax';
 import type { Sql, Tx } from '@kora/db';
@@ -16,6 +16,12 @@ export const FOREIGN_OK: ReadonlySet<string> = new Set(['estimate', 'proforma', 
 const TAX_DOCS: ReadonlySet<string> = new Set(['tax_invoice', 'credit_note', 'debit_note']);
 const SERIES_PREFIX: Record<DocType, string> = {
   tax_invoice: 'INV', bill_of_supply: 'BOS', estimate: 'EST', proforma: 'PRO', delivery_challan: 'DC', credit_note: 'CN', debit_note: 'DN', sales_order: 'SO',
+};
+
+/** Why a note is raised. Each kind of note offers only the reasons that make sense for it. */
+export const NOTE_REASONS: Record<'credit_note' | 'debit_note', readonly string[]> = {
+  credit_note: ['goods_returned', 'post_sale_discount', 'price_correction', 'service_deficiency', 'tax_rate_correction', 'other'],
+  debit_note: ['additional_charge', 'price_correction', 'quantity_correction', 'tax_rate_correction', 'other'],
 };
 
 export interface LineIn {
@@ -57,6 +63,9 @@ export interface DocIn {
   tcsBp?: number;
   tdsBp?: number;
   originalDocumentId?: string | null;
+  /** Why a credit or debit note was raised, one of NOTE_REASONS, and an optional sentence of detail. */
+  noteReason?: string | null;
+  noteReasonDetail?: string | null;
   /** A revised quote points at the one it replaces. */
   previousVersionId?: string | null;
   version?: number;
@@ -182,6 +191,8 @@ async function creditHeadroom(tx: Tx, originalId: string, excludeId: string | nu
 export async function persist(tx: Tx, t: TenantSession, id: string | null, input: DocIn, clientRef: string | null = null) {
   const b = await build(tx, t, input);
   const isNote = input.docType === 'credit_note' || input.docType === 'debit_note';
+  if (isNote && input.noteReason && !NOTE_REASONS[input.docType as 'credit_note' | 'debit_note'].includes(input.noteReason)) throw new ValidationError('Choose one of the listed reasons for this note.', 'noteReason');
+  if (!isNote && input.noteReason) throw new ValidationError('Only credit and debit notes carry a reason.', 'noteReason');
   if (isNote && !input.originalDocumentId) throw new ValidationError('Choose the invoice this note corrects.', 'originalDocumentId');
   if (!isNote && input.originalDocumentId) throw new ValidationError('Only credit and debit notes point at another invoice.');
   if (isNote) {
@@ -202,6 +213,7 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
     original: input.originalDocumentId ?? null, tcs_bp: input.tcsBp ?? 0, tds_bp: input.tdsBp ?? 0, currency: b.currency, rate: b.rateMicro.toString(),
     reference: str(input.reference, 'Reference', { max: 60 }), subject: str(input.subject, 'Subject', { max: 200 }), payment_terms: input.paymentTerms || null,
     extra: cleanExtra(input.extra), salesperson: str(input.salesperson, 'Salesperson', { max: 80 }),
+    note_reason: input.noteReason ?? null, note_reason_detail: str(input.noteReasonDetail, 'Detail', { max: 300 }),
     previous_version_id: input.previousVersionId ?? null, version: input.version ?? 1, source_document_id: input.sourceDocumentId ?? null,
   };
   // A preset fills the due date when the person left it empty. An explicit date always wins.
@@ -219,7 +231,8 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
              grand_total_paise = ${fields.grand}, notes = ${fields.notes}, terms = ${fields.terms}, original_document_id = ${fields.original},
              tcs_bp = ${fields.tcs_bp}, tds_bp = ${fields.tds_bp}, currency = ${fields.currency}, exchange_rate_micro = ${fields.rate},
              reference = ${fields.reference}, subject = ${fields.subject}, payment_terms = ${fields.payment_terms},
-             extra = ${fields.extra === null ? null : tx.json(fields.extra as any)}, salesperson = ${fields.salesperson}
+             extra = ${fields.extra === null ? null : tx.json(fields.extra as any)}, salesperson = ${fields.salesperson},
+             note_reason = coalesce(${fields.note_reason}, note_reason), note_reason_detail = coalesce(${fields.note_reason_detail}, note_reason_detail)
              where id = ${id}`;
     // previous_version_id, version and source_document_id are set once, when the draft is made, and never edited.
   } else {
@@ -227,11 +240,11 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
       insert into document (business_id, doc_type, party_id, place_of_supply, reverse_charge, doc_date, due_date, taxable_paise, cgst_paise,
                             sgst_paise, igst_paise, cess_paise, tcs_paise, tds_paise, round_off_paise, grand_total_paise, notes, terms,
                             original_document_id, created_by, client_ref, tcs_bp, tds_bp, currency, exchange_rate_micro, reference, subject, payment_terms, extra, salesperson,
-                            previous_version_id, version, source_document_id)
+                            previous_version_id, version, source_document_id, note_reason, note_reason_detail)
       values (${t.businessId}, ${fields.doc_type}, ${fields.party_id}, ${fields.place_of_supply}, ${fields.reverse_charge}, ${fields.doc_date},
               ${fields.due_date}, ${fields.taxable}, ${fields.cgst}, ${fields.sgst}, ${fields.igst}, ${fields.cess}, ${fields.tcs}, ${fields.tds},
               ${fields.round_off}, ${fields.grand}, ${fields.notes}, ${fields.terms}, ${fields.original}, ${t.userId}, ${clientRef}, ${fields.tcs_bp}, ${fields.tds_bp}, ${fields.currency}, ${fields.rate}, ${fields.reference}, ${fields.subject}, ${fields.payment_terms}, ${fields.extra === null ? null : tx.json(fields.extra as any)}, ${fields.salesperson},
-              ${fields.previous_version_id}, ${fields.version}, ${fields.source_document_id})
+              ${fields.previous_version_id}, ${fields.version}, ${fields.source_document_id}, ${fields.note_reason}, ${fields.note_reason_detail})
       returning id`;
     docId = row!.id as string;
   }
@@ -565,16 +578,68 @@ export function linesToInput(lines: Record<string, unknown>[], rateMicro: bigint
   }));
 }
 
-/** A draft credit or debit note that copies the original's lines, ready to edit. */
-export async function startNote(sql: Sql, t: TenantSession, originalId: string, kind: 'credit_note' | 'debit_note') {
+export interface NoteLinePick {
+  /** The line's position on the original invoice, counting from 1. */
+  position: number;
+  quantity?: string;
+  rate?: string;
+}
+
+/**
+ * A draft credit or debit note. With no `lines` it copies every line of the invoice, ready to edit. With `lines` it carries only the
+ * lines picked, at the quantity and rate given. A credit can never be for more than was invoiced: more units or a higher rate than the
+ * original is refused here, and the total against the whole invoice is checked again when the note is saved and issued.
+ */
+export async function startNote(sql: Sql, t: TenantSession, originalId: string, kind: 'credit_note' | 'debit_note',
+  opts: { reason?: string | null; detail?: string | null; lines?: NoteLinePick[] } = {}) {
   const src = await inTenant(sql, t, 'document.read', (tx) => getDocumentTx(tx, originalId));
   if (!src || src.document.status !== 'issued') throw new ValidationError('Only an issued invoice can be corrected with a note.');
+  if (!['tax_invoice', 'bill_of_supply'].includes(src.document.doc_type as string)) throw new ValidationError('Credit and debit notes correct an invoice or a bill of supply.');
+  let lines = linesToInput(src.lines);
+  if (opts.lines) {
+    if (opts.lines.length === 0) throw new ValidationError('Pick at least one line.', 'lines');
+    const seen = new Set<number>();
+    lines = opts.lines.map((pick) => {
+      const pos = Number(pick.position);
+      const orig = src.lines.find((l) => Number(l.position) === pos);
+      if (!orig || seen.has(pos)) throw new ValidationError('That line is not on the invoice.', 'lines');
+      seen.add(pos);
+      const base = linesToInput([orig])[0]!;
+      const qty = pick.quantity?.trim() ? pick.quantity.trim() : base.quantity;
+      const rate = pick.rate?.trim() ? pick.rate.trim() : base.rate;
+      let qMilli: bigint, oMilli: bigint, rPaise: bigint, oRate: bigint;
+      try { qMilli = parseQuantity(qty); oMilli = parseQuantity(base.quantity); rPaise = parseRupees(rate); oRate = parseRupees(base.rate); }
+      catch (e) { throw new ValidationError(`${base.name}: ${(e as Error).message}`, 'lines'); }
+      if (kind === 'credit_note' && qMilli > oMilli) throw new ValidationError(`${base.name}: you invoiced ${base.quantity}, so you cannot credit ${qty}.`, 'lines');
+      if (kind === 'credit_note' && rPaise > oRate) throw new ValidationError(`${base.name}: you invoiced at ${base.rate}, so you cannot credit at ${rate}. Use a debit note to charge more.`, 'lines');
+      // The line's discount follows the share of the quantity being credited, so a half return takes back half the discount.
+      const origDisc = parseRupees(base.discount ?? '0');
+      const disc = rPaise === oRate && oMilli > 0n ? roundHalfUp(origDisc * qMilli, oMilli) : 0n;
+      return { ...base, quantity: qty, rate, discount: disc > 0n ? rs(disc) : '' };
+    });
+  }
   const input: DocIn = {
     docType: kind, partyId: src.document.party_id as string | null, originalDocumentId: originalId,
     placeOfSupply: src.document.place_of_supply as string, reverseCharge: src.document.reverse_charge as boolean,
-    lines: linesToInput(src.lines),
+    noteReason: opts.reason ?? null, noteReasonDetail: opts.detail ?? null, lines,
   };
   return saveDraft(sql, t, input);
+}
+
+/** What the guided note screen needs: the invoice's lines, how much has already been credited, and the reasons on offer. */
+export async function noteContext(sql: Sql, t: TenantSession, originalId: string) {
+  return inTenant(sql, t, 'document.read', async (tx) => {
+    const src = await getDocumentTx(tx, originalId);
+    if (!src) throw new ValidationError('Document not found.');
+    const [c] = await tx`select coalesce(sum(taxable_paise), 0)::text as s from document where original_document_id = ${originalId} and doc_type = 'credit_note' and status = 'issued'`;
+    const notes = await tx`select id, number, doc_type, status, grand_total_paise::text as grand_total_paise from document where original_document_id = ${originalId} order by created_at`;
+    return {
+      number: src.document.number as string | null, status: src.document.status as string, docType: src.document.doc_type as string,
+      invoicedTaxablePaise: String(src.document.taxable_paise), creditedTaxablePaise: c!.s as string,
+      lines: src.lines.map((l) => ({ position: Number(l.position), name: l.item_name as string, quantity: String(l.quantity), unit: l.unit as string, ratePaise: String(l.rate_paise), taxRateBp: Number(l.tax_rate_bp) })),
+      notes, reasons: NOTE_REASONS,
+    };
+  });
 }
 
 /**

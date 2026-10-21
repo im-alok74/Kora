@@ -1,5 +1,5 @@
 import { formatRupees, rupeesInWords, STATE_NAMES } from '@kora/tax';
-import { labelsFor, titleFor } from './labels.js';
+import { labelsFor, NOTE_REASON_TEXT, titleFor } from './labels.js';
 
 /** Data the renderer needs. Shapes match the database rows (snake_case, bigints as strings). */
 export interface RenderInput {
@@ -111,7 +111,7 @@ export function renderDocumentHtml(i: RenderInput): string {
   const supplierName = s.trade_name || s.legal_name;
   const cell = (k: string, v: string) => `<div><span class="k">${esc(k)}</span><b>${v}</b></div>`;
   const metaCells = [cell(L.no, esc(d.number ?? 'Draft')), cell(L.date, esc(d.doc_date)), d.due_date ? cell(L.due, esc(d.due_date)) : '',
-    d.original_number ? cell(L.against, esc(d.original_number)) : '', d.reference ? cell(L.reference, esc(d.reference)) : '', d.salesperson ? cell(L.salesperson, esc(d.salesperson)) : '', cell(L.placeOfSupply, place)].join('');
+    d.original_number ? cell(L.against, esc(d.original_number)) : '', d.note_reason ? cell(L.reason, esc([NOTE_REASON_TEXT[d.note_reason] ?? d.note_reason, d.note_reason_detail].filter(Boolean).join(': '))) : '', d.reference ? cell(L.reference, esc(d.reference)) : '', d.salesperson ? cell(L.salesperson, esc(d.salesperson)) : '', cell(L.placeOfSupply, place)].join('');
   const extraCells = Array.isArray(d.extra) ? d.extra.map((x: { label: string; value: string }) => cell(String(x.label ?? ''), esc(x.value))).join('') : '';
   const ship = r?.shipping_address && Object.keys(r.shipping_address).length ? addr(r.shipping_address) : '';
 

@@ -437,9 +437,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
           <p className="muted">An issued invoice cannot be edited. Raise a note against it instead.</p>
           <div className="row" style={{ justifyContent: 'flex-start' }}>
             {(['credit_note', 'debit_note'] as const).map((k) => (
-              <button key={k} className="secondary" style={{ flex: 'none' }} disabled={busy} onClick={() => run(async () => {
-                const r = await api(`/api/documents/${id}/note`, { body: { kind: k } }); window.location.href = `/app/invoices/${r.id}/edit`;
-              })}>Start a {(DOC_LABEL[k] ?? k).toLowerCase()}</button>))}
+              <a key={k} className="btn secondary" href={`/app/invoices/${id}/note?kind=${k}`}>Raise a {(DOC_LABEL[k] ?? k).toLowerCase()}</a>))}
             {role === 'owner' && <button className="danger" style={{ flex: 'none' }} onClick={() => setCancelling((v) => !v)}>Cancel this invoice</button>}
           </div>
           {cancelling && (

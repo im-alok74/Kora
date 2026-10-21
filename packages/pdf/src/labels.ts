@@ -11,7 +11,7 @@ export interface Labels {
   billTo: string; placeOfSupply: string; shipTo: string; no: string; date: string; due: string; against: string;
   description: string; qty: string; rate: string; discount: string; taxable: string; taxableValue: string; total: string; amountDue: string;
   notes: string; terms: string; payTo: string; signatory: string; reverseCharge: string; scanToPay: string; roundOff: string; tdsLess: string; netPayable: string; inclusive: string;
-  thanks: string; items: string; walkIn: string; reference: string; salesperson: string; paid: string;
+  thanks: string; items: string; walkIn: string; reference: string; salesperson: string; paid: string; reason: string;
 }
 
 const en: Labels = {
@@ -23,6 +23,7 @@ const en: Labels = {
   reference: 'Reference',
   salesperson: 'Salesperson',
   paid: 'Paid',
+  reason: 'Reason',
 };
 
 const hi: Labels = {
@@ -33,7 +34,7 @@ const hi: Labels = {
   tdsLess: 'घटाएँ: काटा जाने वाला टीडीएस', netPayable: 'ग्राहक द्वारा देय शुद्ध राशि', inclusive: 'जीएसटी सहित', thanks: 'धन्यवाद। फिर पधारें।', items: 'सामान', walkIn: 'खुला ग्राहक',
   reference: 'ऑर्डर संदर्भ',
   salesperson: 'विक्रय प्रतिनिधि',
-  paid: 'भुगतान हो चुका',
+  paid: 'भुगतान हो चुका', reason: 'कारण',
 };
 
 const mr: Labels = {
@@ -44,7 +45,7 @@ const mr: Labels = {
   tdsLess: 'वजा: कापला जाणारा टीडीएस', netPayable: 'ग्राहकाने भरावयाची निव्वळ रक्कम', inclusive: 'जीएसटीसह', thanks: 'धन्यवाद. पुन्हा भेट द्या.', items: 'वस्तू', walkIn: 'सामान्य ग्राहक',
   reference: 'ऑर्डर संदर्भ',
   salesperson: 'विक्रेता प्रतिनिधी',
-  paid: 'पैसे मिळाले',
+  paid: 'पैसे मिळाले', reason: 'कारण',
 };
 
 const gu: Labels = {
@@ -55,7 +56,7 @@ const gu: Labels = {
   tdsLess: 'બાદ: કપાતો ટીડીએસ', netPayable: 'ગ્રાહકે ચૂકવવાની ચોખ્ખી રકમ', inclusive: 'જીએસટી સહિત', thanks: 'આભાર. ફરી પધારજો.', items: 'વસ્તુઓ', walkIn: 'સામાન્ય ગ્રાહક',
   reference: 'ઓર્ડર સંદર્ભ',
   salesperson: 'વેચાણ પ્રતિનિધિ',
-  paid: 'ચૂકવાઈ ગયું',
+  paid: 'ચૂકવાઈ ગયું', reason: 'કારણ',
 };
 
 const ALL: Record<Language, Labels> = { en, hi, mr, gu };
@@ -66,4 +67,10 @@ export const titleFor = (lang: unknown, docType: string): string => {
   const key = docType as keyof Labels;
   const local = (l[key] as string | undefined) ?? en.tax_invoice;
   return l === en || local === (en[key] as string) ? local : `${local} / ${en[key] as string}`;
+};
+
+/** What a credit or debit note says about why it was raised. Printed in English whatever the language of the labels, as the business wrote the detail. */
+export const NOTE_REASON_TEXT: Record<string, string> = {
+  goods_returned: 'Goods returned', post_sale_discount: 'Discount after sale', price_correction: 'Price correction', quantity_correction: 'Quantity correction',
+  service_deficiency: 'Deficiency in service', tax_rate_correction: 'Tax rate correction', additional_charge: 'Additional charge', other: 'Other',
 };
