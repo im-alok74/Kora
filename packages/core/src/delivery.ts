@@ -4,7 +4,8 @@ import type { Messenger } from '@kora/adapters';
 import { SYSTEM_USER, withTenant, type Sql } from '@kora/db';
 import { normaliseIdentifier } from './identifier.js';
 import { enqueue, PermanentJobError, type JobRow } from './jobs.js';
-import { fillMessage } from './messages.js';
+import { DEFAULT_MESSAGES, fillMessage } from './messages.js';
+import { customerStatement, dateRange, statementText } from './registers.js';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { ValidationError } from './validation.js';
 
@@ -49,6 +50,59 @@ export async function queueDocumentSend(
 export async function getDelivery(sql: Sql, t: TenantSession, deliveryId: string) {
   const rows = await inTenant(sql, t, 'document.read', (tx) => tx`select id, channel, to_address, status, error_message from delivery where id = ${deliveryId}`);
   return rows[0] ?? null;
+}
+
+/**
+ * Queues a customer's statement of account as an email. Where it goes: the address given, else the contact person
+ * named, else the party's primary contact person, else the party's own email.
+ */
+export async function queueStatementSend(
+  sql: Sql, t: TenantSession, a: { partyId: string; from?: string; to?: string; contactPersonId?: string | null; email?: string | null },
+) {
+  return inTenant(sql, t, 'document.issue', async (tx) => {
+    const [b] = await tx`select timezone from business where id = ${t.businessId}`;
+    const range = dateRange({ from: a.from, to: a.to }, b!.timezone as string);
+    const [p] = await tx`select id, email from party where id = ${a.partyId}`;
+    if (!p) throw new ValidationError('Customer not found.', 'partyId');
+    let chosen = a.email?.trim() || null;
+    if (!chosen && a.contactPersonId) {
+      const [c] = await tx`select email from contact_person where id = ${a.contactPersonId} and party_id = ${a.partyId} and archived_at is null`;
+      if (!c) throw new ValidationError('Contact person not found.', 'contactPersonId');
+      if (!c.email) throw new ValidationError('That contact person has no email address.', 'contactPersonId');
+      chosen = c.email as string;
+    }
+    if (!chosen) {
+      const [c] = await tx`select email from contact_person where party_id = ${a.partyId} and is_primary and archived_at is null and email is not null`;
+      chosen = (c?.email as string | undefined) ?? (p.email as string | null);
+    }
+    if (!chosen) throw new ValidationError('This customer has no email address. Add one, or choose a contact person who has one.', 'email');
+    const address = normaliseRecipient('email', chosen);
+    await enqueue(tx, 'statement.send', { partyId: a.partyId, from: range.from, to: range.to, email: address }, { businessId: t.businessId });
+    return { email: address, from: range.from, to: range.to, status: 'queued' as const };
+  });
+}
+
+/**
+ * Worker side of 'statement.send'. The statement is rebuilt at send time, so what the customer reads is the account as
+ * it stands, not as it looked when the send was queued. The wording comes from the business's own statement template.
+ */
+export async function processStatementJob(sql: Sql, deps: { messenger: Messenger }, job: JobRow): Promise<void> {
+  const p = job.payload as { partyId: string; from: string; to: string; email: string };
+  if (!job.business_id) throw new PermanentJobError('Job has no business.');
+  const t: TenantSession = { businessId: job.business_id, userId: SYSTEM_USER, role: 'owner' };
+  const s = await customerStatement(sql, t, p.partyId, { from: p.from, to: p.to });
+  const [b] = await withTenant(sql, { businessId: job.business_id, userId: SYSTEM_USER },
+    (tx) => tx`select legal_name, trade_name, message_templates from business where id = ${job.business_id}`);
+  const from = ((b!.trade_name ?? b!.legal_name) as string);
+  const own = ((b!.message_templates ?? {}) as { statement?: string }).statement;
+  const due = formatMoney(BigInt(s.closing));
+  const text = fillMessage(own ?? DEFAULT_MESSAGES.statement, {
+    customer: (s.party as { name: string }).name, business: from, period: `${s.from} to ${s.to}`,
+    outstanding: due, amount: due, due_date: s.to, type: 'Statement of account', number: '', link: '',
+  });
+  await deps.messenger.sendEmail({ to: p.email, subject: `Statement of account from ${from}`, text: `${text}
+
+${statementText(s)}`, documentUrl: '' });
 }
 
 export function messageText(o: { label: string; number: string; total: bigint; currency?: string; from: string; url: string; reminder?: { outstanding: bigint; dueDate: string | null } }): string {

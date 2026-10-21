@@ -20,7 +20,7 @@ export default function SideNav({ role, multi = false, children }: { role: strin
     { title: 'Overview', items: [{ href: '/app', label: 'Dashboard', icon: 'home' }, { href: '/app/firm', label: 'Clients', icon: 'team', show: multi }] },
     { title: 'Sales', items: [
       { href: '/app/invoices', label: 'Documents', icon: 'documents' }, { href: '/app/pos', label: 'Till', icon: 'rupee', show: role !== 'accountant' }, { href: '/app/recurring', label: 'Recurring', icon: 'repeat' },
-      { href: '/app/matters', label: 'Matters', icon: 'briefcase' }, { href: '/app/projects', label: 'Projects', icon: 'clock' }, { href: '/app/customers', label: 'Customers', icon: 'user' }, { href: '/app/items', label: 'Items', icon: 'box' }] },
+      { href: '/app/matters', label: 'Matters', icon: 'briefcase' }, { href: '/app/projects', label: 'Projects', icon: 'clock' }, { href: '/app/customers', label: 'Customers', icon: 'user' }, { href: '/app/items', label: 'Items', icon: 'box' }, { href: '/app/price-lists', label: 'Price lists', icon: 'percent' }] },
     { title: 'Money', items: [{ href: '/app/network', label: 'Network', icon: 'team' }, { href: '/app/inbox', label: 'Inbox', icon: 'inbox' }, { href: '/app/purchases', label: 'Purchases', icon: 'cart' }, { href: '/app/bank', label: 'Bank', icon: 'database' }, { href: '/app/itc', label: 'Input GST', icon: 'percent' }, { href: '/app/expenses', label: 'Expenses', icon: 'receipt' }, { href: '/app/reports', label: 'Reports', icon: 'chart' }] },
     { title: 'Manage', items: [
       { href: '/app/data', label: 'Data', icon: 'database' }, { href: '/app/developers', label: 'Developers', icon: 'code', show: role === 'owner' },

@@ -3,6 +3,8 @@ import { issueTx, persist, previewTotals, type DocIn, type LineIn } from './docu
 import { enqueue } from './jobs.js';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { isDate, str, todayIn, ValidationError } from './validation.js';
+import { parseRupees } from '@kora/tax';
+import { PAID_VIA } from './expenses.js';
 import type { SendChannel } from './delivery.js';
 
 export type RecurUnit = 'week' | 'month' | 'year';
@@ -115,10 +117,17 @@ export async function updateRecurring(sql: Sql, t: TenantSession, id: string, in
   });
 }
 
-export async function setRecurringActive(sql: Sql, t: TenantSession, id: string, active: boolean) {
-  return inTenant(sql, t, 'document.write', async (tx) => {
-    const [p] = await tx`select p.start_date, p.every_n, p.unit, b.timezone from recurring_profile p join business b on b.id = p.business_id where p.id = ${id} for update of p`;
-    if (!p) throw new ValidationError('Recurring invoice not found.');
+/**
+ * Stop or resume a schedule, for either kind. Stopping only clears the flag, so the position is kept; resuming
+ * re-reads the position from today, so a schedule that was paused for three months does not pour out three months
+ * of back-dated work the moment it comes back.
+ */
+async function setActive(sql: Sql, t: TenantSession, id: string, active: boolean, kind: 'invoice' | 'expense') {
+  const notFound = kind === 'expense' ? 'Recurring expense not found.' : 'Recurring invoice not found.';
+  return inTenant(sql, t, kind === 'expense' ? 'expense.write' : 'document.write', async (tx) => {
+    const [p] = await tx`select p.start_date, p.every_n, p.unit, b.timezone from recurring_profile p join business b on b.id = p.business_id
+                          where p.id = ${id} and p.kind = ${kind} and p.archived_at is null for update of p`;
+    if (!p) throw new ValidationError(notFound);
     if (!active) { await tx`update recurring_profile set active = false where id = ${id}`; return { id, active: false }; }
     // Resuming never backfills the weeks that were paused: carry on from the next date that has not passed.
     const next = firstOccurrenceOnOrAfter(p.start_date as string, p.every_n as number, p.unit as RecurUnit, todayIn(p.timezone as string));
@@ -127,9 +136,11 @@ export async function setRecurringActive(sql: Sql, t: TenantSession, id: string,
   });
 }
 
+export const setRecurringActive = (sql: Sql, t: TenantSession, id: string, active: boolean) => setActive(sql, t, id, active, 'invoice');
+
 export async function deleteRecurring(sql: Sql, t: TenantSession, id: string): Promise<void> {
   await inTenant(sql, t, 'document.write', async (tx) => {
-    const r = await tx`delete from recurring_profile where id = ${id} returning id`;
+    const r = await tx`delete from recurring_profile where id = ${id} and kind = 'invoice' returning id`;
     if (r.length === 0) throw new ValidationError('Recurring invoice not found.');
   });
 }
@@ -141,12 +152,14 @@ export async function listRecurring(sql: Sql, t: TenantSession) {
            (select count(*)::int from recurring_run r where r.profile_id = p.id and r.status = 'created') as created,
            (select count(*)::int from recurring_run r where r.profile_id = p.id and r.status = 'failed') as failed
       from recurring_profile p join party pa on pa.id = p.party_id
+     where p.kind = 'invoice' and p.archived_at is null
      order by p.active desc, p.next_run_date`);
 }
 
 export async function getRecurring(sql: Sql, t: TenantSession, id: string) {
   return inTenant(sql, t, 'document.read', async (tx) => {
-    const [p] = await tx`select p.*, pa.name as party_name from recurring_profile p join party pa on pa.id = p.party_id where p.id = ${id}`;
+    const [p] = await tx`select p.*, pa.name as party_name from recurring_profile p join party pa on pa.id = p.party_id
+                          where p.id = ${id} and p.kind = 'invoice' and p.archived_at is null`;
     if (!p) return null;
     const runs = await tx`select r.id, r.run_date, r.status, r.note, r.document_id, d.number, d.status as document_status
                             from recurring_run r left join document d on d.id = r.document_id
@@ -156,13 +169,15 @@ export async function getRecurring(sql: Sql, t: TenantSession, id: string) {
 }
 
 type Profile = {
-  id: string; business_id: string; party_id: string; doc_type: 'tax_invoice' | 'bill_of_supply'; every_n: number; unit: RecurUnit;
+  id: string; business_id: string; kind: 'invoice' | 'expense'; party_id: string; doc_type: 'tax_invoice' | 'bill_of_supply'; every_n: number; unit: RecurUnit;
   start_date: string; end_date: string | null; occurrence: number; next_run_date: string; mode: RecurMode; channel: SendChannel | null;
-  terms_days: number; payload: { lines: LineIn[]; notes: string | null; terms: string | null }; created_by: string;
+  terms_days: number; payload: Record<string, any>; created_by: string;
 };
 
 /** Makes one invoice for one scheduled date, inside the caller's transaction. Returns the note to show on the run. */
-async function makeInvoice(tx: Tx, p: Profile, runDate: string): Promise<{ documentId: string; note: string | null }> {
+type Made = { documentId?: string; expenseId?: string; note: string | null };
+
+async function makeInvoice(tx: Tx, p: Profile, runDate: string): Promise<Made> {
   const t = { businessId: p.business_id, userId: p.created_by, role: 'owner' as const };
   const input: DocIn = {
     docType: p.doc_type, partyId: p.party_id, docDate: runDate, dueDate: p.terms_days > 0 ? addDays(runDate, p.terms_days) : null,
@@ -204,11 +219,13 @@ export async function processDueRecurring(sql: Sql, limit = 20): Promise<{ creat
                                on conflict (profile_id, run_date) do nothing returning id`;
         if (run) {
           try {
-            const out = await tx.savepoint((sp) => makeInvoice(sp as Tx, p, next));
-            await tx`update recurring_run set status = 'created', document_id = ${out.documentId}, note = ${out.note} where id = ${run.id}`;
+            const out = await tx.savepoint((sp) => (p.kind === 'expense' ? makeExpense(sp as Tx, p, next) : makeInvoice(sp as Tx, p, next)));
+            await tx`update recurring_run set status = 'created', document_id = ${out.documentId ?? null}, expense_id = ${out.expenseId ?? null},
+                                              note = ${out.note} where id = ${run.id}`;
             created++;
           } catch (e) {
-            await tx`update recurring_run set status = 'failed', note = ${((e as Error).message ?? 'Could not create the invoice.').slice(0, 300)} where id = ${run.id}`;
+            const what = p.kind === 'expense' ? 'Could not record the expense.' : 'Could not create the invoice.';
+            await tx`update recurring_run set status = 'failed', note = ${((e as Error).message ?? what).slice(0, 300)} where id = ${run.id}`;
             failed++;
           }
         }
@@ -220,4 +237,122 @@ export async function processDueRecurring(sql: Sql, limit = 20): Promise<{ creat
     });
   }
   return { created, failed };
+}
+
+// ---------------------------------------------------------------- recurring expenses
+//
+// The same engine, the same tick, the same run rows. An expense profile carries what to spend instead of what to
+// invoice, so only the template and the "make one" step differ; everything about the schedule is shared above.
+
+export interface RecurringExpenseIn {
+  name: string;
+  category: string;
+  amount: string;            // rupees, tax included
+  gst?: string | null;       // rupees, the GST inside that amount
+  vendor?: string | null;
+  paidVia?: string;
+  everyN?: number;
+  unit: RecurUnit;
+  startDate: string;
+  endDate?: string | null;
+  notes?: string | null;
+}
+
+/** Pure. Everything a recurring expense needs is checked here, so a bad schedule is refused now and not at 2 a.m. */
+export function validateRecurringExpense(i: RecurringExpenseIn) {
+  const name = str(i.name, 'Name', { required: true, max: 120 })!;
+  const category = str(i.category, 'Category', { required: true, max: 60 })!;
+  const unit = i.unit;
+  if (!['week', 'month', 'year'].includes(unit)) throw new ValidationError('Choose weekly, monthly or yearly.', 'unit');
+  const everyN = i.everyN ?? 1;
+  if (!Number.isInteger(everyN) || everyN < 1 || everyN > 24) throw new ValidationError('Repeat every 1 to 24 periods.', 'everyN');
+  if (!isDate(i.startDate)) throw new ValidationError('Enter the start date as YYYY-MM-DD.', 'startDate');
+  if (i.endDate && (!isDate(i.endDate) || i.endDate < i.startDate)) throw new ValidationError('The end date must be on or after the start date.', 'endDate');
+  let amount: bigint, gst = 0n;
+  try { amount = parseRupees(String(i.amount ?? '')); } catch { throw new ValidationError('Enter the amount in rupees.', 'amount'); }
+  if (amount <= 0n) throw new ValidationError('The amount must be more than zero.', 'amount');
+  if (i.gst) { try { gst = parseRupees(String(i.gst)); } catch { throw new ValidationError('Enter the GST in rupees.', 'gst'); } }
+  if (gst < 0n) throw new ValidationError('The GST cannot be negative.', 'gst');
+  if (gst > amount) throw new ValidationError('The GST is more than the amount paid. The amount includes the GST.', 'gst');
+  const paidVia = i.paidVia ?? 'cash';
+  if (!(PAID_VIA as readonly string[]).includes(paidVia)) throw new ValidationError('Choose how it is paid.', 'paidVia');
+  return {
+    name, unit, everyN, startDate: i.startDate, endDate: i.endDate ?? null,
+    payload: {
+      category, amountPaise: amount.toString(), gstPaise: gst.toString(), paidVia,
+      vendor: str(i.vendor, 'Vendor', { max: 120 }), notes: str(i.notes, 'Notes', { max: 1000 }),
+    },
+  };
+}
+
+export async function createRecurringExpense(sql: Sql, t: TenantSession, input: RecurringExpenseIn) {
+  const c = validateRecurringExpense(input);
+  return inTenant(sql, t, 'expense.write', async (tx) => {
+    const [r] = await tx`
+      insert into recurring_profile (business_id, kind, name, every_n, unit, start_date, end_date, occurrence, next_run_date, payload, created_by)
+      values (${t.businessId}, 'expense', ${c.name}, ${c.everyN}, ${c.unit}, ${c.startDate}, ${c.endDate}, 0, ${c.startDate}, ${tx.json(c.payload as never)}, ${t.userId})
+      returning id`;
+    return { id: r!.id as string };
+  });
+}
+
+/** As with invoices, the schedule itself is fixed once created: change what is spent, or stop it and start a new one. */
+export async function updateRecurringExpense(sql: Sql, t: TenantSession, id: string, input: Omit<RecurringExpenseIn, 'unit' | 'startDate' | 'everyN'>) {
+  return inTenant(sql, t, 'expense.write', async (tx) => {
+    const [cur] = await tx`select every_n, unit, start_date::text as start_date from recurring_profile
+                            where id = ${id} and kind = 'expense' and archived_at is null`;
+    if (!cur) throw new ValidationError('Recurring expense not found.');
+    const c = validateRecurringExpense({ ...input, unit: cur.unit as RecurUnit, startDate: cur.start_date as string, everyN: cur.every_n as number });
+    await tx`update recurring_profile set name = ${c.name}, end_date = ${c.endDate}, payload = ${tx.json(c.payload as never)} where id = ${id}`;
+    return { id };
+  });
+}
+
+export const stopRecurringExpense = (sql: Sql, t: TenantSession, id: string) => setActive(sql, t, id, false, 'expense');
+export const resumeRecurringExpense = (sql: Sql, t: TenantSession, id: string) => setActive(sql, t, id, true, 'expense');
+
+/** Archived, not deleted: the expenses it already recorded, and the history of how they got there, stay in the books. */
+export async function archiveRecurringExpense(sql: Sql, t: TenantSession, id: string): Promise<void> {
+  await inTenant(sql, t, 'expense.write', async (tx) => {
+    const r = await tx`update recurring_profile set archived_at = now(), active = false
+                        where id = ${id} and kind = 'expense' and archived_at is null returning id`;
+    if (r.length === 0) throw new ValidationError('Recurring expense not found.');
+  });
+}
+
+export async function listRecurringExpenses(sql: Sql, t: TenantSession) {
+  return inTenant(sql, t, 'expense.read', (tx) => tx`
+    select p.id, p.name, p.every_n, p.unit, p.start_date::text as start_date, p.end_date::text as end_date, p.next_run_date::text as next_run_date,
+           p.active, p.payload->>'category' as category, p.payload->>'vendor' as vendor, p.payload->>'amountPaise' as amount_paise,
+           p.payload->>'gstPaise' as gst_paise, p.payload->>'paidVia' as paid_via,
+           (select count(*)::int from recurring_run r where r.profile_id = p.id and r.status = 'created') as created,
+           (select count(*)::int from recurring_run r where r.profile_id = p.id and r.status = 'failed') as failed
+      from recurring_profile p
+     where p.kind = 'expense' and p.archived_at is null
+     order by p.active desc, p.next_run_date`);
+}
+
+/** The profile, its run history, and the expenses it has actually created. */
+export async function getRecurringExpense(sql: Sql, t: TenantSession, id: string) {
+  return inTenant(sql, t, 'expense.read', async (tx) => {
+    const [p] = await tx`select * from recurring_profile where id = ${id} and kind = 'expense' and archived_at is null`;
+    if (!p) return null;
+    const runs = await tx`select r.id, r.run_date::text as run_date, r.status, r.note, r.expense_id
+                            from recurring_run r where r.profile_id = ${id} order by r.run_date desc limit 50`;
+    const expenses = await tx`
+      select e.id, e.expense_date::text as expense_date, e.vendor, e.category, e.amount_paise, e.gst_paise, e.paid_via, e.notes
+        from expense e join recurring_run r on r.expense_id = e.id
+       where r.profile_id = ${id} order by e.expense_date desc limit 200`;
+    return { profile: p, runs, expenses };
+  });
+}
+
+/** Records one expense for one scheduled date, inside the caller's transaction. The GST carries from the profile. */
+async function makeExpense(tx: Tx, p: Profile, runDate: string): Promise<Made> {
+  const q = p.payload;
+  const [e] = await tx`
+    insert into expense (business_id, expense_date, vendor, category, amount_paise, gst_paise, paid_via, notes, created_by)
+    values (${p.business_id}, ${runDate}, ${q.vendor ?? null}, ${q.category}, ${q.amountPaise}, ${q.gstPaise ?? '0'}, ${q.paidVia ?? 'cash'}, ${q.notes ?? null}, ${p.created_by})
+    returning id`;
+  return { expenseId: e!.id as string, note: null };
 }

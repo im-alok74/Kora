@@ -27,7 +27,7 @@ async function warm(page: Page) {
 test('the app is installable: manifest, icons and service worker are served', async ({ page, request }) => {
   await page.goto('/');
   const m = await (await request.get('/manifest.webmanifest')).json();
-  expect(m).toMatchObject({ name: 'Kora', display: 'standalone', start_url: '/app/invoices', theme_color: '#7c2130' });
+  expect(m).toMatchObject({ name: 'Kora', display: 'standalone', start_url: '/app/invoices', theme_color: '#106cd9' });
   for (const i of m.icons) expect((await request.get(i.src)).ok()).toBe(true);
   const sw = await request.get('/sw.js');
   expect(sw.ok()).toBe(true);

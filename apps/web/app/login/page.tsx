@@ -2,6 +2,7 @@
 // Sign in with a password (no address check), create an account, or use an emailed or texted code.
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/client';
+import Icon from '../../components/Icon';
 
 type Mode = 'signin' | 'signup' | 'code';
 type Step = 'id' | 'code' | 'mfa';
@@ -26,6 +27,7 @@ export default function Login() {
     window.location.href = me.businesses.length ? (LANDING[me.accountType] ?? '/app') : '/setup';
   };
   useEffect(() => { api('/api/me').then(enter).catch(() => setReady(true)); }, []);
+  useEffect(() => { if (new URLSearchParams(window.location.search).has('signup')) setMode('signup'); }, []);
 
   const run = async (fn: () => Promise<void>) => {
     setErr(''); setBusy(true);
@@ -41,11 +43,13 @@ export default function Login() {
 
   return (
     <main className="auth">
+      <div className="auth-shell">
+      <div className="auth-main">
       <div className="auth-box">
       <div className="auth-brand"><a href="/" aria-label="Kora home"><span className="brand-mark" aria-hidden="true">k</span>kora</a></div>
       <h1>{mode === 'signup' ? 'Create your Kora account' : 'Sign in to Kora'}</h1>
       <p className="lead">{mode === 'code' ? 'We send a six-digit code to your mobile number or email.' : mode === 'signup' ? 'Use your email or mobile number and choose a password. Nothing to confirm.' : 'Use your email or mobile number and your password.'}</p>
-      <div className="card">
+      <div className="auth-form">
         {step === 'mfa' ? (
           <form onSubmit={(e) => { e.preventDefault(); void run(async () => { await api('/api/auth/mfa', { body: { mfaToken, code } }); await enter(); }); }}>
             <label htmlFor="mfa">Code from your authenticator app, or a recovery code</label>
@@ -99,6 +103,22 @@ export default function Login() {
         )}
       </div>
       <p className="muted" style={{ textAlign: 'center', marginTop: 16, fontSize: 13 }}>Kora prepares your documents. You and your CA stay responsible for every invoice and filing. By signing in you agree to the <a href="/terms">terms</a> and the <a href="/privacy">privacy policy</a>.</p>
+      </div>
+      </div>
+      <aside className="auth-promo" aria-label="About Kora">
+        <div className="promo-art" aria-hidden="true">
+          <div className="pa-card">
+            <div className="pa-top"><b>INV-0042</b><span className="chip paid">Paid</span></div>
+            <i /><i /><i className="short" />
+            <div className="pa-total"><span>Total</span><b>Rs 19,470.00</b></div>
+          </div>
+          <div className="pa-qr"><span className="l-qr" /></div>
+          <div className="l-badge wa"><Icon name="chat" size={15} />Sent on WhatsApp</div>
+        </div>
+        <h2>Invoices that get paid</h2>
+        <p>Tax worked out for you, a UPI QR on every invoice, and payments that match themselves.</p>
+        <a className="pill" href="/#how">See how it works</a>
+      </aside>
       </div>
     </main>
   );

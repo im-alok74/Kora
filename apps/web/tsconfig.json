@@ -19,9 +19,11 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
+    ".next-e2e/types/**/*.ts",
+    ".next-vtest/types/**/*.ts",
     ".next/types/**/*.ts",
     "next-env.d.ts",
-    ".next-e2e/types/**/*.ts"
+    ".next/kora-motion/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"
