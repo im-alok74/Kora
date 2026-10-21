@@ -2,6 +2,13 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { api, rupees, TAX_RATES } from '../../../lib/client';
 
+type Preview = { active: boolean; mode: string; channel: string | null; amountPaise: string; dates: { date: string; dueDate: string | null }[] };
+const MODE_HELP: Record<string, string> = {
+  draft: 'Kora makes the invoice on its date and leaves it as a draft. You check it and issue it yourself.',
+  issue: 'Kora makes the invoice and issues it on its date. It is not sent to the customer unless you send it.',
+  issue_and_send: 'Kora makes the invoice, issues it and sends it to the customer on its date. You do nothing.',
+};
+
 type Row = { id: string; name: string; doc_type: string; every_n: number; unit: string; start_date: string; end_date: string | null; next_run_date: string;
   mode: string; channel: string | null; active: boolean; party_id: string; party_name: string; created: number; failed: number };
 type Run = { id: string; run_date: string; status: string; note: string | null; document_id: string | null; number: string | null; document_status: string | null };
@@ -30,6 +37,9 @@ export default function Recurring() {
   const [lines, setLines] = useState<Line[]>([blankLine()]);
   const [open, setOpen] = useState(false);
   const [openRuns, setOpenRuns] = useState<string | null>(null);
+  const [openPlan, setOpenPlan] = useState<string | null>(null);
+  const [plan, setPlan] = useState<Preview | null>(null);
+  const [formDates, setFormDates] = useState<string[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
@@ -54,6 +64,19 @@ export default function Recurring() {
   const run = async (fn: () => Promise<void>) => {
     setErr(''); setMsg(''); setBusy(true);
     try { await fn(); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  };
+  // While the form is open, show the dates the schedule would run on, so a wrong start date or period is obvious before saving.
+  useEffect(() => {
+    if (!open || !form.startDate) { setFormDates([]); return; }
+    const h = setTimeout(() => {
+      api('/api/recurring/dates', { body: { startDate: form.startDate, everyN: Number(form.everyN), unit: form.unit, endDate: form.endDate || null } })
+        .then((r) => setFormDates(r.dates)).catch(() => setFormDates([]));
+    }, 250);
+    return () => clearTimeout(h);
+  }, [open, form.startDate, form.everyN, form.unit, form.endDate]);
+  const showPlan = async (id: string) => {
+    if (openPlan === id) { setOpenPlan(null); return; }
+    setPlan(await api(`/api/recurring/${id}/preview?count=6`)); setOpenPlan(id);
   };
   const setLine = (i: number, patch: Partial<Line>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const showRuns = async (id: string) => {
@@ -121,6 +144,9 @@ export default function Recurring() {
             <div><label htmlFor="rt">Payment due after (days)</label><input id="rt" type="number" min={0} max={365} value={form.termsDays} onChange={(e) => setForm({ ...form, termsDays: Number(e.target.value) })} /></div>
           </div>
 
+          <p className="muted" data-testid="mode-help">{MODE_HELP[form.mode]}</p>
+          {formDates.length > 0 && <p className="muted" data-testid="form-dates">The first dates: {formDates.join(', ')}{form.endDate ? '' : ' and so on'}.</p>}
+
           <h3 style={{ marginTop: 16 }}>What to invoice</h3>
           <table className="t"><thead><tr><th>Description</th><th>HSN or SAC</th><th>Qty</th><th>Rate (Rs)</th><th>GST</th><th /></tr></thead>
             <tbody>{lines.map((l, i) => (
@@ -157,19 +183,38 @@ export default function Recurring() {
                 <td>{MODE[r.mode]}{r.mode === 'issue_and_send' ? ` by ${r.channel}` : ''}</td>
                 <td className="n">{r.created}{r.failed > 0 && <span className="error"> ({r.failed} failed)</span>}</td>
                 <td className="n">
+                  <button className="link" onClick={() => void showPlan(r.id)}>{openPlan === r.id ? 'Hide schedule' : 'Schedule'}</button>{' '}
                   <button className="link" onClick={() => void showRuns(r.id)}>{openRuns === r.id ? 'Hide history' : 'History'}</button>
                   {canWrite && (<>{' '}
                     <button className="link" disabled={busy} onClick={() => run(async () => { await api(`/api/recurring/${r.id}/active`, { body: { active: !r.active } }); await load(); })}>{r.active ? 'Pause' : 'Resume'}</button>{' '}
                     <button className="link" disabled={busy} onClick={() => { if (confirm(`Delete "${r.name}"? Invoices already made are kept.`)) void run(async () => { await api(`/api/recurring/${r.id}`, { method: 'DELETE' }); await load(); }); }}>Delete</button></>)}
                 </td>
               </tr>
+              {openPlan === r.id && plan && (
+                <tr><td colSpan={7}>
+                  <div data-testid="schedule-panel">
+                    <p><b>{every(r.every_n, r.unit)}</b>{r.end_date ? `, until ${r.end_date}` : ''}. {MODE_HELP[plan.mode]}{plan.mode === 'issue_and_send' ? ` It goes by ${plan.channel}.` : ''}</p>
+                    {plan.dates.length === 0 ? <p className="muted">{r.active ? 'No dates are left on this schedule.' : 'This schedule is paused, so nothing is planned. Resume it to see the next dates.'}</p> : (
+                      <table className="t" aria-label="Next invoices"><thead><tr><th>Invoice date</th><th>Payment due</th><th className="n">Amount at today&apos;s prices</th></tr></thead>
+                        <tbody>{plan.dates.map((x) => <tr key={x.date}><td>{x.date}</td><td>{x.dueDate ?? 'On receipt'}</td><td className="n">{rupees(plan.amountPaise)}</td></tr>)}</tbody></table>)}
+                    {canWrite && r.active && (
+                      <div className="row" style={{ justifyContent: 'flex-start', marginTop: 8 }}>
+                        <button className="secondary" style={{ flex: 'none' }} disabled={busy} onClick={() => run(async () => {
+                          const out = await api(`/api/recurring/${r.id}/skip`, { body: {} });
+                          await load(); setPlan(await api(`/api/recurring/${r.id}/preview?count=6`));
+                          setMsg(`Skipped ${out.skipped}. ${out.nextRunDate ? `The next invoice is on ${out.nextRunDate}.` : 'That was the last date, so the schedule is finished.'}`);
+                        })}>Skip the next invoice ({r.next_run_date})</button>
+                        <button className="secondary" style={{ flex: 'none' }} disabled={busy} onClick={() => run(async () => { await api(`/api/recurring/${r.id}/active`, { body: { active: false } }); await load(); setOpenPlan(null); setMsg('Paused. Nothing will be made until you resume it.'); })}>Pause</button>
+                      </div>)}
+                  </div>
+                </td></tr>)}
               {openRuns === r.id && (
                 <tr><td colSpan={7}>
                   {runs.length === 0 ? <span className="muted">Nothing made yet. The first invoice is made on {r.next_run_date}.</span> : (
                     <table className="t"><thead><tr><th>Date</th><th>Result</th><th>Document</th></tr></thead>
                       <tbody>{runs.map((x) => (
                         <tr key={x.id}><td>{x.run_date}</td>
-                          <td>{x.status === 'failed' ? <span className="error">Could not make it: {x.note}</span> : <>Made{x.note ? `. ${x.note}` : ''}</>}</td>
+                          <td>{x.status === 'failed' ? <span className="error">Could not make it: {x.note}</span> : x.status === 'skipped' ? <>Skipped. {x.note}</> : <>Made{x.note ? `. ${x.note}` : ''}</>}</td>
                           <td>{x.document_id ? <a href={`/app/invoices/${x.document_id}`}>{x.number ?? 'Draft'}</a> : ''}</td></tr>))}</tbody></table>)}
                 </td></tr>)}
             </Fragment>))}</tbody>
