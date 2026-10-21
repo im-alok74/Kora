@@ -1,18 +1,25 @@
 'use client';
 import { Fragment, useCallback, useEffect, useState } from 'react';
-import { api, TAX_RATES } from '../../../lib/client';
+import { api, rupees, TAX_RATES } from '../../../lib/client';
 
 type Row = { id: string; name: string; doc_type: string; every_n: number; unit: string; start_date: string; end_date: string | null; next_run_date: string;
   mode: string; channel: string | null; active: boolean; party_id: string; party_name: string; created: number; failed: number };
 type Run = { id: string; run_date: string; status: string; note: string | null; document_id: string | null; number: string | null; document_status: string | null };
 type Line = { name: string; hsnSac: string; quantity: string; rate: string; taxRateBp: number };
 type Party = { id: string; name: string };
+type ExpRow = { id: string; name: string; every_n: number; unit: string; start_date: string; end_date: string | null; next_run_date: string;
+  active: boolean; category: string; vendor: string | null; amount_paise: string; gst_paise: string; paid_via: string; created: number; failed: number };
+type ExpRun = { id: string; run_date: string; status: string; note: string | null; expense_id: string | null };
 
 const UNIT: Record<string, [string, string]> = { week: ['week', 'weeks'], month: ['month', 'months'], year: ['year', 'years'] };
 const MODE: Record<string, string> = { draft: 'Save as a draft', issue: 'Issue automatically', issue_and_send: 'Issue and send' };
 const every = (n: number, u: string) => (n === 1 ? `Every ${UNIT[u]![0]}` : `Every ${n} ${UNIT[u]![1]}`);
 const blankLine = (): Line => ({ name: '', hsnSac: '', quantity: '1', rate: '', taxRateBp: 1800 });
 const today = () => new Date().toLocaleDateString('en-CA');
+const CATEGORIES = ['Rent', 'Salaries', 'Utilities', 'Travel', 'Office supplies', 'Software and subscriptions', 'Professional fees', 'Marketing',
+  'Repairs and maintenance', 'Bank charges', 'Purchases for resale', 'Other'];
+const PAID: Record<string, string> = { cash: 'Cash', upi: 'UPI', bank_transfer: 'Bank transfer', card: 'Card', cheque: 'Cheque', other: 'Other' };
+const BLANK_EXP = { name: '', category: 'Rent', vendor: '', amount: '', gst: '', paidVia: 'bank_transfer', unit: 'month', everyN: 1, startDate: '', endDate: '', notes: '' };
 const BLANK = { name: '', partyId: '', unit: 'month', everyN: 1, startDate: today(), endDate: '', mode: 'draft', channel: 'whatsapp', termsDays: 15, notes: '' };
 
 export default function Recurring() {
@@ -27,9 +34,17 @@ export default function Recurring() {
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [exps, setExps] = useState<ExpRow[] | null>(null);
+  const [expForm, setExpForm] = useState({ ...BLANK_EXP, startDate: today() });
+  const [expOpen, setExpOpen] = useState(false);
+  const [openExpRuns, setOpenExpRuns] = useState<string | null>(null);
+  const [expRuns, setExpRuns] = useState<ExpRun[]>([]);
   const canWrite = role === 'owner' || role === 'staff';
 
-  const load = useCallback(async () => { setRows((await api('/api/recurring')).recurring); }, []);
+  const load = useCallback(async () => {
+    setRows((await api('/api/recurring')).recurring);
+    setExps((await api('/api/recurring-expenses')).recurringExpenses);
+  }, []);
   useEffect(() => {
     void load().catch((e) => setErr(e.message));
     api('/api/parties').then((r) => setParties(r.parties));
@@ -45,6 +60,19 @@ export default function Recurring() {
     if (openRuns === id) { setOpenRuns(null); return; }
     setRuns((await api(`/api/recurring/${id}`)).runs); setOpenRuns(id);
   };
+
+  const showExpRuns = async (id: string) => {
+    if (openExpRuns === id) { setOpenExpRuns(null); return; }
+    setExpRuns((await api(`/api/recurring-expenses/${id}`)).runs); setOpenExpRuns(id);
+  };
+  const createExpense = () => run(async () => {
+    await api('/api/recurring-expenses', { body: {
+      name: expForm.name, category: expForm.category, vendor: expForm.vendor || null, amount: expForm.amount, gst: expForm.gst || null,
+      paidVia: expForm.paidVia, unit: expForm.unit, everyN: Number(expForm.everyN), startDate: expForm.startDate,
+      endDate: expForm.endDate || null, notes: expForm.notes || null,
+    } });
+    setExpForm({ ...BLANK_EXP, startDate: today() }); setExpOpen(false); await load(); setMsg('Recurring expense saved.');
+  });
 
   const create = () => run(async () => {
     await api('/api/recurring', { body: {
@@ -143,6 +171,79 @@ export default function Recurring() {
                         <tr key={x.id}><td>{x.run_date}</td>
                           <td>{x.status === 'failed' ? <span className="error">Could not make it: {x.note}</span> : <>Made{x.note ? `. ${x.note}` : ''}</>}</td>
                           <td>{x.document_id ? <a href={`/app/invoices/${x.document_id}`}>{x.number ?? 'Draft'}</a> : ''}</td></tr>))}</tbody></table>)}
+                </td></tr>)}
+            </Fragment>))}</tbody>
+        </table>)}
+
+      <div className="toolbar" style={{ marginTop: 32 }}>
+        <h2>Recurring expenses</h2>
+        {canWrite && !expOpen && <button onClick={() => setExpOpen(true)}>New recurring expense</button>}
+      </div>
+      <p className="muted">Money that goes out on a schedule: rent, a software subscription, a retainer you pay. Kora records the expense on each date, with the GST you tell it is inside the amount.</p>
+
+      {expOpen && canWrite && (
+        <form className="panel" aria-label="New recurring expense" onSubmit={(e) => { e.preventDefault(); void createExpense(); }}>
+          <h3>New recurring expense</h3>
+          <div className="row">
+            <div><label htmlFor="xn">Name</label><input id="xn" placeholder="Shop rent" value={expForm.name} onChange={(e) => setExpForm({ ...expForm, name: e.target.value })} required /></div>
+            <div><label htmlFor="xc">Category</label>
+              <input id="xc" list="xcl" value={expForm.category} onChange={(e) => setExpForm({ ...expForm, category: e.target.value })} required />
+              <datalist id="xcl">{CATEGORIES.map((c) => <option key={c} value={c} />)}</datalist></div>
+            <div><label htmlFor="xv">Paid to (optional)</label><input id="xv" value={expForm.vendor} onChange={(e) => setExpForm({ ...expForm, vendor: e.target.value })} /></div>
+          </div>
+          <div className="row">
+            <div><label htmlFor="xa">Amount each time (Rs)</label><input id="xa" inputMode="decimal" value={expForm.amount} onChange={(e) => setExpForm({ ...expForm, amount: e.target.value })} required /></div>
+            <div><label htmlFor="xg">GST inside that (Rs, optional)</label><input id="xg" inputMode="decimal" value={expForm.gst} onChange={(e) => setExpForm({ ...expForm, gst: e.target.value })} /></div>
+            <div><label htmlFor="xp">Paid by</label>
+              <select id="xp" value={expForm.paidVia} onChange={(e) => setExpForm({ ...expForm, paidVia: e.target.value })}>
+                {Object.entries(PAID).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+          </div>
+          <div className="row">
+            <div><label htmlFor="xe">Repeat every</label><input id="xe" type="number" min={1} max={24} value={expForm.everyN} onChange={(e) => setExpForm({ ...expForm, everyN: Number(e.target.value) })} /></div>
+            <div><label htmlFor="xu">Period</label>
+              <select id="xu" value={expForm.unit} onChange={(e) => setExpForm({ ...expForm, unit: e.target.value })}>
+                <option value="week">Weeks</option><option value="month">Months</option><option value="year">Years</option></select></div>
+            <div><label htmlFor="xs">First expense on</label><input id="xs" type="date" value={expForm.startDate} onChange={(e) => setExpForm({ ...expForm, startDate: e.target.value })} required /></div>
+            <div><label htmlFor="xx">Stop after (optional)</label><input id="xx" type="date" value={expForm.endDate} onChange={(e) => setExpForm({ ...expForm, endDate: e.target.value })} /></div>
+          </div>
+          <label htmlFor="xno">Notes on each expense (optional)</label>
+          <textarea id="xno" value={expForm.notes} onChange={(e) => setExpForm({ ...expForm, notes: e.target.value })} />
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button disabled={busy}>Save recurring expense</button>
+            <button type="button" className="secondary" onClick={() => { setExpOpen(false); setErr(''); }}>Cancel</button>
+          </div>
+        </form>)}
+
+      {exps && exps.length === 0 && !expOpen && (
+        <div className="panel"><p>No recurring expenses yet. Set one up for the rent, a subscription, or anything else that goes out on a schedule.</p></div>)}
+      {exps && exps.length > 0 && (
+        <table className="t">
+          <thead><tr><th>Name</th><th>Category</th><th>Repeats</th><th>Next expense</th><th className="n">Amount</th><th className="n">GST</th><th className="n">Made</th><th /></tr></thead>
+          <tbody>{exps.map((r) => (
+            <Fragment key={r.id}>
+              <tr>
+                <td>{r.name} {!r.active && <span className="chip cancelled">{r.end_date && r.next_run_date > r.end_date ? 'Finished' : 'Stopped'}</span>}</td>
+                <td>{r.category}{r.vendor ? ` - ${r.vendor}` : ''}</td>
+                <td>{every(r.every_n, r.unit)}</td>
+                <td>{r.active ? r.next_run_date : ''}</td>
+                <td className="n">{rupees(r.amount_paise)}</td>
+                <td className="n">{rupees(r.gst_paise)}</td>
+                <td className="n">{r.created}{r.failed > 0 && <span className="error"> ({r.failed} failed)</span>}</td>
+                <td className="n">
+                  <button className="link" onClick={() => void showExpRuns(r.id)}>{openExpRuns === r.id ? 'Hide runs' : 'Runs'}</button>
+                  {canWrite && (<>{' '}
+                    <button className="link" disabled={busy} onClick={() => run(async () => { await api(`/api/recurring-expenses/${r.id}/active`, { body: { active: !r.active } }); await load(); })}>{r.active ? 'Stop' : 'Resume'}</button>{' '}
+                    <button className="link" disabled={busy} onClick={() => { if (confirm(`Remove "${r.name}"? Expenses already recorded are kept.`)) void run(async () => { await api(`/api/recurring-expenses/${r.id}`, { method: 'DELETE' }); await load(); }); }}>Remove</button></>)}
+                </td>
+              </tr>
+              {openExpRuns === r.id && (
+                <tr><td colSpan={8}>
+                  {expRuns.length === 0 ? <span className="muted">Nothing recorded yet. The first expense is recorded on {r.next_run_date}.</span> : (
+                    <table className="t"><thead><tr><th>Date</th><th>Result</th><th>Expense</th></tr></thead>
+                      <tbody>{expRuns.map((x) => (
+                        <tr key={x.id}><td>{x.run_date}</td>
+                          <td>{x.status === 'failed' ? <span className="error">Could not record it: {x.note}</span> : <>Recorded{x.note ? `. ${x.note}` : ''}</>}</td>
+                          <td>{x.expense_id ? <a href="/app/expenses">In expenses</a> : ''}</td></tr>))}</tbody></table>)}
                 </td></tr>)}
             </Fragment>))}</tbody>
         </table>)}
