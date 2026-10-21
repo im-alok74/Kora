@@ -1,4 +1,5 @@
 'use client';
+// Sign in with a password (no address check), create an account, or use an emailed or texted code.
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/client';
 
