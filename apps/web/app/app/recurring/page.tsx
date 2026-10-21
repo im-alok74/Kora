@@ -1,6 +1,7 @@
 'use client';
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { api, rupees, TAX_RATES } from '../../../lib/client';
+import EmptyState from '../../../components/EmptyState';
 
 type Row = { id: string; name: string; doc_type: string; every_n: number; unit: string; start_date: string; end_date: string | null; next_run_date: string;
   mode: string; channel: string | null; active: boolean; party_id: string; party_name: string; created: number; failed: number };
@@ -143,7 +144,7 @@ export default function Recurring() {
         </form>)}
 
       {rows && rows.length === 0 && !open && (
-        <div className="panel"><p>No recurring invoices yet. Set one up for a customer you bill every week, month or year.</p></div>)}
+        <EmptyState icon="repeat" title="No recurring invoices yet">Set one up for a customer you bill every week, month or year. Kora then makes each invoice for you.</EmptyState>)}
       {rows && rows.length > 0 && (
         <table className="t">
           <thead><tr><th>Name</th><th>Customer</th><th>Repeats</th><th>Next invoice</th><th>On each date</th><th className="n">Made</th><th /></tr></thead>
@@ -215,7 +216,7 @@ export default function Recurring() {
         </form>)}
 
       {exps && exps.length === 0 && !expOpen && (
-        <div className="panel"><p>No recurring expenses yet. Set one up for the rent, a subscription, or anything else that goes out on a schedule.</p></div>)}
+        <EmptyState icon="repeat" title="No recurring expenses yet">Set one up for the rent, a subscription, or anything else that goes out on a schedule.</EmptyState>)}
       {exps && exps.length > 0 && (
         <table className="t">
           <thead><tr><th>Name</th><th>Category</th><th>Repeats</th><th>Next expense</th><th className="n">Amount</th><th className="n">GST</th><th className="n">Made</th><th /></tr></thead>

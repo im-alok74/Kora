@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CURRENCIES, gstinValid, STATE_NAMES } from '@kora/tax';
 import { api } from '../../../lib/client';
+import EmptyState from '../../../components/EmptyState';
 import { csvText, downloadCsv } from '../../../lib/listTools';
 
 type Party = { id: string; name: string; gstin: string | null; state_code: string; phone: string | null; email: string | null; currency?: string; billing_address?: Record<string, string> };
@@ -9,6 +10,7 @@ const EMPTY = { name: '', gstin: '', stateCode: '', phone: '', email: '', curren
 
 export default function Customers() {
   const [rows, setRows] = useState<Party[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [editing, setEditing] = useState<string | null>(null);
   const [err, setErr] = useState('');
@@ -36,7 +38,7 @@ export default function Customers() {
     catch (x) { setErr((x as Error).message); }
   };
 
-  const load = useCallback(() => api(`/api/parties${q ? `?q=${encodeURIComponent(q)}` : ''}`).then((r) => setRows(r.parties)), [q]);
+  const load = useCallback(() => api(`/api/parties${q ? `?q=${encodeURIComponent(q)}` : ''}`).then((r) => { setRows(r.parties); setLoaded(true); }), [q]);
   useEffect(() => { void load(); }, [load]);
 
   const g = form.gstin.trim().toUpperCase();
@@ -116,14 +118,17 @@ export default function Customers() {
         </div>)}
       {rows.length > 0 && <div className="listtools"><button type="button" className="secondary sm" onClick={() => downloadCsv('customers.csv', csvText(['Name', 'GSTIN', 'State code', 'Mobile', 'Email', 'City'],
         rows.map((p) => [p.name, p.gstin ?? '', p.state_code, p.phone ?? '', p.email ?? '', p.billing_address?.city ?? ''])))}>Export CSV</button></div>}
-      <table className="t">
+      {loaded && rows.length === 0 && (q
+        ? <EmptyState icon="user" title="No customers match">Try a different name or GSTIN, or clear the search.</EmptyState>
+        : <EmptyState icon="user" title="No customers yet" action={<a className="btn" href="/app/import">Import from a spreadsheet</a>}>Add your first customer in the form above, or bring a list across from Zoho, Vyapar, Tally or Excel.</EmptyState>)}
+      {rows.length > 0 && <table className="t">
         <thead><tr><th>Name</th><th>GSTIN</th><th>State</th><th>Mobile</th><th /></tr></thead>
         <tbody>{rows.map((p) => (
           <tr key={p.id}><td><a href={`/app/customers/${p.id}`}>{p.name}</a>{p.currency && p.currency !== 'INR' ? <span className="muted"> ({p.currency})</span> : null}</td><td>{p.gstin ?? ''}</td><td>{p.state_code === '96' ? 'Outside India' : STATE_NAMES[p.state_code]}</td><td>{p.phone ?? ''}</td>
             <td className="n"><button className="link" onClick={() => { setEditing(p.id); setForm({ name: p.name, gstin: p.gstin ?? '', stateCode: p.state_code, phone: p.phone ?? '', email: p.email ?? '', currency: p.currency ?? 'INR', line1: p.billing_address?.line1 ?? '', city: p.billing_address?.city ?? '', pincode: p.billing_address?.pincode ?? '' }); window.scrollTo(0, 0); }}>Edit</button>{' '}
               {canPortal && <button className="link" onClick={() => void openPortal(p)}>Portal</button>}{' '}
               <button className="link" onClick={async () => { await api(`/api/parties/${p.id}`, { method: 'DELETE' }); await load(); }}>Archive</button></td></tr>))}</tbody>
-      </table>
+      </table>}
     </>
   );
 }
