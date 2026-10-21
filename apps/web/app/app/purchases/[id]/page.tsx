@@ -84,7 +84,7 @@ export default function BillPage({ params }: { params: Promise<{ id: string }> }
             <h2>Payments</h2>
             {d.payments.length > 0 && (
               <ul className="plain">{d.payments.map((p) => (
-                <li key={p.id}><span>{p.paid_on} · {METHODS.find((m) => m[0] === p.method)?.[1] ?? p.method}{p.note ? ` · ${p.note}` : ''}</span>
+                <li key={p.id}><span>{p.paid_on} · {METHODS.find((m) => m[0] === p.method)?.[1] ?? p.method}{BigInt(p.tds_paise) > 0n ? ` · ${rupees(p.tds_paise)} TDS under ${p.tds_section}` : ''}{p.note ? ` · ${p.note}` : ''}</span>
                   <span>{rupees(p.amount_paise)} {canWrite && <button className="link" disabled={busy} onClick={() => run(async () => { await api(`/api/purchases/payments/${p.id}`, { method: 'DELETE' }); await load(); })}>Remove</button>}</span></li>))}</ul>)}
             {!cancelled && due > 0n ? (canWrite && (
               <form onSubmit={(e) => { e.preventDefault(); void run(async () => { await api(`/api/purchases/${id}/pay`, { body: { amount: pay.amount, method: pay.method, note: pay.note || undefined, tds: pay.tds || undefined, tdsSection: pay.tds ? pay.tdsSection : undefined } }); setPay({ amount: '', method: pay.method, note: '', tds: '', tdsSection: pay.tdsSection }); setMsg('Payment recorded.'); await load(); }); }}>

@@ -83,6 +83,6 @@ export async function reminderHistory(sql: Sql, t: TenantSession, f: { partyId?:
   return inTenant(sql, t, 'document.read', (tx) => tx`
     select r.id, r.channel, r.scheduled_at, r.delivery_status, r.error_message, d.id as document_id, d.number, p.id as party_id, p.name as customer
       from reminder r join document d on d.id = r.document_id left join party p on p.id = d.party_id
-     where r.delivery_status <> 'scheduled' and (${f.partyId ?? null}::uuid is null or d.party_id = ${f.partyId ?? null}::uuid)
+     where r.delivery_status in ('queued', 'sent', 'delivered', 'read', 'failed') and (${f.partyId ?? null}::uuid is null or d.party_id = ${f.partyId ?? null}::uuid)
      order by r.scheduled_at desc limit ${Math.min(f.limit ?? 100, 500)}`);
 }
