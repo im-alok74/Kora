@@ -18,8 +18,34 @@ export default function Reports() {
   const [loaded, setLoaded] = useState<{ query: string; body: any } | null>(null);
   const [err, setErr] = useState('');
   const [canExport, setCanExport] = useState(false);
+  const [canSend, setCanSend] = useState(false);
+  const [contacts, setContacts] = useState<{ id: string; name: string; email: string | null; is_primary: boolean }[]>([]);
+  const [contact, setContact] = useState('');
+  const [sent, setSent] = useState('');
 
-  useEffect(() => { api('/api/parties').then((r) => { setParties(r.parties); if (r.parties[0]) setParty((p) => p || r.parties[0].id); }); api('/api/business').then((b) => setCanExport(['owner', 'accountant'].includes(b.role))); }, []);
+  useEffect(() => { api('/api/parties').then((r) => { setParties(r.parties); if (r.parties[0]) setParty((p) => p || r.parties[0].id); }); api('/api/business').then((b) => { setCanExport(['owner', 'accountant'].includes(b.role)); setCanSend(['owner', 'staff'].includes(b.role)); }); }, []);
+
+  // Who the statement can go to: the people in this customer's contact book who have an email.
+  useEffect(() => {
+    setContacts([]); setContact(''); setSent('');
+    if (tab !== 'statement' || !party) return;
+    let stale = false;
+    api(`/api/parties/${party}/contacts`).then((r) => {
+      if (stale) return;
+      const withEmail = (r.contacts as typeof contacts).filter((c) => c.email);
+      setContacts(withEmail);
+      setContact(withEmail.find((c) => c.is_primary)?.id ?? '');
+    }).catch(() => {});
+    return () => { stale = true; };
+  }, [tab, party]);
+
+  const sendStatement = async () => {
+    setErr(''); setSent('');
+    try {
+      const r = await api('/api/reports/statement/send', { body: { party, from, to, contactPersonId: contact || null } });
+      setSent(`Statement queued for ${r.email}.`);
+    } catch (e) { setErr((e as Error).message); }
+  };
 
   const query = useMemo(() => {
     const range = `from=${from}&to=${to}`;
@@ -68,6 +94,17 @@ export default function Reports() {
         </>)}
         {tab === 'statement' && <div><label htmlFor="rp">Customer</label><select id="rp" value={party} onChange={(e) => setParty(e.target.value)}>{parties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>}
       </div>
+      {tab === 'statement' && party && canSend && (
+        <div className="row" style={{ marginBottom: 16, justifyContent: 'flex-start' }}>
+          {contacts.length > 0 && (
+            <div><label htmlFor="rc">Send to</label>
+              <select id="rc" value={contact} onChange={(e) => setContact(e.target.value)}>
+                <option value="">The customer&apos;s own email</option>
+                {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}{c.is_primary ? ' (primary)' : ''} &middot; {c.email}</option>)}
+              </select></div>)}
+          <button type="button" className="secondary" style={{ flex: 'none', marginTop: 0 }} onClick={() => void sendStatement()}>Email this statement</button>
+        </div>)}
+      {sent && <p className="ok" role="status">{sent}</p>}
       {err && <p className="error" role="alert">{err}</p>}
       {!data && !err && <p className="muted">Loading</p>}
 
