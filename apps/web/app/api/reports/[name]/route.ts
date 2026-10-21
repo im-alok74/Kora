@@ -1,6 +1,6 @@
 import {
   CUSTOMER_COLUMNS, PAYMENT_COLUMNS, SALES_COLUMNS, STATEMENT_COLUMNS, TDS_COLUMNS, customerStatement, paymentsReceived, salesByCustomer, salesRegister, tdsReceivable,
-  toCsv, ValidationError, assertCan, type Column,
+  TDS_PAYABLE_COLUMNS, tdsPayable, toCsv, ValidationError, assertCan, type Column,
 } from '@kora/core';
 import { json, tenantRoute } from '../../../../lib/server';
 
@@ -21,6 +21,7 @@ export const GET = tenantRoute(async ({ t, sql, req, params }) => {
     case 'customers': { const r = await salesByCustomer(sql, t, range); return wantCsv ? csv(`customers_${r.from}_${r.to}`, CUSTOMER_COLUMNS, r.rows) : r; }
     case 'payments': { const r = await paymentsReceived(sql, t, range); return wantCsv ? csv(`payments_${r.from}_${r.to}`, PAYMENT_COLUMNS, r.rows) : r; }
     case 'tds': { const r = await tdsReceivable(sql, t, range); return wantCsv ? csv(`tds_${r.from}_${r.to}`, TDS_COLUMNS, r.rows) : r; }
+    case 'tdspayable': { const r = await tdsPayable(sql, t, range); return wantCsv ? csv(`tds_payable_${r.from}_${r.to}`, TDS_PAYABLE_COLUMNS, r.rows) : r; }
     case 'statement': {
       const r = await customerStatement(sql, t, q.get('party') ?? '', range);
       return wantCsv ? csv(`statement_${r.from}_${r.to}`, STATEMENT_COLUMNS, r.rows) : r;

@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { STATE_NAMES } from '@kora/tax';
 import { api, rupees } from '../../../lib/client';
 
-type Tab = 'sales' | 'customers' | 'payments' | 'ageing' | 'statement' | 'tds' | 'gst' | 'gstr3b' | 'gstr1';
-const TABS: [Tab, string][] = [['sales', 'Sales register'], ['customers', 'Sales by customer'], ['payments', 'Payments received'], ['ageing', 'Who owes you'], ['statement', 'Customer statement'], ['tds', 'TDS deducted'], ['gst', 'GST summary'], ['gstr3b', 'GSTR-3B data'], ['gstr1', 'GSTR-1 data']];
+type Tab = 'sales' | 'customers' | 'payments' | 'ageing' | 'statement' | 'tds' | 'tdspayable' | 'gst' | 'gstr3b' | 'gstr1';
+const TABS: [Tab, string][] = [['sales', 'Sales register'], ['customers', 'Sales by customer'], ['payments', 'Payments received'], ['ageing', 'Who owes you'], ['statement', 'Customer statement'], ['tds', 'TDS deducted'], ['tdspayable', 'TDS payable'], ['gst', 'GST summary'], ['gstr3b', 'GSTR-3B data'], ['gstr1', 'GSTR-1 data']];
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
 export default function Reports() {
@@ -55,6 +55,7 @@ export default function Reports() {
       case 'payments': return `/api/reports/payments?${range}`;
       case 'ageing': return `/api/reports/ageing?asOf=${to}`;
       case 'tds': return `/api/reports/tds?${range}`;
+      case 'tdspayable': return `/api/reports/tdspayable?${range}`;
       case 'statement': return party ? `/api/reports/statement?${range}&party=${party}` : '';
       case 'gst': return `/api/reports/gst-summary?period=${month}`;
       case 'gstr3b': return `/api/reports/gstr3b?period=${month}`;
@@ -73,7 +74,7 @@ export default function Reports() {
   const data = loaded && loaded.query === query ? loaded.body : null;
 
   const monthly = tab === 'gst' || tab === 'gstr3b' || tab === 'gstr1';
-  const csvHref = query && ['sales', 'customers', 'payments', 'ageing', 'statement', 'tds'].includes(tab) ? `${query}${query.includes('?') ? '&' : '?'}format=csv` : '';
+  const csvHref = query && ['sales', 'customers', 'payments', 'ageing', 'statement', 'tds', 'tdspayable'].includes(tab) ? `${query}${query.includes('?') ? '&' : '?'}format=csv` : '';
 
   return (
     <>
@@ -129,6 +130,17 @@ export default function Reports() {
           <table className="t" aria-label="TDS deducted by customers"><thead><tr><th>Customer</th><th>GSTIN</th><th className="n">Invoices</th><th className="n">Expected</th><th className="n">Received</th><th className="n">Still to receive</th></tr></thead>
             <tbody>{data.rows.length === 0 ? <tr><td colSpan={6} className="muted">No invoices with TDS in this period.</td></tr> : data.rows.map((r: any, i: number) => <tr key={i}><td>{r.customer}</td><td>{r.gstin}</td><td className="n">{r.invoices}</td><td className="n">{rupees(r.expected)}</td><td className="n">{rupees(r.received)}</td><td className="n"><b>{rupees(r.pending)}</b></td></tr>)}
               {data.rows.length > 0 && <tr><td colSpan={3}><b>Total</b></td><td className="n"><b>{rupees(data.totals.expected)}</b></td><td className="n"><b>{rupees(data.totals.received)}</b></td><td className="n"><b>{rupees(data.totals.pending)}</b></td></tr>}</tbody></table>
+        </>
+      )}
+      {tab === 'tdspayable' && data && (
+        <>
+          <p className="muted">Tax you held back when paying vendors, by vendor and section. Deposit it with the government by the date shown, and file your TDS return from these figures. Your CA will confirm the rates and due dates for your case.</p>
+          <table className="t" aria-label="TDS payable by vendor"><thead><tr><th>Vendor</th><th>PAN</th><th>Section</th><th className="n">Payments</th><th className="n">Paid to vendor</th><th className="n">TDS held back</th></tr></thead>
+            <tbody>{data.rows.length === 0 ? <tr><td colSpan={6} className="muted">No tax held back in this period.</td></tr> : data.rows.map((r: any, i: number) => <tr key={i}><td>{r.vendor}</td><td>{r.pan}</td><td>{r.section}{r.sectionName ? ` (${r.sectionName})` : ''}</td><td className="n">{r.payments}</td><td className="n">{rupees(r.paid)}</td><td className="n"><b>{rupees(r.tds)}</b></td></tr>)}
+              {data.rows.length > 0 && <tr><td colSpan={5}><b>Total to deposit</b></td><td className="n"><b>{rupees(data.total)}</b></td></tr>}</tbody></table>
+          {data.deposits.length > 0 && (
+            <table className="t" aria-label="TDS deposit dates" style={{ marginTop: 16 }}><thead><tr><th>Month paid</th><th>Section</th><th className="n">To deposit</th><th>Deposit by</th></tr></thead>
+              <tbody>{data.deposits.map((d: any, i: number) => <tr key={i}><td>{d.month}</td><td>{d.section}</td><td className="n">{rupees(d.tds)}</td><td>{d.depositBy}</td></tr>)}</tbody></table>)}
         </>
       )}
       {tab === 'ageing' && data && (

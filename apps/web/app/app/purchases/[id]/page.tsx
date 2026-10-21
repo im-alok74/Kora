@@ -6,10 +6,11 @@ type Detail = {
   bill: { id: string; vendor: string; vendorGstin: string | null; billNumber: string; billDate: string; dueDate: string | null; supply: string; reverseCharge: boolean; status: string;
     taxablePaise: string; cgstPaise: string; sgstPaise: string; igstPaise: string; cessPaise: string; totalPaise: string; paidPaise: string; itcStatus: string; itcReason: string | null; notes: string | null };
   lines: { line_no: number; description: string; hsn_sac: string | null; quantity: string; rate_paise: string; tax_rate_bp: number; taxable_paise: string; total_paise: string }[];
-  payments: { id: string; paid_on: string; amount_paise: string; method: string; note: string | null }[];
+  payments: { id: string; paid_on: string; amount_paise: string; tds_paise: string; tds_section: string | null; method: string; note: string | null }[];
   in2b: { period: string; invoiceNumber: string } | null;
   msme: { class: string; udyamNumber: string; deadline: string; open: boolean; state: 'overdue' | 'soon' | 'ok'; daysLeft: number } | null;
 };
+const TDS_SECTIONS: [string, string][] = [['194C', 'Contractors'], ['194J', 'Professional fees'], ['194H', 'Commission'], ['194I', 'Rent'], ['194Q', 'Purchase of goods'], ['194A', 'Interest'], ['194O', 'E-commerce'], ['194M', 'Individual or HUF contract'], ['195', 'Non-residents']];
 const METHODS: [string, string][] = [['bank_transfer', 'Bank transfer'], ['upi', 'UPI'], ['cash', 'Cash'], ['cheque', 'Cheque'], ['card', 'Card'], ['netbanking', 'Net banking'], ['other', 'Other']];
 
 export default function BillPage({ params }: { params: Promise<{ id: string }> }) {
@@ -19,7 +20,7 @@ export default function BillPage({ params }: { params: Promise<{ id: string }> }
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
-  const [pay, setPay] = useState({ amount: '', method: 'bank_transfer', note: '' });
+  const [pay, setPay] = useState({ amount: '', method: 'bank_transfer', note: '', tds: '', tdsSection: '194C' });
   const [block, setBlock] = useState({ open: false, reason: '' });
 
   const load = useCallback(async () => { setD(await api(`/api/purchases/${id}`)); }, [id]);
@@ -86,10 +87,12 @@ export default function BillPage({ params }: { params: Promise<{ id: string }> }
                 <li key={p.id}><span>{p.paid_on} · {METHODS.find((m) => m[0] === p.method)?.[1] ?? p.method}{p.note ? ` · ${p.note}` : ''}</span>
                   <span>{rupees(p.amount_paise)} {canWrite && <button className="link" disabled={busy} onClick={() => run(async () => { await api(`/api/purchases/payments/${p.id}`, { method: 'DELETE' }); await load(); })}>Remove</button>}</span></li>))}</ul>)}
             {!cancelled && due > 0n ? (canWrite && (
-              <form onSubmit={(e) => { e.preventDefault(); void run(async () => { await api(`/api/purchases/${id}/pay`, { body: { amount: pay.amount, method: pay.method, note: pay.note || undefined } }); setPay({ amount: '', method: pay.method, note: '' }); setMsg('Payment recorded.'); await load(); }); }}>
+              <form onSubmit={(e) => { e.preventDefault(); void run(async () => { await api(`/api/purchases/${id}/pay`, { body: { amount: pay.amount, method: pay.method, note: pay.note || undefined, tds: pay.tds || undefined, tdsSection: pay.tds ? pay.tdsSection : undefined } }); setPay({ amount: '', method: pay.method, note: '', tds: '', tdsSection: pay.tdsSection }); setMsg('Payment recorded.'); await load(); }); }}>
                 <p><b>{rupees(due)}</b> still owed.</p>
                 <label htmlFor="bpa">Amount paid (Rs)</label><input id="bpa" inputMode="decimal" value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} required />
                 <label htmlFor="bpm">Method</label><select id="bpm" value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value })}>{METHODS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+                <label htmlFor="bpt">Tax held back (TDS), if any (Rs)</label><input id="bpt" inputMode="decimal" value={pay.tds} onChange={(e) => setPay({ ...pay, tds: e.target.value })} />
+                {pay.tds && (<><label htmlFor="bps">TDS section</label><select id="bps" value={pay.tdsSection} onChange={(e) => setPay({ ...pay, tdsSection: e.target.value })}>{TDS_SECTIONS.map(([k, v]) => <option key={k} value={k}>{k} {v}</option>)}</select></>)}
                 <label htmlFor="bpn">Note</label><input id="bpn" value={pay.note} maxLength={300} onChange={(e) => setPay({ ...pay, note: e.target.value })} />
                 <button disabled={busy} style={{ marginTop: 12 }}>Record payment</button>
               </form>)) : !cancelled && <p className="ok">Fully paid.</p>}

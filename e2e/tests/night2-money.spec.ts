@@ -33,3 +33,23 @@ test('a bill from a micro vendor past 45 days shows the MSME warning, and it goe
   await page.getByRole('button', { name: 'Record payment' }).click();
   await expect(page.getByTestId('msme-warning')).toHaveCount(0);
 });
+
+test('tax held back on a vendor payment settles the bill and shows in the TDS payable report', async ({ page, context }) => {
+  const u = await signedIn(context);
+  await makeBusiness(u.userId, 'Buyer Co');
+  const v = await (await page.request.post('/api/parties', { data: { kind: 'vendor', name: 'Fixit Contractors', stateCode: '27' } })).json();
+  const bill = await (await page.request.post('/api/purchases', { data: { partyId: v.id, billNumber: 'FX-1', billDate: ist(-3), lines: [{ description: 'Repairs', quantity: '1', rate: '10000', taxRateBp: 0 }] } })).json();
+
+  await page.goto(`/app/purchases/${bill.id}`);
+  await page.getByLabel('Amount paid (Rs)').fill('9800');
+  await page.getByLabel('Tax held back (TDS), if any (Rs)').fill('200');
+  await page.getByLabel('TDS section').selectOption('194C');
+  await page.getByRole('button', { name: 'Record payment' }).click();
+  await expect(page.getByText('Fully paid.')).toBeVisible();
+  await expect(page.getByText('TDS under 194C')).toBeVisible();
+
+  await page.goto('/app/reports');
+  await page.getByRole('tab', { name: 'TDS payable' }).or(page.getByRole('button', { name: 'TDS payable' })).first().click();
+  await expect(page.getByRole('table', { name: 'TDS payable by vendor' })).toContainText('Fixit Contractors');
+  await expect(page.getByRole('table', { name: 'TDS payable by vendor' })).toContainText('Rs 200.00');
+});
