@@ -306,6 +306,8 @@ export async function getDocumentTx(tx: Tx, id: string) {
   if (!d) return null;
   const lines = await tx`select * from document_line where document_id = ${id} order by position`;
   const deliveries = await tx`select id, channel, to_address, status, error_message, created_at from delivery where document_id = ${id} order by created_at desc`;
+  const [writeOff] = await tx`select id, amount_paise::text as amount_paise, reason, written_off_on::text as written_off_on
+                                from document_write_off where document_id = ${id} and cancelled_at is null`;
   let estimate: Record<string, unknown> | null = null;
   if (d.doc_type === 'estimate') {
     const [e] = await tx`select estimate_status(d.status, d.due_date, b.timezone, es.decision, es.converted_to_id) as status,
@@ -316,7 +318,7 @@ export async function getDocumentTx(tx: Tx, id: string) {
                           where d.id = ${id}`;
     estimate = e ?? null;
   }
-  return { document: d, lines, deliveries, estimate };
+  return { document: d, lines, deliveries, estimate, writeOff: writeOff ?? null };
 }
 
 export async function getDocument(sql: Sql, t: TenantSession, id: string) {
@@ -388,6 +390,71 @@ export async function cancelDocument(sql: Sql, t: TenantSession, id: string, rea
     } catch (e) { if (e instanceof ValidationError) throw e; mapDbError(e); }
     const [ev] = await tx`select number, doc_type from document where id = ${id}`;
     await emitEvent(tx, t.businessId, 'document.cancelled', { id, number: ev!.number, doc_type: ev!.doc_type, reason: why });
+    return (await getDocumentTx(tx, id))!;
+  });
+}
+
+/** Only a document that puts money on the books as receivable can be written off. */
+const WRITE_OFF_DOCS: ReadonlySet<string> = new Set(['tax_invoice', 'bill_of_supply', 'debit_note']);
+
+/**
+ * Writes the unpaid remainder of an issued invoice off as a bad debt, so it stops showing as receivable.
+ *
+ * This is not a credit note and must never be built out of one. A credit note reverses the supply and the tax on it;
+ * a write-off accepts that the supply happened, the tax on it was declared in GSTR-1 and paid through GSTR-3B, and
+ * only the money will not come. GST gives no bad-debt relief, so nothing on the document moves: the taxable value,
+ * every tax column and the grand total stay exactly as filed, and GSTR-1, GSTR-3B and the sales register are
+ * unchanged. Only the receivable view, the ageing report and the customer's statement notice.
+ *
+ * The amount is always what is still owed on the day, never a figure from the client, and it is frozen on the row
+ * so a later movement cannot rewrite it.
+ */
+export async function writeOffInvoice(sql: Sql, t: TenantSession, id: string, reason: string) {
+  const why = str(reason, 'Reason', { required: true, max: 500 })!;
+  return inTenant(sql, t, 'document.cancel', async (tx) => {
+    const [d] = await tx`select status, doc_type, grand_total_paise, amount_settled_paise from document where id = ${id} for update`;
+    if (!d) throw new ValidationError('Document not found.');
+    if (!WRITE_OFF_DOCS.has(d.doc_type as string)) throw new ValidationError('Only an invoice, a bill of supply or a debit note can be written off.');
+    if (d.status === 'draft') throw new ValidationError('Issue this document before you write it off. A draft owes nothing.');
+    if (d.status !== 'issued') throw new ValidationError('Only an issued document can be written off. This one is cancelled.');
+    const owed = BigInt(d.grand_total_paise as string) - BigInt(d.amount_settled_paise as string);
+    if (owed <= 0n) throw new ValidationError('This invoice is paid in full, so there is nothing to write off.');
+    const [live] = await tx`select id from document_write_off where document_id = ${id} and cancelled_at is null`;
+    if (live) throw new ValidationError('This invoice is already written off. Cancel that write-off first.');
+    const [biz] = await tx`select timezone from business where id = ${t.businessId}`;
+    try {
+      await tx`insert into document_write_off (business_id, document_id, amount_paise, reason, written_off_on, created_by)
+               values (${t.businessId}, ${id}, ${owed.toString()}, ${why}, ${todayIn(biz!.timezone as string)}, ${t.userId})`;
+    } catch (e) { mapDbError(e); }
+    return (await getDocumentTx(tx, id))!;
+  });
+}
+
+/** Reverses a write-off, because the money turned up after all or it was written off by mistake. The row stays, with the reason. */
+export async function cancelWriteOff(sql: Sql, t: TenantSession, id: string, reason: string) {
+  const why = str(reason, 'Reason', { required: true, max: 500 })!;
+  return inTenant(sql, t, 'document.cancel', async (tx) => {
+    try {
+      const r = await tx`update document_write_off set cancelled_at = now(), cancel_reason = ${why}
+                          where document_id = ${id} and cancelled_at is null returning id`;
+      if (r.length === 0) throw new ValidationError('This invoice is not written off, so there is nothing to cancel.');
+    } catch (e) { if (e instanceof ValidationError) throw e; mapDbError(e); }
+    return (await getDocumentTx(tx, id))!;
+  });
+}
+
+/**
+ * Puts a cancelled document back to issued, under the same number, with the reason recorded beside the
+ * cancellation reason. Refused when the e-invoice was cancelled on the GST portal: that IRN cannot be revived,
+ * so the only honest answer is a fresh invoice.
+ */
+export async function reopenDocument(sql: Sql, t: TenantSession, id: string, reason: string) {
+  const why = str(reason, 'Reason', { required: true, max: 500 })!;
+  return inTenant(sql, t, 'document.cancel', async (tx) => {
+    try {
+      const r = await tx`update document set status = 'issued', reopen_reason = ${why} where id = ${id} and status = 'cancelled' returning id`;
+      if (r.length === 0) throw new ValidationError('Only a cancelled document can be re-opened.');
+    } catch (e) { if (e instanceof ValidationError) throw e; mapDbError(e); }
     return (await getDocumentTx(tx, id))!;
   });
 }

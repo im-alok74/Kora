@@ -87,7 +87,9 @@ export async function salesByCustomer(sql: Sql, t: TenantSession, f: { from?: st
       select coalesce(p.name, 'Walk-in customers') as customer, max(p.gstin) as gstin, count(*)::int as documents,
              sum(case when d.doc_type = 'credit_note' then -d.taxable_paise else d.taxable_paise end)::text as taxable,
              sum(case when d.doc_type = 'credit_note' then -d.grand_total_paise else d.grand_total_paise end)::text as total,
-             coalesce(sum(case when d.doc_type in ('tax_invoice', 'bill_of_supply', 'debit_note') then d.grand_total_paise - d.amount_settled_paise else 0 end), 0)::text as outstanding
+             coalesce(sum(case when d.doc_type in ('tax_invoice', 'bill_of_supply', 'debit_note')
+                                 and not exists (select 1 from document_write_off w where w.document_id = d.id and w.cancelled_at is null)
+                               then d.grand_total_paise - d.amount_settled_paise else 0 end), 0)::text as outstanding
         from document d left join party p on p.id = d.party_id
        where d.status = 'issued' and d.doc_type in ('tax_invoice', 'bill_of_supply', 'credit_note', 'debit_note') and d.doc_date between ${from}::date and ${to}::date
        group by p.id, p.name order by sum(case when d.doc_type = 'credit_note' then -d.grand_total_paise else d.grand_total_paise end) desc`;
@@ -161,6 +163,10 @@ const payLabel = (method: string, gateway: string | null) =>
  * tds_paise is not part of the total either: it is a receivable reduction that reaches the books later as a payment
  * of method 'tds', and it is counted there, once, rather than taken off the bill up front.
  *
+ * A bad debt written off appears as a credit on the day it was written off, so the invoice stays visible as billed
+ * and the balance stops asking for it. The invoice itself is untouched: the tax on it was declared and stays declared,
+ * which is why this is a credit here and never a credit note.
+ *
  * The opening balance is the net of everything strictly before the start date, so opening plus the movements in the
  * rows is always the closing balance.
  */
@@ -180,6 +186,10 @@ export async function customerStatement(sql: Sql, t: TenantSession, partyId: str
       select r.refunded_on::text as date, r.method, r.amount_paise
         from payment_refund r join payment p on p.id = r.payment_id
        where p.party_id = ${partyId} order by r.refunded_on, r.created_at`;
+    const offs = await tx`
+      select w.written_off_on::text as date, w.amount_paise, d.doc_type, d.number
+        from document_write_off w join document d on d.id = w.document_id
+       where d.party_id = ${partyId} and w.cancelled_at is null order by w.written_off_on, w.created_at`;
     type E = { date: string; description: string; debit: bigint; credit: bigint };
     // Documents, then payments, then refunds, within a day: the sort is stable, so a bill comes before the money for it.
     const entries: E[] = [
@@ -187,6 +197,8 @@ export async function customerStatement(sql: Sql, t: TenantSession, partyId: str
         debit: d.doc_type === 'credit_note' ? 0n : BigInt(d.grand_total_paise as string), credit: d.doc_type === 'credit_note' ? BigInt(d.grand_total_paise as string) : 0n })),
       ...pays.map((p) => ({ date: p.date as string, description: payLabel(p.method as string, p.gateway as string | null), debit: 0n, credit: BigInt(p.amount_paise as string) })),
       ...backs.map((r) => ({ date: r.date as string, description: `Refund (${(r.method as string).replace(/_/g, ' ')})`, debit: BigInt(r.amount_paise as string), credit: 0n })),
+      ...offs.map((w) => ({ date: w.date as string, description: `Bad debt written off (${TYPE_LABEL[w.doc_type as string]} ${w.number})`,
+        debit: 0n, credit: BigInt(w.amount_paise as string) })),
     ].sort((x, y) => x.date.localeCompare(y.date));
     // Credit notes applied to an invoice reduce the balance once, as the note itself, so they are not counted again as payments.
     let bal = 0n, opening = 0n;

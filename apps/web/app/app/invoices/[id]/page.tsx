@@ -13,7 +13,7 @@ const METHODS: [string, string][] = [['cash', 'Cash'], ['upi', 'UPI'], ['bank_tr
 
 export default function DocumentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [data, setData] = useState<{ document: Doc; lines: Doc[]; deliveries: Doc[]; estimate?: Doc | null } | null>(null);
+  const [data, setData] = useState<{ document: Doc; lines: Doc[]; deliveries: Doc[]; estimate?: Doc | null; writeOff?: Doc | null } | null>(null);
   const [html, setHtml] = useState('');
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
@@ -26,6 +26,9 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
   const [kora, setKora] = useState<{ buyer: string; status: string; sellerCancelled: boolean; reason: string | null } | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState('');
+  // One reason box serves writing off, cancelling a write-off and re-opening; only one of them is open at a time.
+  const [bad, setBad] = useState<'' | 'write_off' | 'undo_write_off' | 'reopen'>('');
+  const [badWhy, setBadWhy] = useState('');
   const [role, setRole] = useState('');
   const [payments, setPayments] = useState<Doc[]>([]);
   const [files, setFiles] = useState<Doc[]>([]);
@@ -109,6 +112,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
   const est = d.doc_type === 'estimate' ? (data.estimate ?? null) : null;
   const estAnswerable = !!est && isIssued && !['invoiced', 'expired'].includes(est.status);
   const outstanding = isIssued && receivable ? BigInt(d.grand_total_paise) - BigInt(d.amount_settled_paise) : 0n;
+  const writtenOff = data.writeOff ?? null;
   const today = new Date().toISOString().slice(0, 10);
   const lateDays = d.due_date && d.due_date < today ? Math.round((Date.parse(today) - Date.parse(d.due_date)) / 86_400_000) : 0;
   const sentOk = data.deliveries.some((x) => x.status === 'sent');
@@ -131,6 +135,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
           {est ? <span className={`chip ${EST_CHIP[est.status] ?? 'issued'}`} data-testid="estimate-status">{EST_LABEL[est.status] ?? est.status}</span> : (
           <span className={`chip ${d.status === 'issued' && d.payment_status === 'paid' ? 'paid' : d.status}`}>
             {d.status === 'draft' ? 'Draft' : d.status === 'cancelled' ? 'Cancelled' : d.payment_status === 'paid' ? 'Paid' : d.payment_status === 'part_paid' ? 'Part paid' : 'Issued'}</span>)}
+          {writtenOff && <span className="chip cancelled" data-testid="written-off">Written off</span>}
           <span className="muted">{d.party_name ?? 'Walk-in customer'} · {d.doc_date}{d.reference ? ` · PO ${d.reference}` : ''}{foreignCur ? ` · ${money(d.grand_total_paise)} at 1 ${foreignCur} = Rs ${(Number(d.exchange_rate_micro) / 1_000_000).toString()}` : ''}{est && d.due_date ? ` · valid until ${d.due_date}` : ''}</span>
           </div>
         </div>
@@ -154,6 +159,12 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
       </div>
       {err && <p className="error" role="alert">{err}</p>}
       {msg && <p className="ok" role="status">{msg}</p>}
+      {writtenOff && (
+        <p className="muted" role="status" style={{ margin: '0 0 12px' }}>
+          <b>Written off as a bad debt</b> on {writtenOff.written_off_on}: {rupees(writtenOff.amount_paise)} ({writtenOff.reason}).
+          It no longer counts as receivable. The GST on it was already declared and stays declared, so the returns do not change.
+        </p>
+      )}
       {kora && <p className="muted" data-testid="kora-delivery" style={{ margin: '0 0 12px' }}>Sent through Kora to {kora.buyer}: {kora.sellerCancelled ? 'you cancelled it' : kora.status === 'new' ? 'waiting for them to accept' : kora.status === 'accepted' ? 'they accepted it' : `they rejected it${kora.reason ? ` (${kora.reason})` : ''}`}.</p>}
 
       {!isDraft && d.status !== 'cancelled' && receivable && (
@@ -277,6 +288,28 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
                 </div>
               )}
               {payLink && <p className="muted" style={{ wordBreak: 'break-all' }}>Payment link: <a href={payLink} target="_blank" rel="noreferrer">{payLink}</a></p>}
+              {role === 'owner' && (
+                <div className="row" style={{ justifyContent: 'flex-start', marginTop: 12 }}>
+                  {writtenOff
+                    ? <button className="secondary" style={{ flex: 'none' }} onClick={() => { setBad(bad === 'undo_write_off' ? '' : 'undo_write_off'); setBadWhy(''); }}>Cancel the write-off</button>
+                    : <button className="danger" style={{ flex: 'none' }} onClick={() => { setBad(bad === 'write_off' ? '' : 'write_off'); setBadWhy(''); }}>Write off as a bad debt</button>}
+                </div>
+              )}
+              {(bad === 'write_off' || bad === 'undo_write_off') && (
+                <form onSubmit={(e) => { e.preventDefault(); void run(async () => {
+                  await api(`/api/documents/${id}/write-off${bad === 'write_off' ? '' : '/cancel'}`, { body: { reason: badWhy } });
+                  setBad(''); setBadWhy(''); await load();
+                  setMsg(bad === 'write_off' ? `${rupees(outstanding)} written off as a bad debt.` : 'The write-off is cancelled. This invoice is receivable again.');
+                }); }}>
+                  <label htmlFor="wo">{bad === 'write_off' ? 'Why is this amount not coming?' : 'Why are you cancelling the write-off?'}</label>
+                  <input id="wo" maxLength={500} value={badWhy} onChange={(e) => setBadWhy(e.target.value)} required
+                    placeholder={bad === 'write_off' ? 'For example: the customer has shut down' : 'For example: the customer has paid after all'} />
+                  <button className={bad === 'write_off' ? 'danger' : ''} disabled={busy}>
+                    {bad === 'write_off' ? `Write off ${rupees(outstanding)}` : 'Cancel the write-off'}</button>
+                  {bad === 'write_off' && <p className="muted">The invoice stays exactly as it was filed. Only what is owed changes: the GST on it was already
+                    declared and is not reversed, so GSTR-1 and GSTR-3B do not move. To reverse the tax as well, raise a credit note instead.</p>}
+                </form>
+              )}
             </>
           ) : <p className="ok">Fully paid.</p>}
         </div>
@@ -372,7 +405,31 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
       )}
         </div>
       </div>
-      {d.status === 'cancelled' && <p className="muted">Cancelled: {d.cancel_reason}</p>}
+      {d.status === 'cancelled' && (
+        <div className="panel">
+          <h2>Cancelled</h2>
+          <p className="muted">Cancelled: {d.cancel_reason}. The number {d.number} stays used and is reported to GSTR-1 as a cancelled number.</p>
+          {role === 'owner' && (
+            <>
+              <button className="secondary" onClick={() => { setBad(bad === 'reopen' ? '' : 'reopen'); setBadWhy(''); }}>Re-open this document</button>
+              {bad === 'reopen' && (
+                <form onSubmit={(e) => { e.preventDefault(); void run(async () => {
+                  await api(`/api/documents/${id}/reopen`, { body: { reason: badWhy } });
+                  setBad(''); setBadWhy(''); await load(); setMsg(`${label} ${d.number} is issued again.`);
+                }); }}>
+                  <label htmlFor="ro">Why are you re-opening it?</label>
+                  <input id="ro" maxLength={500} value={badWhy} onChange={(e) => setBadWhy(e.target.value)} required placeholder="For example: cancelled by mistake" />
+                  <button disabled={busy}>Confirm re-opening</button>
+                  <p className="muted">It comes back under the same number {d.number}, and both reasons are kept. If the e-invoice was cancelled on
+                    the GST portal, that IRN cannot be revived and you must issue a fresh invoice.</p>
+                </form>
+              )}
+            </>
+          )}
+          {d.reopen_reason && <p className="muted">Re-opened earlier: {d.reopen_reason}</p>}
+        </div>
+      )}
+      {isIssued && d.reopen_reason && <p className="muted">Re-opened after cancellation: {d.reopen_reason}</p>}
 
     </>
   );
