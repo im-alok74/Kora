@@ -2,6 +2,7 @@ import { computeLine, DEFAULT_ALLOWED_RATE_BP, parseQuantity, parseRupees, TaxEr
 import type { Sql } from '@kora/db';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { isDate, str, todayIn, ValidationError } from './validation.js';
+import { msmeCovered, msmeDeadline, msmeStatus } from './msme.js';
 
 const rs = (p: bigint | string | number) => { const n = BigInt(p); return `${n / 100n}.${(n % 100n).toString().padStart(2, '0')}`; };
 const PAY_METHODS = ['cash', 'upi', 'card', 'netbanking', 'bank_transfer', 'cheque', 'other'] as const;
@@ -68,25 +69,40 @@ export async function listBills(sql: Sql, t: TenantSession, f: { q?: string; sta
   if (f.to && !isDate(f.to)) throw new ValidationError('Enter dates as YYYY-MM-DD.', 'to');
   if (f.state && !['open', 'paid', 'cancelled'].includes(f.state)) throw new ValidationError('Choose open, paid or cancelled.', 'state');
   const like = f.q ? `%${f.q.replace(/[%_\\]/g, '\\$&')}%` : null;
-  return inTenant(sql, t, 'purchase.read', (tx) => tx`
-    select b.id, b.bill_number, b.bill_date::text as bill_date, b.due_date::text as due_date, b.status, b.reverse_charge, b.itc_status, p.name as vendor,
+  return inTenant(sql, t, 'purchase.read', async (tx) => {
+    const [biz] = await tx`select timezone from business where id = ${t.businessId}`;
+    const today = todayIn(biz!.timezone as string);
+    const rows = await tx`
+    select p.msme_class, b.id, b.bill_number, b.bill_date::text as bill_date, b.due_date::text as due_date, b.status, b.reverse_charge, b.itc_status, p.name as vendor,
            b.taxable_paise::text, (b.cgst_paise + b.sgst_paise + b.igst_paise + b.cess_paise)::text as tax_paise, b.total_paise::text, b.paid_paise::text, (b.total_paise - b.paid_paise)::text as due_paise
       from purchase_bill b join party p on p.id = b.party_id
      where (${like}::text is null or b.bill_number ilike ${like} or p.name ilike ${like})
        and (${f.state ?? null}::text is null or (${f.state ?? ''} = 'cancelled' and b.status = 'cancelled') or (b.status = 'recorded' and ((${f.state ?? ''} = 'paid' and b.paid_paise >= b.total_paise) or (${f.state ?? ''} = 'open' and b.paid_paise < b.total_paise))))
        and (${f.from ?? null}::date is null or b.bill_date >= ${f.from ?? null}::date) and (${f.to ?? null}::date is null or b.bill_date <= ${f.to ?? null}::date)
-     order by b.bill_date desc, b.created_at desc limit ${Math.min(500, f.limit ?? 100)}`);
+     order by b.bill_date desc, b.created_at desc limit ${Math.min(500, f.limit ?? 100)}`;
+    return rows.map((r) => {
+      const open = r.status === 'recorded' && BigInt(r.due_paise as string) > 0n;
+      if (!open || !msmeCovered(r.msme_class as string)) return r;
+      const deadline = msmeDeadline(r.bill_date as string, r.due_date as string | null);
+      return { ...r, msme_deadline: deadline, msme_state: msmeStatus(deadline, today).state, msme_days_left: msmeStatus(deadline, today).daysLeft };
+    });
+  });
 }
 
 export async function getBill(sql: Sql, t: TenantSession, id: string) {
   return inTenant(sql, t, 'purchase.read', async (tx) => {
-    const [b] = await tx`select b.*, b.bill_date::text as bill_date_s, b.due_date::text as due_date_s, p.name as vendor, p.gstin as vendor_gstin
+    const [b] = await tx`select b.*, b.bill_date::text as bill_date_s, b.due_date::text as due_date_s, p.name as vendor, p.gstin as vendor_gstin, p.udyam_number, p.msme_class
                            from purchase_bill b join party p on p.id = b.party_id where b.id = ${id}`;
     if (!b) return null;
     const lines = await tx`select line_no, description, hsn_sac, (quantity_milli::numeric / 1000)::text as quantity, rate_paise::text, discount_paise::text, tax_rate_bp, taxable_paise::text, cgst_paise::text, sgst_paise::text, igst_paise::text, cess_paise::text, total_paise::text from purchase_line where bill_id = ${id} order by line_no`;
     const payments = await tx`select id, paid_on::text as paid_on, amount_paise::text, method, note from purchase_payment where bill_id = ${id} order by paid_on, created_at`;
     const [m] = await tx`select period, invoice_number from gstr2b_entry where bill_id = ${id} limit 1`;
+    const [biz] = await tx`select timezone from business where id = ${t.businessId}`;
+    const open = b.status === 'recorded' && BigInt(b.paid_paise as string) < BigInt(b.total_paise as string);
+    const deadline = msmeCovered(b.msme_class as string) ? msmeDeadline(b.bill_date_s as string, b.due_date_s as string | null) : null;
+    const msme = deadline ? { class: b.msme_class as string, udyamNumber: b.udyam_number as string, deadline, open, ...msmeStatus(deadline, todayIn(biz!.timezone as string)) } : null;
     return {
+      msme,
       bill: {
         id: b.id as string, vendor: b.vendor as string, vendorGstin: b.vendor_gstin as string | null, partyId: b.party_id as string, billNumber: b.bill_number as string,
         billDate: b.bill_date_s as string, dueDate: b.due_date_s as string | null, supply: b.supply as string, reverseCharge: b.reverse_charge as boolean, status: b.status as string,

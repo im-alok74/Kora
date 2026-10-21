@@ -8,6 +8,7 @@ type Detail = {
   lines: { line_no: number; description: string; hsn_sac: string | null; quantity: string; rate_paise: string; tax_rate_bp: number; taxable_paise: string; total_paise: string }[];
   payments: { id: string; paid_on: string; amount_paise: string; method: string; note: string | null }[];
   in2b: { period: string; invoiceNumber: string } | null;
+  msme: { class: string; udyamNumber: string; deadline: string; open: boolean; state: 'overdue' | 'soon' | 'ok'; daysLeft: number } | null;
 };
 const METHODS: [string, string][] = [['bank_transfer', 'Bank transfer'], ['upi', 'UPI'], ['cash', 'Cash'], ['cheque', 'Cheque'], ['card', 'Card'], ['netbanking', 'Net banking'], ['other', 'Other']];
 
@@ -48,6 +49,13 @@ export default function BillPage({ params }: { params: Promise<{ id: string }> }
           {canWrite && !cancelled && BigInt(b.paidPaise) === 0n && <button className="danger" disabled={busy} onClick={() => run(async () => { await api(`/api/purchases/${id}/cancel`, { body: {} }); await load(); })}>Cancel bill</button>}
         </div>
       </div>
+      {d.msme && d.msme.open && d.msme.state !== 'ok' && (
+        <div className={`notice ${d.msme.state === 'overdue' ? 'critical' : 'warning'}`} role="alert" data-testid="msme-warning" style={{ marginBottom: 12 }}>
+          <div>
+            <b>{d.msme.state === 'overdue' ? `Past the 45-day limit by ${-d.msme.daysLeft} day${d.msme.daysLeft === -1 ? '' : 's'}` : d.msme.daysLeft === 0 ? 'The 45-day limit ends today' : `${d.msme.daysLeft} day${d.msme.daysLeft === 1 ? '' : 's'} left in the 45-day limit`}</b>
+            <div className="muted">{b.vendor} is a {d.msme.class} enterprise ({d.msme.udyamNumber}). The law expects micro and small suppliers to be paid within 45 days of the bill, here by {d.msme.deadline}. Late payment can cost interest and may affect your tax deduction, so check with your CA.</div>
+          </div>
+        </div>)}
       {err && <p className="error" role="alert">{err}</p>}
       {msg && <p className="ok" role="status">{msg}</p>}
 

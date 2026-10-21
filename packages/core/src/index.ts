@@ -36,6 +36,7 @@ export * from './ratelimit.js';
 export * from './observe.js';
 export * from './blobs.js';
 export * from './purchases.js';
+export * from './msme.js';
 export * from './workspace.js';
 export * from './stock.js';
 export * from './pos.js';
