@@ -16,7 +16,7 @@ export interface RenderInput {
 
 const TITLES: Record<string, string> = {
   tax_invoice: 'Tax Invoice', bill_of_supply: 'Bill of Supply', estimate: 'Estimate', proforma: 'Proforma Invoice',
-  delivery_challan: 'Delivery Challan', credit_note: 'Credit Note', debit_note: 'Debit Note',
+  delivery_challan: 'Delivery Challan', credit_note: 'Credit Note', debit_note: 'Debit Note', sales_order: 'Sales Order',
 };
 
 /** The two extra looks. They only restyle the same blocks, so every statutory field is still printed. */

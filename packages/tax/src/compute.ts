@@ -2,7 +2,7 @@ import { roundHalfUp, TaxError, type Paise } from './money.js';
 import { DEFAULT_ALLOWED_RATE_BP } from './rules.js';
 
 export type DocType =
-  | 'tax_invoice' | 'bill_of_supply' | 'estimate' | 'proforma' | 'delivery_challan' | 'credit_note' | 'debit_note';
+  | 'tax_invoice' | 'bill_of_supply' | 'estimate' | 'proforma' | 'delivery_challan' | 'credit_note' | 'debit_note' | 'sales_order';
 export type RegistrationType = 'unregistered' | 'regular' | 'composition' | 'sez' | 'isd';
 
 export interface LineInput {

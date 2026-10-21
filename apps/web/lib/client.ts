@@ -26,5 +26,5 @@ export const TAX_RATES: { bp: number; label: string }[] = [
 
 export const DOC_LABEL: Record<string, string> = {
   tax_invoice: 'Tax invoice', bill_of_supply: 'Bill of supply', estimate: 'Estimate', proforma: 'Proforma invoice',
-  delivery_challan: 'Delivery challan', credit_note: 'Credit note', debit_note: 'Debit note',
+  delivery_challan: 'Delivery challan', credit_note: 'Credit note', debit_note: 'Debit note', sales_order: 'Sales order',
 };

@@ -61,7 +61,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
   const [previewHtml, setPreviewHtml] = useState('');
   const [previewErr, setPreviewErr] = useState('');
   const todayLocal = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-  const quote = docType === 'estimate' || docType === 'proforma';
+  const quote = docType === 'estimate' || docType === 'proforma' || docType === 'sales_order';
   const rupees = (p: string | bigint | null | undefined) => (currency === 'INR' ? rupeesInr(p) : formatMoney(BigInt(p ?? 0), currency));
   const [lines, setLines] = useState<Line[]>([blankLine()]);
   const [original, setOriginal] = useState<string | null>(null);
@@ -134,6 +134,13 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
       } catch (e) { setErr((e as Error).message); }
     })();
   }, [draftId, localIdProp]);
+
+  // A new quote is valid for 30 days unless the person picks another date.
+  useEffect(() => {
+    if (!ready || docType !== 'estimate' || dueDate || draftId || localIdProp) return;
+    const d = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000); d.setUTCDate(d.getUTCDate() + 30);
+    setDueDate(d.toISOString().slice(0, 10));
+  }, [ready, docType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const payload = useMemo(() => ({
     docType, partyId: partyId || null, docDate: docDate || undefined, dueDate: dueDate || null, notes, terms, reverseCharge,
@@ -284,7 +291,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
 
   return (
     <>
-      <div className="toolbar"><div><h1>{title}</h1><p className="page-sub">{quote ? 'Quote a price. Nothing here is a tax invoice until you turn it into one.' : 'Choose who it is for and what you are selling. Kora works out the tax as you type.'}</p></div></div>
+      <div className="toolbar"><div><h1>{title}</h1><p className="page-sub">{quote ? (docType === 'sales_order' ? 'Confirm what the customer has ordered. Turn it into a delivery challan or an invoice when you are ready.' : 'Quote a price. Nothing here is a tax invoice until you turn it into one.') : 'Choose who it is for and what you are selling. Kora works out the tax as you type.'}</p></div></div>
       {local?.conflict && (
         <div className="panel" role="alert" data-testid="conflict">
           <h2>This draft was changed on another device</h2>
@@ -331,7 +338,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
           </div>
           <div>
             <label htmlFor="dt" style={{ marginTop: 0 }}>Document type</label>
-            <select id="dt" value={docType} onChange={(e) => { setDocType(e.target.value); if (!['estimate', 'proforma'].includes(e.target.value)) setCurrency('INR'); }} disabled={!!original}>
+            <select id="dt" value={docType} onChange={(e) => { setDocType(e.target.value); if (!['estimate', 'proforma', 'sales_order'].includes(e.target.value)) setCurrency('INR'); }} disabled={!!original}>
               {Object.entries(DOC_LABEL).filter(([k]) => original ? k === docType : !['credit_note', 'debit_note'].includes(k)).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
@@ -349,7 +356,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
               <option value="">No terms</option>
               {PAYMENT_TERMS.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
             </select></div>
-          <div><label htmlFor="du">{docType === 'estimate' ? 'Valid until' : 'Due date'}</label><input id="du" type="date" value={dueDate} onChange={(e) => { setDueDate(e.target.value); if (paymentTerms) setPaymentTerms('custom'); }} /></div>
+          <div><label htmlFor="du">{docType === 'estimate' ? 'Valid until' : docType === 'sales_order' ? 'Delivery by' : 'Due date'}</label><input id="du" type="date" value={dueDate} onChange={(e) => { setDueDate(e.target.value); if (paymentTerms) setPaymentTerms('custom'); }} /></div>
           <div><label htmlFor="rf">Order or PO number</label><input id="rf" maxLength={60} value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Optional" /></div>
           <div><label htmlFor="sp">Salesperson</label><input id="sp" maxLength={80} value={salesperson} onChange={(e) => setSalesperson(e.target.value)} placeholder="Optional" /></div>
           <div style={{ gridColumn: '1 / -1' }}><label htmlFor="sj">Subject</label><input id="sj" maxLength={200} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="For example: Website redesign, phase 2" /></div>

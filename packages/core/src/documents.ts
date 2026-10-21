@@ -10,10 +10,12 @@ import { queueEinvoiceIfRequired } from './einvoice.js';
 import { emitEvent } from './webhooks.js';
 
 export const DOC_TYPES: readonly DocType[] =
-  ['tax_invoice', 'bill_of_supply', 'estimate', 'proforma', 'delivery_challan', 'credit_note', 'debit_note'];
+  ['tax_invoice', 'bill_of_supply', 'estimate', 'proforma', 'delivery_challan', 'credit_note', 'debit_note', 'sales_order'];
+/** Documents that may be priced in another currency. A tax document is always in rupees. */
+export const FOREIGN_OK: ReadonlySet<string> = new Set(['estimate', 'proforma', 'sales_order']);
 const TAX_DOCS: ReadonlySet<string> = new Set(['tax_invoice', 'credit_note', 'debit_note']);
 const SERIES_PREFIX: Record<DocType, string> = {
-  tax_invoice: 'INV', bill_of_supply: 'BOS', estimate: 'EST', proforma: 'PRO', delivery_challan: 'DC', credit_note: 'CN', debit_note: 'DN',
+  tax_invoice: 'INV', bill_of_supply: 'BOS', estimate: 'EST', proforma: 'PRO', delivery_challan: 'DC', credit_note: 'CN', debit_note: 'DN', sales_order: 'SO',
 };
 
 export interface LineIn {
@@ -55,6 +57,11 @@ export interface DocIn {
   tcsBp?: number;
   tdsBp?: number;
   originalDocumentId?: string | null;
+  /** A revised quote points at the one it replaces. */
+  previousVersionId?: string | null;
+  version?: number;
+  /** The document this one was made from (a quote turned into an order, an order into an invoice). */
+  sourceDocumentId?: string | null;
   /** Estimates and proforma invoices only. A GST tax document is always in rupees. */
   currency?: string;
   /** Rupees per one unit of the currency, for example "83.25". Required when the currency is not INR. */
@@ -99,7 +106,7 @@ async function build(tx: Tx, t: TenantSession, input: DocIn): Promise<Built> {
   if (!(CURRENCIES as readonly string[]).includes(currency)) throw new ValidationError('Choose one of the supported currencies.', 'currency');
   let rateMicro = 1_000_000n;
   if (currency !== 'INR') {
-    if (!['estimate', 'proforma'].includes(input.docType)) throw new ValidationError('A tax invoice is always in rupees. Use an estimate or a proforma invoice to quote in another currency.', 'currency');
+    if (!FOREIGN_OK.has(input.docType)) throw new ValidationError('A tax invoice is always in rupees. Use an estimate, a sales order or a proforma invoice to quote in another currency.', 'currency');
     try { rateMicro = parseExchangeRate(String(input.exchangeRate ?? '')); } catch (e) { throw new ValidationError((e as Error).message, 'exchangeRate'); }
   }
   const docDate = input.docDate ?? todayIn(biz.timezone as string);
@@ -195,6 +202,7 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
     original: input.originalDocumentId ?? null, tcs_bp: input.tcsBp ?? 0, tds_bp: input.tdsBp ?? 0, currency: b.currency, rate: b.rateMicro.toString(),
     reference: str(input.reference, 'Reference', { max: 60 }), subject: str(input.subject, 'Subject', { max: 200 }), payment_terms: input.paymentTerms || null,
     extra: cleanExtra(input.extra), salesperson: str(input.salesperson, 'Salesperson', { max: 80 }),
+    previous_version_id: input.previousVersionId ?? null, version: input.version ?? 1, source_document_id: input.sourceDocumentId ?? null,
   };
   // A preset fills the due date when the person left it empty. An explicit date always wins.
   if (!fields.due_date && fields.payment_terms) fields.due_date = dueDateFor(b.docDate, fields.payment_terms);
@@ -213,14 +221,17 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
              reference = ${fields.reference}, subject = ${fields.subject}, payment_terms = ${fields.payment_terms},
              extra = ${fields.extra === null ? null : tx.json(fields.extra as any)}, salesperson = ${fields.salesperson}
              where id = ${id}`;
+    // previous_version_id, version and source_document_id are set once, when the draft is made, and never edited.
   } else {
     const [row] = await tx`
       insert into document (business_id, doc_type, party_id, place_of_supply, reverse_charge, doc_date, due_date, taxable_paise, cgst_paise,
                             sgst_paise, igst_paise, cess_paise, tcs_paise, tds_paise, round_off_paise, grand_total_paise, notes, terms,
-                            original_document_id, created_by, client_ref, tcs_bp, tds_bp, currency, exchange_rate_micro, reference, subject, payment_terms, extra, salesperson)
+                            original_document_id, created_by, client_ref, tcs_bp, tds_bp, currency, exchange_rate_micro, reference, subject, payment_terms, extra, salesperson,
+                            previous_version_id, version, source_document_id)
       values (${t.businessId}, ${fields.doc_type}, ${fields.party_id}, ${fields.place_of_supply}, ${fields.reverse_charge}, ${fields.doc_date},
               ${fields.due_date}, ${fields.taxable}, ${fields.cgst}, ${fields.sgst}, ${fields.igst}, ${fields.cess}, ${fields.tcs}, ${fields.tds},
-              ${fields.round_off}, ${fields.grand}, ${fields.notes}, ${fields.terms}, ${fields.original}, ${t.userId}, ${clientRef}, ${fields.tcs_bp}, ${fields.tds_bp}, ${fields.currency}, ${fields.rate}, ${fields.reference}, ${fields.subject}, ${fields.payment_terms}, ${fields.extra === null ? null : tx.json(fields.extra as any)}, ${fields.salesperson})
+              ${fields.round_off}, ${fields.grand}, ${fields.notes}, ${fields.terms}, ${fields.original}, ${t.userId}, ${clientRef}, ${fields.tcs_bp}, ${fields.tds_bp}, ${fields.currency}, ${fields.rate}, ${fields.reference}, ${fields.subject}, ${fields.payment_terms}, ${fields.extra === null ? null : tx.json(fields.extra as any)}, ${fields.salesperson},
+              ${fields.previous_version_id}, ${fields.version}, ${fields.source_document_id})
       returning id`;
     docId = row!.id as string;
   }
@@ -311,14 +322,39 @@ export async function getDocumentTx(tx: Tx, id: string) {
   let estimate: Record<string, unknown> | null = null;
   if (d.doc_type === 'estimate') {
     const [e] = await tx`select estimate_status(d.status, d.due_date, b.timezone, es.decision, es.converted_to_id) as status,
-                                es.decision, es.decided_at, es.converted_to_id, c.number as converted_number, c.status as converted_status
+                                es.decision, es.decided_at, es.decision_comment, es.decided_by_name, es.decided_via, es.converted_to_id, c.number as converted_number, c.status as converted_status
                            from document d join business b on b.id = d.business_id
                            left join estimate_state es on es.document_id = d.id
                            left join document c on c.id = es.converted_to_id
                           where d.id = ${id}`;
     estimate = e ?? null;
   }
-  return { document: d, lines, deliveries, estimate, writeOff: writeOff ?? null };
+  const versions = await versionChain(tx, d as never);
+  const [source] = d.source_document_id ? await tx`select id, number, doc_type from document where id = ${d.source_document_id}` : [];
+  // What was made from this document: a quote turned into an order, an order into an invoice.
+  const children = await tx`select id, number, doc_type, status from document where source_document_id = ${id} order by created_at`;
+  return { document: d, lines, deliveries, estimate, writeOff: writeOff ?? null, versions, source: source ?? null, children };
+}
+
+/** Every version of a quote, oldest first, when the document has been revised or is a revision. Empty for a document with one version. */
+async function versionChain(tx: Tx, d: { id: string; previous_version_id: string | null }) {
+  let rootId = d.id;
+  let prev = d.previous_version_id;
+  for (let i = 0; prev && i < 100; i++) {
+    rootId = prev;
+    const [p] = await tx`select previous_version_id from document where id = ${prev}`;
+    prev = (p?.previous_version_id as string | null) ?? null;
+  }
+  const chain: { id: string; number: string | null; version: number; status: string }[] = [];
+  let cur: string | null = rootId;
+  for (let i = 0; cur && i < 100; i++) {
+    const [r] = (await tx`select id, number, version, status from document where id = ${cur}`) as Record<string, any>[];
+    if (!r) break;
+    chain.push({ id: r.id as string, number: r.number as string | null, version: Number(r.version), status: r.status as string });
+    const [n] = (await tx`select id from document where previous_version_id = ${cur} order by version limit 1`) as { id: string }[];
+    cur = n?.id ?? null;
+  }
+  return chain.length > 1 ? chain : [];
 }
 
 export async function getDocument(sql: Sql, t: TenantSession, id: string) {
@@ -370,6 +406,12 @@ export async function issueTx(tx: Tx, t: TenantSession, id: string) {
     try {
       await tx`update document set status = 'issued' where id = ${id}`;
     } catch (e) { mapDbError(e); }
+    // Issuing a revised quote withdraws the one it replaces, so only one version is ever open. The old number stays used.
+    const [prevV] = await tx`select p.id from document p join document n on n.previous_version_id = p.id
+                              where n.id = ${id} and p.status = 'issued' and p.doc_type = 'estimate'`;
+    if (prevV) {
+      await tx`update document set status = 'cancelled', cancel_reason = 'Replaced by a newer version of this quote' where id = ${prevV.id}`;
+    }
     // Work that must exist once a document is issued is queued in this same transaction.
     const [issued] = await tx`select id, business_id, doc_type, due_date, einvoice_required from document where id = ${id}`;
     await scheduleReminders(tx, issued as never);
