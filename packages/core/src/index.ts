@@ -4,6 +4,7 @@ export * from './auth.js';
 export * from './tenancy.js';
 export * from './permissions.js';
 export * from './parties.js';
+export * from './contacts.js';
 export * from './items.js';
 export * from './business.js';
 export * from './template.js';

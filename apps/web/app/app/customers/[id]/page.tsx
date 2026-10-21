@@ -1,5 +1,6 @@
 'use client';
 import { use, useEffect, useState } from 'react';
+import { STATE_NAMES } from '@kora/tax';
 import Icon from '../../../../components/Icon';
 import { api, DOC_LABEL, rupees } from '../../../../lib/client';
 
@@ -10,7 +11,14 @@ type Overview = {
   payments: { id: string; received_on: string; amount_paise: string; method: string; note: string | null }[];
 };
 const ADV_METHODS: [string, string][] = [['bank_transfer', 'Bank transfer'], ['upi', 'UPI'], ['cash', 'Cash'], ['cheque', 'Cheque'], ['card', 'Card'], ['netbanking', 'Net banking'], ['other', 'Other']];
-const TABS = [['overview', 'Overview'], ['documents', 'Documents'], ['payments', 'Payments'], ['details', 'Details']] as const;
+const TABS = [['overview', 'Overview'], ['documents', 'Documents'], ['payments', 'Payments'], ['people', 'People and places'], ['details', 'Details']] as const;
+
+type Contact = { id: string; name: string; designation: string | null; email: string | null; phone: string | null; is_primary: boolean };
+type PartyAddress = { id: string; label: string; address: Record<string, string>; state_code: string; is_default_billing: boolean; is_default_shipping: boolean };
+const EMPTY_CONTACT = { name: '', designation: '', email: '', phone: '' };
+const EMPTY_ADDRESS = { label: '', line1: '', line2: '', city: '', pincode: '', stateCode: '' };
+const stateName = (c: string) => (c === '96' ? 'Outside India' : STATE_NAMES[c] ?? c);
+const oneLine = (a: Record<string, string>) => [a?.line1, a?.line2, a?.city, a?.pincode].filter(Boolean).join(', ');
 
 /** One customer: what they owe, how they pay, their documents and payments, all in one place. */
 export default function Customer({ params }: { params: Promise<{ id: string }> }) {
@@ -23,8 +31,17 @@ export default function Customer({ params }: { params: Promise<{ id: string }> }
   const [adv, setAdv] = useState({ amount: '', method: 'bank_transfer', note: '' });
   const [ref, setRef] = useState<{ id: string; amount: string; method: string; note: string } | null>(null);
   const [msg, setMsg] = useState('');
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [addresses, setAddresses] = useState<PartyAddress[]>([]);
+  const [cForm, setCForm] = useState({ ...EMPTY_CONTACT, id: '' });
+  const [aForm, setAForm] = useState({ ...EMPTY_ADDRESS, id: '' });
   const loadCredit = () => api(`/api/parties/${id}/credit`).then(setCredit).catch(() => {});
-  useEffect(() => { void loadCredit(); }, [id]);
+  const loadBook = async () => {
+    setContacts((await api(`/api/parties/${id}/contacts`)).contacts);
+    setAddresses((await api(`/api/parties/${id}/addresses`)).addresses);
+  };
+  useEffect(() => { void loadCredit(); void loadBook().catch(() => {}); }, [id]);
+  const book = async (fn: () => Promise<void>) => { setErr(''); setMsg(''); try { await fn(); await loadBook(); } catch (e) { setErr((e as Error).message); } };
   const act = async (fn: () => Promise<void>) => { setErr(''); setMsg(''); try { await fn(); await loadCredit(); } catch (e) { setErr((e as Error).message); } };
   useEffect(() => { api(`/api/parties/${id}/overview`).then(setD).catch((e) => setErr(e.message)); api('/api/business').then((b) => setRole(b.role)); }, [id]);
 
@@ -117,6 +134,91 @@ export default function Customer({ params }: { params: Promise<{ id: string }> }
             <table className="t" aria-label="Payments"><thead><tr><th>Date</th><th>Method</th><th>Note</th><th className="n">Amount</th><th /></tr></thead>
               <tbody>{d.payments.map((x) => (<tr key={x.id}><td>{x.received_on}</td><td>{x.method.replace(/_/g, ' ')}</td><td>{x.note ?? ''}</td><td className="n">{rupees(x.amount_paise)}</td><td className="n"><a href={`/api/payments/${x.id}/receipt`} target="_blank" rel="noreferrer">Receipt</a></td></tr>))}</tbody></table>)}
         </div>)}
+
+      {tab === 'people' && (<>
+        {msg && <p className="ok" role="status">{msg}</p>}
+        {err && <p className="error" role="alert">{err}</p>}
+        <div className="panel" aria-label="Contact persons">
+          <h2>Contact persons</h2>
+          {contacts.length === 0 ? <p className="muted">No one named yet. The customer&apos;s own phone and email are still used on documents.</p> : (
+            <table className="t" aria-label="Contacts"><thead><tr><th>Name</th><th>Designation</th><th>Phone</th><th>Email</th><th /></tr></thead>
+              <tbody>{contacts.map((c) => (
+                <tr key={c.id}>
+                  <td>{c.name}{c.is_primary && <span className="chip paid" style={{ marginLeft: 8 }}>Primary</span>}</td>
+                  <td>{c.designation ?? ''}</td><td>{c.phone ?? ''}</td><td>{c.email ?? ''}</td>
+                  <td className="n">{canWrite && (<>
+                    {!c.is_primary && <button className="link" onClick={() => void book(async () => { await api(`/api/parties/${id}/contacts/${c.id}`, { body: {} }); setMsg('Primary contact changed.'); })}>Make primary</button>}
+                    {' '}<button className="link" onClick={() => setCForm({ id: c.id, name: c.name, designation: c.designation ?? '', email: c.email ?? '', phone: c.phone ?? '' })}>Edit</button>
+                    {' '}<button className="link" onClick={() => void book(async () => { await api(`/api/parties/${id}/contacts/${c.id}`, { method: 'DELETE' }); setMsg('Contact removed.'); })}>Remove</button>
+                  </>)}</td>
+                </tr>))}</tbody></table>)}
+          {canWrite && (
+            <form onSubmit={(e) => { e.preventDefault(); void book(async () => {
+              const body = { name: cForm.name, designation: cForm.designation || null, email: cForm.email || null, phone: cForm.phone || null };
+              await api(cForm.id ? `/api/parties/${id}/contacts/${cForm.id}` : `/api/parties/${id}/contacts`, { method: cForm.id ? 'PUT' : 'POST', body: cForm.id ? { ...body, isPrimary: contacts.find((x) => x.id === cForm.id)?.is_primary ?? false } : body });
+              setCForm({ ...EMPTY_CONTACT, id: '' }); setMsg(cForm.id ? 'Contact saved.' : 'Contact added.');
+            }); }}>
+              <h3 style={{ marginTop: 16 }}>{cForm.id ? 'Edit contact person' : 'Add a contact person'}</h3>
+              <div className="row">
+                <div><label htmlFor="cn">Name</label><input id="cn" value={cForm.name} onChange={(e) => setCForm({ ...cForm, name: e.target.value })} required /></div>
+                <div><label htmlFor="cd">Designation</label><input id="cd" value={cForm.designation} onChange={(e) => setCForm({ ...cForm, designation: e.target.value })} placeholder="Accounts" /></div>
+                <div><label htmlFor="cph">Phone</label><input id="cph" value={cForm.phone} onChange={(e) => setCForm({ ...cForm, phone: e.target.value })} /></div>
+                <div><label htmlFor="cem">Email</label><input id="cem" value={cForm.email} onChange={(e) => setCForm({ ...cForm, email: e.target.value })} /></div>
+                <button>{cForm.id ? 'Save contact' : 'Add contact'}</button>
+                {cForm.id && <button type="button" className="secondary" onClick={() => setCForm({ ...EMPTY_CONTACT, id: '' })}>Cancel</button>}
+              </div>
+            </form>)}
+        </div>
+
+        <div className="panel" aria-label="Addresses">
+          <h2>Addresses</h2>
+          {addresses.length === 0 ? <p className="muted">No extra addresses yet. Documents use the address on the customer record.</p> : (
+            <table className="t" aria-label="Address book"><thead><tr><th>Label</th><th>Address</th><th>State</th><th /></tr></thead>
+              <tbody>{addresses.map((a) => (
+                <tr key={a.id}>
+                  <td>{a.label}
+                    {a.is_default_billing && <span className="chip issued" style={{ marginLeft: 8 }}>Billing</span>}
+                    {a.is_default_shipping && <span className="chip paid" style={{ marginLeft: 8 }}>Shipping</span>}</td>
+                  <td>{oneLine(a.address) || <span className="muted">Not given</span>}</td>
+                  <td>{stateName(a.state_code)}</td>
+                  <td className="n">{canWrite && (<>
+                    {!a.is_default_billing && <button className="link" onClick={() => void book(async () => { await api(`/api/parties/${id}/addresses/${a.id}`, { body: { kind: 'billing' } }); setMsg('Default billing address changed.'); })}>Bill here</button>}
+                    {' '}{!a.is_default_shipping && <button className="link" onClick={() => void book(async () => { await api(`/api/parties/${id}/addresses/${a.id}`, { body: { kind: 'shipping' } }); setMsg('Default shipping address changed.'); })}>Ship here</button>}
+                    {' '}<button className="link" onClick={() => setAForm({ id: a.id, label: a.label, line1: a.address?.line1 ?? '', line2: a.address?.line2 ?? '', city: a.address?.city ?? '', pincode: a.address?.pincode ?? '', stateCode: a.state_code })}>Edit</button>
+                    {' '}<button className="link" onClick={() => void book(async () => { await api(`/api/parties/${id}/addresses/${a.id}`, { method: 'DELETE' }); setMsg('Address removed.'); })}>Remove</button>
+                  </>)}</td>
+                </tr>))}</tbody></table>)}
+          {canWrite && (
+            <form onSubmit={(e) => { e.preventDefault(); void book(async () => {
+              const body = { label: aForm.label, stateCode: aForm.stateCode, address: { line1: aForm.line1, line2: aForm.line2, city: aForm.city, pincode: aForm.pincode } };
+              const was = addresses.find((x) => x.id === aForm.id);
+              await api(aForm.id ? `/api/parties/${id}/addresses/${aForm.id}` : `/api/parties/${id}/addresses`, {
+                method: aForm.id ? 'PUT' : 'POST',
+                body: aForm.id ? { ...body, isDefaultBilling: was?.is_default_billing ?? false, isDefaultShipping: was?.is_default_shipping ?? false } : body,
+              });
+              setAForm({ ...EMPTY_ADDRESS, id: '' }); setMsg(aForm.id ? 'Address saved.' : 'Address added.');
+            }); }}>
+              <h3 style={{ marginTop: 16 }}>{aForm.id ? 'Edit address' : 'Add an address'}</h3>
+              <div className="row">
+                <div><label htmlFor="al">Label</label><input id="al" value={aForm.label} onChange={(e) => setAForm({ ...aForm, label: e.target.value })} placeholder="Head office" required /></div>
+                <div><label htmlFor="a1">Address line 1</label><input id="a1" value={aForm.line1} onChange={(e) => setAForm({ ...aForm, line1: e.target.value })} /></div>
+                <div><label htmlFor="a2">Address line 2</label><input id="a2" value={aForm.line2} onChange={(e) => setAForm({ ...aForm, line2: e.target.value })} /></div>
+              </div>
+              <div className="row">
+                <div><label htmlFor="ac">City</label><input id="ac" value={aForm.city} onChange={(e) => setAForm({ ...aForm, city: e.target.value })} /></div>
+                <div><label htmlFor="ap">PIN code</label><input id="ap" value={aForm.pincode} onChange={(e) => setAForm({ ...aForm, pincode: e.target.value })} /></div>
+                <div><label htmlFor="as">State</label>
+                  <select id="as" value={aForm.stateCode} onChange={(e) => setAForm({ ...aForm, stateCode: e.target.value })} required>
+                    <option value="">Choose a state</option>
+                    {Object.entries(STATE_NAMES).filter(([c]) => !['97', '99'].includes(c)).map(([c, n]) => <option key={c} value={c}>{c === '96' ? 'Outside India' : n}</option>)}
+                  </select></div>
+                <button>{aForm.id ? 'Save address' : 'Add address'}</button>
+                {aForm.id && <button type="button" className="secondary" onClick={() => setAForm({ ...EMPTY_ADDRESS, id: '' })}>Cancel</button>}
+              </div>
+              <p className="muted">Where the goods go decides the place of supply, so each address carries its own state.</p>
+            </form>)}
+        </div>
+      </>)}
 
       {tab === 'details' && (
         <div className="panel">
