@@ -14,7 +14,7 @@
 .kora-home .k-skip:focus { top: 10px; }
 .k-topbar { height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; border-bottom: 1px solid #f0f1f2; }
 .k-topbar > a:first-child { font-size: 25px; font-weight: 800; letter-spacing: -1.7px; color: #106cd9; text-decoration: none; }
-.k-topbar > a:first-child span { color: #7a7e82; font-size: 11px; font-weight: 400; letter-spacing: .2px; margin-left: 18px; vertical-align: middle; }
+.k-topbar > a:first-child span { color: #5c6166; font-size: 11px; font-weight: 400; letter-spacing: .2px; margin-left: 18px; vertical-align: middle; }
 .k-topbar > a:last-child { font-size: 12px; color: #3d464f; text-decoration: none; }
 .k-topbar > a:last-child span { margin-left: 8px; color: #106cd9; }
 .kora-home .l-header { background: #fff; backdrop-filter: none; border-color: #eff0f2; }
@@ -74,9 +74,9 @@
 .k-invoice-paper { background: #fff; border: 1px solid #e2e7ef; border-top: 4px solid #2675aa; padding: 25px; box-shadow: 0 4px 12px #1b2f4810; font-size: 10px; color: #36424e; }
 .k-paper-heading { display: flex; justify-content: space-between; gap: 12px; }.k-paper-heading > div { display: flex; flex-direction: column; align-items: flex-start; }.k-paper-heading > div:last-child { align-items: flex-end; }
 .k-studio-logo { width: 29px; height: 29px; display: grid; place-items: center; background: #193f4b; color: white; font-size: 23px; font-weight: bold; border-radius: 7px; line-height: 1; margin-bottom: 9px; }
-.k-paper-heading b { font-size: 13px; }.k-paper-heading small { color: #7a818a; font-size: 8px; line-height: 1.7; }.k-paper-heading strong { color: #2675aa; font-size: 15px; font-weight: 400; letter-spacing: 1px; margin-top: 5px; }
+.k-paper-heading b { font-size: 13px; }.k-paper-heading small { color: #5a636c; font-size: 8px; line-height: 1.7; }.k-paper-heading strong { color: #2675aa; font-size: 15px; font-weight: 400; letter-spacing: 1px; margin-top: 5px; }
 .k-status { font-size: 8px; background: #edf5fd; padding: 1px 7px; color: #2d72ad; margin-top: 8px; }
-.k-paper-address { display: grid; grid-template-columns: 1fr 1fr; margin: 25px 0 20px; gap: 12px; }.k-paper-address > div { display: flex; flex-direction: column; font-size: 9px; line-height: 1.8; }.k-paper-address > div:last-child { text-align: right; }.k-paper-address small { font-size: 7px; letter-spacing: 1px; color: #75808c; }
+.k-paper-address { display: grid; grid-template-columns: 1fr 1fr; margin: 25px 0 20px; gap: 12px; }.k-paper-address > div { display: flex; flex-direction: column; font-size: 9px; line-height: 1.8; }.k-paper-address > div:last-child { text-align: right; }.k-paper-address small { font-size: 7px; letter-spacing: 1px; color: #566370; }
 .k-invoice-paper table { width: 100%; border-collapse: collapse; font-size: 9px; }.k-invoice-paper th { background: #eff5f9; padding: 8px; font-weight: 500; text-align: left; }.k-invoice-paper th:last-child, .k-invoice-paper td:last-child { text-align: right; white-space: nowrap; }.k-invoice-paper td { padding: 11px 7px; border-bottom: 1px solid #edf0f3; }.k-invoice-paper td small { display: block; font-size: 7px; color: #7b8590; }.k-invoice-paper td b { font-weight: 500; }
 .k-paper-totals { width: 65%; margin: 16px 0 20px auto; font-size: 9px; }.k-paper-totals > div { display: flex; justify-content: space-between; padding: 3px 0; gap: 12px; }.k-paper-totals > div:last-child { border-top: 1px solid #dfe7ed; margin-top: 6px; padding-top: 9px; font-size: 12px; color: #245777; }
 .k-paper-foot { border-top: 1px solid #edf0f3; padding-top: 13px; display: flex; justify-content: space-between; gap: 8px; color: #7e8790; font-size: 7px; }.k-paper-foot b { color: #106cd9; font-size: 10px; }
@@ -177,6 +177,11 @@
   .kora-home *, .kora-home *::before, .kora-home *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
   .kora-home .l-close h2 { color: #171b20; }
 }
+
+/* Contrast fixes (AA 4.5:1) found by the accessibility spec */
+.k-paper-heading small, .k-paper-address small, .k-invoice-paper td small, .k-paper-foot span { color: #566370; }
+.kora-home .l-legal, .l-legal { color: #5b6672; }
+.k-preview-copy a { color: #0b5cbd; }
 
 /* Contrast (WCAG AA): small grey text and a link on a tinted panel were just under 4.5:1. */
 .k-topbar > a:first-child span { color: #5d6368; }

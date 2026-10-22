@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { fillInvoice, makeBusiness, signedIn } from '../helpers';
+import { db, fillInvoice, makeBusiness, signedIn } from '../helpers';
 
 async function draft(page: import('@playwright/test').Page, customer: string, rate: string) {
   await page.goto('/app/invoices/new');
@@ -41,13 +41,15 @@ test('the bell lists what needs attention, and a dismissed notice stays dismisse
   await draft(page, 'Late Payer', '500');
   const id = page.url().split('/').pop()!;
   expect((await page.request.post(`/api/documents/${id}/issue`, { data: {} })).ok()).toBe(true);
+  // a draft left for days always raises a notice, whatever today's date is (GST due dates only show near the 11th and 20th)
+  await draft(page, 'Old Draft', '100');
+  await db`update document set created_at = now() - interval '5 days' where id = ${page.url().split('/').pop()!}`;
   await page.goto('/app');
   const bell = page.getByRole('button', { name: /^Notifications/ });
   await expect(bell).toBeVisible();
   await bell.click();
   const panel = page.getByRole('region', { name: 'Notifications' });
   await expect(panel).toBeVisible();
-  // the new business is regular, so a GST due date or two may show; there must be a way to dismiss each
   const first = panel.getByRole('listitem').first();
   const title = (await first.locator('b').textContent())!;
   await first.getByRole('button', { name: /^Dismiss:/ }).click();
