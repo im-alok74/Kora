@@ -114,7 +114,7 @@ test('a customer signs in to the portal with a code, pays two invoices together,
   const [row] = await db`select id from portal_link where party_id = ${c.id} and revoked_at is null`;
 
   // the customer arrives with no account of ours, only the link
-  const cust = await browser.newContext();
+  const cust = await browser.newContext({ baseURL: test.info().project.use.baseURL });
   const p = await cust.newPage();
   await p.goto(`/portal/${link.token}`);
   await expect(p.getByRole('heading', { name: 'Open your account' })).toBeVisible();
@@ -146,7 +146,7 @@ test('a customer signs in to the portal with a code, pays two invoices together,
   expect(pdf.headers()['content-type']).toContain('application/pdf');
 
   // a stranger with the link but no session sees nothing
-  const stranger = await browser.newContext();
+  const stranger = await browser.newContext({ baseURL: test.info().project.use.baseURL });
   expect((await stranger.request.get(`/api/portal/${link.token}`)).status()).toBe(401);
   await cust.close(); await stranger.close();
 
