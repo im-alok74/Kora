@@ -84,9 +84,9 @@ export default function Login() {
       <div className="auth-main">
       <div className="auth-box">
       <div className="auth-brand"><a href="/" aria-label="Kora home"><KoraLogo /></a></div>
-      <div className="auth-mode" aria-label="Account access">
-        <button type="button" aria-pressed={mode !== 'signup'} onClick={() => switchTo('signin')}>Sign in</button>
-        <button type="button" aria-pressed={mode === 'signup'} onClick={() => switchTo('signup')}>Create account</button>
+      <div className="auth-mode" role="tablist" aria-label="Account access" onKeyDown={(e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); switchTo(mode === 'signup' ? 'signin' : 'signup'); } }}>
+        <button type="button" role="tab" aria-selected={mode !== 'signup'} tabIndex={mode !== 'signup' ? 0 : -1} onClick={() => switchTo('signin')}>Sign in</button>
+        <button type="button" role="tab" aria-selected={mode === 'signup'} tabIndex={mode === 'signup' ? 0 : -1} onClick={() => switchTo('signup')}>Create account</button>
       </div>
       <h1>{mode === 'signup' ? 'Create your Kora account' : 'Sign in to Kora'}</h1>
       <p className="lead">{mode === 'code' ? 'Receive a sign-in code by email or text message.' : mode === 'signup' ? (demo ? 'Create an account to explore a labelled demo business with sample data.' : 'Create an account to manage your invoices and payments.') : 'Access your invoices, customers, and payments.'}</p>

@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  testMatch: /public-polish\.spec\.ts/,
+  testMatch: new RegExp(process.env.KORA_SPECS ?? 'public-polish\\.spec\\.ts'),
   timeout: 120_000,
   expect: { timeout: 20_000 },
   workers: 1,
