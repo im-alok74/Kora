@@ -208,3 +208,11 @@
   .vt-cross { margin-top: 56px; padding: 52px 0; }
 }
 @media print { .tl-preview { display: block !important; } .tl-split { display: block; } }
+@media (min-width: 901px) { .tl-preview { position: sticky; top: 96px; align-self: start; } }
+/* the pastel slabs keep dark text in both themes, so they must win over the dark theme's heading colour */
+:root[data-theme] .kora-home .vt-slab h3, :root[data-theme] .kora-home .vt-slab b { color: #212326; }
+:root[data-theme] .kora-home .vt-slab p { color: #2f3a40; }
+/* the paper sheet stays black on white whatever the theme */
+:root[data-theme] .kora-home .doc-sheet, :root[data-theme] .kora-home .doc-sheet p { color: #171b20; }
+:root[data-theme] .kora-home .doc-sheet .small { color: #3d464f; }
+:root[data-theme] .kora-home .doc-sheet .doc-err { color: #a02018; }
