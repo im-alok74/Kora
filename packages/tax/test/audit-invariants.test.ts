@@ -98,14 +98,15 @@ describe('the order of the lines never changes the totals', () => {
 });
 
 describe('rounding never drifts across many lines', () => {
-  it('200 identical lines come to exactly 200 times one line, and the document tax is within a paisa a line of the tax on the pooled value', () => {
+  it('200 identical lines come to exactly 200 times one line, and the document tax is within two paise a line of the tax on the pooled value', () => {
     fc.assert(fc.property(lineArb, (l) => {
       const one = computeDocument({ docType: 'tax_invoice', registrationType: 'regular', supplierState: '27', placeOfSupply: '29', lines: [l], roundTotal: false });
       const many = computeDocument({ docType: 'tax_invoice', registrationType: 'regular', supplierState: '27', placeOfSupply: '29', lines: Array(200).fill(l), roundTotal: false });
       return many.taxablePaise === 200n * one.taxablePaise && many.igstPaise === 200n * one.igstPaise && many.grandTotalPaise === 200n * one.grandTotalPaise
-        // tax on the pooled taxable value differs from tax summed line by line by at most a paisa a line (a line's tax and its cess
-        // both round, and a tax-inclusive line also carries the rounding of its taxable value). 200 lines is the most a document holds.
-        && abs(many.igstPaise - roundHalfUp(many.taxablePaise * BigInt(one.lines[0]!.taxRateBp), 10000n)) <= 200n;
+        // tax on the pooled taxable value differs from tax summed line by line by under two paise a line: the tax rounds, the cess rounds, and
+        // a tax-inclusive line also passes the rounding of its taxable value on to its tax (half a paisa, times 1 + the rates, so 1.26 at 40% and 12% cess).
+        // 200 lines is the most a document holds, so this is at most Rs 4 on the largest document.
+        && abs(many.igstPaise - roundHalfUp(many.taxablePaise * BigInt(one.lines[0]!.taxRateBp), 10000n)) <= 400n;
     }), { numRuns: 500 });
   });
   it('a whole-bill discount spread over the lines adds back to exactly the discount', () => {

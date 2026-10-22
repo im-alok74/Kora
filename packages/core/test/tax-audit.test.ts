@@ -3,7 +3,7 @@ import { validateIrpPayload } from '@kora/adapters';
 import { gstinCheckChar } from '@kora/tax';
 import { makeTestDb, type TestDb } from '@kora/db/src/testing.js';
 import {
-  buildIrpPayload, convertEstimate, createBusiness, createParty, getDocument, gstr1, issueDocument, previewTotals, resolveTenant, saveDraft, startNote,
+  buildIrpPayload, convertEstimate, createBusiness, createParty, getDocument, gstr1, gstr3b, gstSummary, issueDocument, previewTotals, salesRegister, resolveTenant, saveDraft, startNote,
   updateBusinessProfile, ValidationError, type DocIn, type TenantSession,
 } from '../src/index.js';
 
@@ -168,5 +168,49 @@ describe('an explicit place of supply is checked the same way as a derived one',
     for (const ok of ['29', '07', '38', '26', '97']) expect((await pos(ok)).placeOfSupply).toBe(ok);
     expect((await pos('96', 'estimate', { currency: 'USD', exchangeRate: '83' })).placeOfSupply).toBe('96');
     expect((await fails(pos('96', 'estimate'))).message).toMatch(/Exports are not supported/);
+  });
+});
+
+describe('GSTR-1 and GSTR-3B reconcile to the sales register to the paisa', () => {
+  it('for a month with registered, unregistered, reverse charge, nil-rated, credit and debit notes', async () => {
+    const buyer = await createParty(db.web, owner, { kind: 'customer', name: 'Recon Buyer', stateCode: '27', currency: 'USD' });
+    await mk({ partyId: buyer, docDate: '2026-10-15', lines: [goods('1234.56', 500, { quantity: '3' }), goods('77.77', 1800, { quantity: '7' }), goods('500', 0)] });
+    await mk({ partyId: regKA, docDate: '2026-10-16', reverseCharge: true, lines: [goods('999.99', 1800)] });
+    await mk({ partyId: regKA, docDate: '2026-10-17', lines: [goods('3333.33', 4000), goods('10', 300, { quantity: '33' }), goods('1000', 25)] });
+    await mk({ docType: 'bill_of_supply', partyId: abroadUnreg, docDate: '2026-10-18', lines: [goods('250', 0)] });
+    const inv = await mk({ partyId: regKA, docDate: '2026-10-19', lines: [goods('4000', 1800)] });
+    await mk({ docType: 'credit_note', partyId: regKA, originalDocumentId: inv.id as string, docDate: '2026-10-20', lines: [goods('1111.11', 1800)] });
+    await mk({ docType: 'debit_note', partyId: regKA, originalDocumentId: inv.id as string, docDate: '2026-10-21', lines: [goods('222.22', 1800)] });
+
+    const range = { from: '2026-10-01', to: '2026-10-31' };
+    const reg = (await salesRegister(db.web, owner, range)).totals;
+    const sum = await gstSummary(db.web, owner, '2026-10');
+    const big = (x: string) => BigInt(x);
+    const o = sum.outwardTaxable, rc = sum.outwardReverseCharge;
+    // every paisa of taxable value is in exactly one bucket
+    expect(big(o.taxable) + big(rc.taxable) + big(sum.nilRated) + big(sum.exempt)).toBe(big(reg.taxable));
+    for (const k of ['igst', 'cgst', 'sgst', 'cess'] as const) expect(big(o[k]) + big(rc[k])).toBe(big(reg[k]));
+
+    const r1 = await gstr1(db.web, owner, '2026-10');
+    expect(r1.reconciliation).toMatchObject({ matches: true });
+    expect(BigInt(r1.reconciliation.reportedTaxablePaise)).toBe(big(reg.taxable));
+    // the tax shown in the return's sections is the tax in the ledger
+    const j = r1.json as any;
+    const tax = { iamt: 0n, camt: 0n, samt: 0n, csamt: 0n };
+    const p = (x: number) => BigInt(x.toFixed(2).replace('.', ''));
+    const addItems = (itms: any[], sign: bigint) => { for (const it of itms) for (const k of Object.keys(tax) as (keyof typeof tax)[]) tax[k] += sign * p(it.itm_det[k] ?? 0); };
+    for (const g of j.b2b ?? []) for (const i of g.inv) addItems(i.itms, 1n);
+    for (const g of j.b2cl ?? []) for (const i of g.inv) addItems(i.itms, 1n);
+    for (const g of j.cdnr ?? []) for (const n of g.nt) addItems(n.itms, n.ntty === 'C' ? -1n : 1n);
+    for (const n of j.cdnur ?? []) addItems(n.itms, n.ntty === 'C' ? -1n : 1n);
+    for (const x of j.b2cs ?? []) { tax.iamt += p(x.iamt); tax.camt += p(x.camt); tax.samt += p(x.samt); tax.csamt += p(x.csamt); }
+    expect([tax.iamt, tax.camt, tax.samt, tax.csamt]).toEqual([big(reg.igst), big(reg.cgst), big(reg.sgst), big(reg.cess)]);
+
+    const r3 = await gstr3b(db.web, owner, '2026-10');
+    // 3.1(a) is the tax the supplier owes, so tax on supplies where the recipient pays under reverse charge is the one part left out
+    const rcTax = big(rc.igst) + big(rc.cgst) + big(rc.sgst) + big(rc.cess);
+    expect(rcTax).toBe(18000n);
+    expect(r3.liability.total).toBe((big(reg.igst) + big(reg.cgst) + big(reg.sgst) + big(reg.cess) - rcTax).toString());
+    expect(BigInt(r3.json.sup_details.osup_det.txval.toFixed(2).replace('.', ''))).toBe(big(o.taxable));
   });
 });

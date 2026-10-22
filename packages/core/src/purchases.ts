@@ -244,7 +244,8 @@ export async function itcSummary(sql: Sql, t: TenantSession, period: string) {
 // ---------------------------------------------------------------- GSTR-2B
 /** "INV/0012", "inv-12" and "INV12" are the same invoice to a person, so they are to the match: letters and digits only, no zeros at the front of a run of digits. */
 export const normaliseInvoiceNumber = (s: string) => String(s).toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/(?<![0-9])0+(?=[0-9])/g, '');
-const rupeesToPaise = (v: unknown): bigint => { const n = Number(v ?? 0); return Number.isFinite(n) ? BigInt(Math.round(n * 100)) : 0n; };
+// The portal's figures are rupees with two decimals. Print to two places and drop the point rather than multiplying a float by 100.
+const rupeesToPaise = (v: unknown): bigint => { const n = Number(v ?? 0); return Number.isFinite(n) ? BigInt(n.toFixed(2).replace('.', '')) : 0n; };
 const portalDate = (s: unknown): string | null => { const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(String(s ?? '')); return m ? `${m[3]}-${m[2]}-${m[1]}` : /^\d{4}-\d{2}-\d{2}$/.test(String(s ?? '')) ? String(s) : null; };
 
 export interface Parsed2bEntry { gstin: string; name: string | null; number: string; date: string | null; taxable: bigint; igst: bigint; cgst: bigint; sgst: bigint; cess: bigint; itc: boolean; rcm: boolean }
