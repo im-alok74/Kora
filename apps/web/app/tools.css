@@ -223,3 +223,6 @@
   .vt-stats dt { font-size: 18px; letter-spacing: -.4px; }
   .vt-stats dd { font-size: 12px; }
 }
+
+/* Print: A4 with even margins, so a saved PDF is not flush with the paper edge. */
+@page { size: A4; margin: 14mm; }
