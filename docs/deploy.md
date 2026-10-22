@@ -1,6 +1,6 @@
 # Deploying Kora
 
-This is the path from a working repository to a real business issuing real invoices. Nothing here has been run against production, because no production accounts exist yet. Steps that need an account are marked **needs account**.
+This is the path from a working repository to a real business issuing real invoices. Kora is deployed with the web app on Vercel (Mumbai region, `bom1`) and the database on Supabase, and goes live in early access. The step-by-step list of what to check, with what is done and what is not, is [launch-checklist.md](launch-checklist.md). If something misbehaves, see [troubleshooting.md](troubleshooting.md). Steps below that need an outside account are marked **needs account**.
 
 ## What runs
 
@@ -35,7 +35,7 @@ create database kora owner kora_owner;
 ```
 
 - `kora_web` must **not** be a superuser and must **not** have `BYPASSRLS`. Check with `select rolsuper, rolbypassrls from pg_roles where rolname = 'kora_web'`; both must be false. The test suite asserts this for the test database.
-- Run migrations as `kora_owner`: `MIGRATE_DATABASE_URL=... pnpm migrate`. Migrations are forward-only, run in order, each in a transaction, under an advisory lock, so two deploys cannot collide.
+- Run migrations as `kora_owner`: `MIGRATE_DATABASE_URL=... pnpm migrate`. Migrations are forward-only and run in file-name order under an advisory lock, so two deploys cannot collide. **All pending files run in one transaction**: if any one fails, none of the pending files is applied and `schema_migration` is unchanged. See "Applying migrations safely" in [launch-checklist.md](launch-checklist.md).
 - Before the first release, run `pnpm db:smoke` against a copy to confirm numbering, immutability, totals, webhook idempotency and tenant isolation behave.
 - Enable automated backups and point-in-time recovery. Test a restore before launch, and put a restore drill in the calendar.
 - Issued documents and the audit log must never be deleted to save space. They are the legal record.
@@ -47,7 +47,7 @@ See the table in the [README](../README.md). In production:
 - `NODE_ENV=production`. The mock OTP sender, mock gateway and mock messenger refuse to start. Do not set `KORA_ALLOW_MOCKS` in production.
 - `OTP_HMAC_SECRET` and `GATEWAY_WEBHOOK_SECRET` must be long random values, different per environment. Rotating `OTP_HMAC_SECRET` invalidates only codes in flight.
 - `DATABASE_URL` uses the `kora_web` role. Use a connection pooler in transaction mode only if it preserves `set_config(..., true)` inside a transaction (PgBouncer in transaction mode does).
-- Real provider adapters are new files implementing `OtpSender`, `Messenger`, `PaymentGateway` and `GspClient` in `packages/adapters`. They are selected by the corresponding environment variable.
+- Live adapters exist for sign-in codes and messages (MSG91, Resend, WhatsApp Cloud API) and payments (Razorpay), and run when `OTP_PROVIDER=live`, `MESSENGER=live` and `GATEWAY=razorpay` are set with their keys. The GST partner client (`GSP_URL`) is a generic JSON-over-HTTP client; a real partner's field names and error codes still have to be mapped. GSTIN lookup is a mock.
 
 ## Web and worker
 
@@ -67,7 +67,7 @@ pnpm --filter @kora/worker start   # worker (uses tsx; bundle with esbuild if yo
 
 ## Webhooks
 
-- Payment gateway webhook URL: `https://<your-domain>/api/webhooks/<gateway>`, for example `/api/webhooks/razorpay` once that adapter exists. Configure the signing secret in the gateway dashboard and in `GATEWAY_WEBHOOK_SECRET`.
+- Payment gateway webhook URL: `https://<your-domain>/api/webhooks/<gateway>`, for example `/api/webhooks/razorpay`. With `GATEWAY=razorpay`, configure the signing secret in the Razorpay dashboard and in `RAZORPAY_WEBHOOK_SECRET` (`GATEWAY_WEBHOOK_SECRET` is only for the mock gateway).
 - The handler returns 200 for valid events, including duplicates, 400 for a bad signature, and 500 if it could not apply the event, so the gateway retries.
 - Allow-list the gateway's IP ranges at the edge if the gateway publishes them.
 

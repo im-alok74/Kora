@@ -59,7 +59,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       'An e-invoice can be cancelled only within 24 hours of registration. After that, use a credit note.',
       'Kora is in early access. The live connection to the e-invoice partner is switched on with our partners, so until then registration runs against a test connection and the IRN you see is not a real one.',
     ],
-    steps: ['Open Settings and tick "Register my invoices as e-invoices". Your CA can tell you whether this applies to you.', 'Issue the invoice as usual.', 'Wait for the IRN and QR to appear on the invoice. This usually takes a few seconds.', 'If it is rejected, read the reason on the invoice, fix the detail and choose Resubmit e-invoice.', 'To cancel within 24 hours, choose Cancel e-invoice on the invoice.'],
+    steps: ['Open Settings and tick "Register my invoices as e-invoices". Your CA can tell you whether this applies to you.', 'Issue the invoice as usual.', 'Wait for the IRN and QR to appear on the invoice. It shows as registering until the portal answers, which can take a while if the portal is slow.', 'If it is rejected, read the reason on the invoice, fix the detail and choose Resubmit e-invoice.', 'To cancel within 24 hours, choose Cancel e-invoice on the invoice.'],
     related: ['e-way-bills', 'credit-and-debit-notes', 'gstr-1-and-your-ca'],
   },
   {
@@ -198,7 +198,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     body: [
       'Open an issued invoice. In the Send panel, pick WhatsApp, SMS or email, check the mobile number or email address, and choose Send. Or choose Copy link and paste the link into any chat yourself. A draft cannot be sent until it is issued.',
       'The panel tells you how many times your customer has opened the invoice, and Send history lists every attempt with its result. If a message failed, the history says why. Fix the cause, such as a wrong number, and send it again.',
-      'Messages go out through a background queue, so a short delay is normal, and Kora tries again if a provider is busy.',
+      'Messages go out through a background queue, and Kora tries again if a provider is busy. It is usually quick, but it can take longer, and Send history shows where each message stands. Do not press Send again while it still says queued, or your customer may get it twice.',
       'While Kora is in early access, messages go through a test sender unless your business has live delivery switched on. A test message is not delivered to your customer. WhatsApp business messages also have to use a template approved by WhatsApp, so the wording of the first message to a customer follows that template.',
     ],
     steps: ['Issue the invoice and open it.', 'In Send, choose WhatsApp, SMS or email.', 'Check the number or email address, then choose Send.', 'Open Send history to see whether it was delivered.'],
