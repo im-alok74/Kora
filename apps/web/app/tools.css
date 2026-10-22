@@ -216,3 +216,10 @@
 :root[data-theme] .kora-home .doc-sheet, :root[data-theme] .kora-home .doc-sheet p { color: #171b20; }
 :root[data-theme] .kora-home .doc-sheet .small { color: #3d464f; }
 :root[data-theme] .kora-home .doc-sheet .doc-err { color: #a02018; }
+
+/* Phones: the three facts sit in one row instead of wrapping 2 + 1. */
+@media (max-width: 560px) {
+  .vt-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 36px; }
+  .vt-stats dt { font-size: 18px; letter-spacing: -.4px; }
+  .vt-stats dd { font-size: 12px; }
+}

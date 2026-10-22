@@ -739,3 +739,5 @@ ul.notes li { align-items: flex-start; } ul.notes li p { margin: 2px 0 0; white-
 .pa-card { top: 36px; }
 .promo-art .l-badge.wa { top: 0; }
 .auth-sample-label { font-size: 12px; color: var(--text-muted); margin: 6px 0 0; }
+.auth-product-link { color: var(--accent-ink); font-weight: 600; }
+.auth-product-link:hover { text-decoration: underline; }
