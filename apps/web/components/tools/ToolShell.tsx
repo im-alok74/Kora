@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import Icon from '../Icon';
 import { SiteFooter, SiteHeader } from '../SiteChrome';
-import { TOOLS, type Tool } from '../../lib/tools';
+import { TOOLS, toolIcon, type Tool } from '../../lib/tools';
 
 type IconName = React.ComponentProps<typeof Icon>['name'];
 
@@ -11,7 +11,7 @@ export function ToolsShell({ children }: { children: ReactNode }) {
     <div className="landing kora-home">
       <SiteHeader />
       <main id="main-content" className="tools-main">{children}</main>
-      <SiteFooter />
+      <SiteFooter tools={false} />
     </div>
   );
 }
@@ -86,12 +86,7 @@ export function Faq({ items }: { items: [string, string][] }) {
   );
 }
 
-const ICONS: Record<string, IconName> = {
-  'gst-calculator': 'percent', 'invoice-generator': 'invoice', 'quotation-maker': 'documents', 'proforma-invoice-generator': 'documents',
-  'purchase-order-generator': 'cart', 'receipt-maker': 'receipt', 'qr-code-generator': 'qr', 'barcode-generator': 'database',
-  'qr-code-scanner': 'search', 'barcode-scanner': 'search', 'logo-maker': 'home',
-};
-export const toolIcon = (slug: string): IconName => ICONS[slug] ?? 'invoice';
+export { toolIcon };
 
 /** Links to the other tools, like the "Special purpose tools" strip on the reference. */
 export function MoreTools({ current }: { current?: string }) {

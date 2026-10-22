@@ -1,3 +1,5 @@
+import type Icon from '../components/Icon';
+
 // The free tools. Each runs in the browser: nothing typed into them is sent to Kora.
 export type Tool = { slug: string; title: string; summary: string; group: 'Documents' | 'Calculators' | 'Codes and logos' };
 
@@ -17,3 +19,11 @@ export const TOOLS: Tool[] = [
 
 export const TOOL_GROUPS: Tool['group'][] = ['Documents', 'Calculators', 'Codes and logos'];
 export const toolBySlug = (s: string) => TOOLS.find((t) => t.slug === s);
+
+type IconName = React.ComponentProps<typeof Icon>['name'];
+const ICONS: Record<string, IconName> = {
+  'gst-calculator': 'percent', 'invoice-generator': 'invoice', 'quotation-maker': 'documents', 'proforma-invoice-generator': 'documents',
+  'purchase-order-generator': 'cart', 'receipt-maker': 'receipt', 'qr-code-generator': 'qr', 'barcode-generator': 'database',
+  'qr-code-scanner': 'search', 'barcode-scanner': 'search', 'logo-maker': 'home',
+};
+export const toolIcon = (slug: string): IconName => ICONS[slug] ?? 'invoice';
