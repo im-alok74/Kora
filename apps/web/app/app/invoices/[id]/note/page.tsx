@@ -1,6 +1,6 @@
 'use client';
 import { use, useEffect, useMemo, useState } from 'react';
-import { api, rupees } from '../../../../../lib/client';
+import { api, NOTE_REASON_TEXT, rupees } from '../../../../../lib/client';
 
 type Ctx = {
   number: string | null; status: string; docType: string; invoicedTaxablePaise: string; creditedTaxablePaise: string;
@@ -10,11 +10,6 @@ type Ctx = {
 };
 type Pick = { on: boolean; quantity: string; rate: string };
 
-const REASON_TEXT: Record<string, string> = {
-  goods_returned: 'Goods returned by the customer', post_sale_discount: 'Discount given after the sale', price_correction: 'Price was wrong',
-  quantity_correction: 'Quantity was wrong', service_deficiency: 'Service was short or not up to the mark', tax_rate_correction: 'Tax rate was wrong',
-  additional_charge: 'Extra charge to add', other: 'Something else',
-};
 const rs = (p: string) => { const n = BigInt(p); return `${n / 100n}.${(n % 100n).toString().padStart(2, '0')}`; };
 
 /** A guided way to raise a credit or debit note: why, which lines, how much. It ends in a draft to check and issue. */
@@ -75,7 +70,7 @@ export default function GuidedNote({ params }: { params: Promise<{ id: string }>
           <label htmlFor="rs">Reason</label>
           <select id="rs" value={reason} onChange={(e) => setReason(e.target.value)} required>
             <option value="">Choose a reason</option>
-            {ctx.reasons[kind].map((k) => <option key={k} value={k}>{REASON_TEXT[k] ?? k}</option>)}
+            {ctx.reasons[kind].map((k) => <option key={k} value={k}>{NOTE_REASON_TEXT[k] ?? k}</option>)}
           </select>
           <label htmlFor="dt">A line of detail (optional)</label>
           <input id="dt" maxLength={300} value={detail} onChange={(e) => setDetail(e.target.value)} placeholder="For example: 3 chairs came back with broken legs" />

@@ -3,7 +3,7 @@ import LateFeePanel from '../../../../components/LateFeePanel';
 import EwayPanel from '../../../../components/EwayPanel';
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { formatMoney } from '@kora/tax';
-import { api, DOC_LABEL, rupees } from '../../../../lib/client';
+import { api, DOC_LABEL, NOTE_REASON_TEXT, rupees } from '../../../../lib/client';
 
 type Doc = Record<string, any>;
 const RECEIVABLE = ['tax_invoice', 'bill_of_supply', 'debit_note'];
@@ -135,6 +135,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
         <div>
           <h1>{label} {d.number ?? ''}</h1>
           {d.subject && <p className="doc-subject">{d.subject}</p>}
+          {d.note_reason && <p className="doc-subject" data-testid="note-reason">Reason: {NOTE_REASON_TEXT[d.note_reason] ?? d.note_reason}{d.note_reason_detail ? `. ${d.note_reason_detail}` : ''}</p>}
           <div className="meta">
           {est ? <span className={`chip ${EST_CHIP[est.status] ?? 'issued'}`} data-testid="estimate-status">{EST_LABEL[est.status] ?? est.status}</span> : (
           <span className={`chip ${d.status === 'issued' && d.payment_status === 'paid' ? 'paid' : d.status}`}>

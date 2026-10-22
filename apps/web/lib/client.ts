@@ -28,3 +28,10 @@ export const DOC_LABEL: Record<string, string> = {
   tax_invoice: 'Tax invoice', bill_of_supply: 'Bill of supply', estimate: 'Estimate', proforma: 'Proforma invoice',
   delivery_challan: 'Delivery challan', credit_note: 'Credit note', debit_note: 'Debit note', sales_order: 'Sales order',
 };
+
+/** What a credit or debit note's reason key means, in words a person would use. */
+export const NOTE_REASON_TEXT: Record<string, string> = {
+  goods_returned: 'Goods returned by the customer', post_sale_discount: 'Discount given after the sale', price_correction: 'Price was wrong',
+  quantity_correction: 'Quantity was wrong', service_deficiency: 'Service was short or not up to the mark', tax_rate_correction: 'Tax rate was wrong',
+  additional_charge: 'Extra charge to add', other: 'Something else',
+};

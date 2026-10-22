@@ -19,7 +19,7 @@ test('numbers run in sequence and the issued invoice cannot be edited', async ({
   await owner(context);
   await issueOne(page);
   await expect(page.getByRole('heading', { name: /INV\/\d\d-\d\d\/0001/ })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Edit' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Edit', exact: true })).toHaveCount(0);
   await page.goto('/app/invoices/new');
   await fillInvoice(page, { rate: '500' });
   await page.getByRole('button', { name: 'Issue tax invoice' }).click();
@@ -98,7 +98,7 @@ test('a credit note corrects an issued invoice, and a second full credit is refu
   await page.getByLabel('Rate for line 1').fill('400');
   await page.getByRole('button', { name: 'Make the credit note draft' }).click();
   await expect(page.getByRole('heading', { name: /Credit note/ })).toBeVisible();
-  await expect(page.getByText('Price correction')).toBeVisible();
+  await expect(page.getByTestId('note-reason')).toContainText('Price was wrong');
   await page.getByRole('button', { name: 'Issue', exact: true }).click();
   await expect(page.getByRole('heading', { name: /Credit note CN\/\d\d-\d\d\/0001/ })).toBeVisible();
   await page.goto('/app/invoices');

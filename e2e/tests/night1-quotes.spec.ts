@@ -21,9 +21,9 @@ test('the customer answers a quote from the shared link with a comment, and the 
   const v = await visitor.newPage();
   await v.goto(url);
   await expect(v.getByRole('heading', { name: 'Your answer' })).toBeVisible();
+  await v.getByLabel('Your name').fill('Anita');
   await v.getByRole('button', { name: 'Decline' }).click();
   await expect(v.getByRole('alert')).toContainText('briefly why');
-  await v.getByLabel('Your name').fill('Anita');
   await v.getByLabel(/Comment/).fill('Please bring the price down');
   await v.getByRole('button', { name: 'Decline' }).click();
   await expect(v.getByRole('heading', { name: 'You declined this quote' })).toBeVisible();
