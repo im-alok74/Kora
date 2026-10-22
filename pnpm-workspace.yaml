@@ -1,4 +1,6 @@
 packages:
   - apps/*
+  - "!apps/desktop"
+  - "!apps/mobile"
   - packages/*
   - e2e
