@@ -185,7 +185,7 @@ Status: **Done** in code. **Unknown** whether Upstash is configured in productio
 | Item | Status | Evidence / check |
 |---|---|---|
 | A domain you own, attached to the Vercel project, with HTTPS | **Unknown** | The code falls back to `https://kora-invoice.vercel.app` (`apps/web/lib/site.ts`). Set `APP_URL` and `NEXT_PUBLIC_SITE_URL` to the final address |
-| Desktop and Android shells point at the final address | **Not done** | `apps/desktop/src/app-config.json` and `apps/mobile/capacitor.config.json` both default to the Vercel address (`docs/apps.md`) |
+| Desktop and Android shells point at the final address | **Not done** | `apps/desktop/src/app-config.json` and `apps/mobile/capacitor.config.json` both open `https://kora-git-main-platter2.vercel.app/login`, the alias of the latest `main` deployment, not a permanent production domain (`docs/apps.md`). A new app version must be published after the address changes |
 | Email sender domain verified at Resend (SPF and DKIM records in DNS) | **Unknown** | `EMAIL_FROM` must use that domain. Add a DMARC record too |
 | A real support address and a grievance officer address | **Not done** | Placeholders listed in section 1, item 2 |
 | `robots.txt` and sitemap | **Done** | `apps/web/app/robots.ts`, `sitemap.ts` |

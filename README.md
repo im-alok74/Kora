@@ -85,7 +85,7 @@ For production, use [docs/launch-checklist.md](docs/launch-checklist.md), which 
 ```bash
 pnpm db:up
 pnpm typecheck
-pnpm db:smoke       # SQL-level rules, run as superuser
+pnpm db:smoke       # SQL-level rules, run as superuser (a bash script: use Git Bash on Windows)
 pnpm test           # unit, property and database integration tests (uses the Postgres from db:up)
 pnpm e2e            # Playwright: builds and starts web, worker and the mock partner, and runs the browser suite
 ```
