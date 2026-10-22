@@ -60,7 +60,7 @@ export default function GuidedNote({ params }: { params: Promise<{ id: string }>
         <section className="panel" aria-label="Step 1, what kind of note">
           <p className="section-label">1. What do you want to do?</p>
           <div className="choice-row" role="radiogroup" aria-label="Kind of note">
-            <label className="choice"><input type="radio" name="kind" checked={credit} onChange={() => setKind('credit_note')} /> <b>Reduce what the customer owes</b><span className="muted">Credit note. For returns, discounts after the sale, or a price that was too high.</span></label>
+            <label className="choice"><input type="radio" name="kind" checked={credit} onChange={() => setKind('credit_note')} /> <b>Reduce what the customer owes</b> <span className="muted">Credit note. For returns, discounts after the sale, or a price that was too high.</span></label>
             <label className="choice"><input type="radio" name="kind" checked={!credit} onChange={() => setKind('debit_note')} /> <b>Charge the customer more</b><span className="muted">Debit note. For a price that was too low or an extra charge you forgot.</span></label>
           </div>
         </section>
@@ -83,7 +83,7 @@ export default function GuidedNote({ params }: { params: Promise<{ id: string }>
             <button type="button" className="secondary sm" onClick={() => setPicks((p) => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, { ...v, on: true }])))}>Pick every line</button>
             <button type="button" className="secondary sm" onClick={() => setPicks((p) => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, { ...v, on: false }])))}>Clear</button>
           </div>
-          <table className="t line-table" aria-label="Lines of the invoice">
+          <div className="table-scroll"><table className="t" aria-label="Lines of the invoice">
             <thead><tr><th>Use</th><th>Item</th><th className="n">Invoiced</th><th className="n">{credit ? 'Quantity to credit' : 'Quantity to charge'}</th><th className="n">{credit ? 'Rate to credit' : 'Rate to charge'}</th></tr></thead>
             <tbody>{ctx.lines.map((l) => {
               const p = picks[l.position]!;
@@ -96,7 +96,7 @@ export default function GuidedNote({ params }: { params: Promise<{ id: string }>
                   <td className="n" data-label="Rate"><input aria-label={`Rate for line ${l.position}`} inputMode="decimal" value={p.rate} disabled={!p.on} onChange={(e) => setPick(l.position, { rate: e.target.value })} /></td>
                 </tr>);
             })}</tbody>
-          </table>
+          </table></div>
           {credit && <p className="muted">For a discount after the sale, keep the quantity and lower the rate. For a return, lower the quantity.</p>}
         </section>
 
