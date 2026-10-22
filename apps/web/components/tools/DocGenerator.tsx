@@ -11,7 +11,8 @@ const KINDS: Record<DocKind, { title: string; tax: DocType; from: string; to: st
   'purchase-order': { title: 'PURCHASE ORDER', tax: 'estimate', from: 'Order from (supplier)', to: 'Ship to and bill to (your business)', numberLabel: 'PO number', dateLabel: 'Order date', dueLabel: 'Deliver by' },
   receipt: { title: 'PAYMENT RECEIPT', tax: 'estimate', from: 'Received by (your business)', to: 'Received from', numberLabel: 'Receipt number', dateLabel: 'Date received', dueLabel: null },
 };
-const RATES = [0, 5, 12, 18, 28];
+// Rates in force since 22 September 2025. The older 12% and 28% slabs only apply to supplies made before that date.
+const RATES = [0, 3, 5, 18, 40];
 const METHODS = ['Cash', 'UPI', 'Bank transfer', 'Cheque', 'Card'];
 type Party = { name: string; gstin: string; address: string; state: string };
 type Line = { desc: string; hsn: string; qty: string; rate: string; gst: number };

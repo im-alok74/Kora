@@ -729,3 +729,13 @@ ul.notes li { align-items: flex-start; } ul.notes li p { margin: 2px 0 0; white-
 .choice input{margin-top:4px}
 .choice span.muted{grid-column:2}
 .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* Sign-in polish: the show/hide control sits inside the password field, and the promo badge no longer covers the invoice. */
+.pw-field { position: relative; }
+.pw-field input { padding-right: 76px; }
+.auth-box .pw-field .show-pw { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: auto; height: 40px; margin: 0; padding: 0 12px; font-size: 14px; border-radius: 6px; text-decoration: none; font-weight: 600; }
+.auth-box .pw-field .show-pw:focus-visible { outline: 2px solid var(--focus-ring, var(--accent)); outline-offset: 0; }
+.promo-art { height: 250px; }
+.pa-card { top: 36px; }
+.promo-art .l-badge.wa { top: 0; }
+.auth-sample-label { font-size: 12px; color: var(--text-muted); margin: 6px 0 0; }

@@ -102,8 +102,7 @@ export default function Login() {
           <form noValidate onSubmit={(e) => { e.preventDefault(); if (!checkId()) return; void run(async () => after(await api('/api/auth/password', { body: { identifier, password } }), 'signin')); }}>
             {idField}
             <label htmlFor="pw">Password</label>
-            <input id="pw" type={show ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            {pwToggle}
+            <div className="pw-field"><input id="pw" type={show ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />{pwToggle}</div>
             <button disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
           </form>
         ) : mode === 'signup' ? (
@@ -121,10 +120,9 @@ export default function Login() {
             </select>
             {idField}
             <label htmlFor="pw">Password (at least 8 characters)</label>
-            <input id="pw" type={show ? 'text' : 'password'} autoComplete="new-password" minLength={8} maxLength={128} value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby="pw-note" required />
+            <div className="pw-field"><input id="pw" type={show ? 'text' : 'password'} autoComplete="new-password" minLength={8} maxLength={128} value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby="pw-note" required />{pwToggle}</div>
             <div className="pw-meter" data-score={strength.score} aria-hidden="true"><i /><i /><i /><i /></div>
             <p id="pw-note" className="pw-note" role="status">{password ? <><b>{strength.label}.</b> {strength.tip}</> : 'Use at least 8 characters. A few random words work well.'}</p>
-            {pwToggle}
             <button disabled={busy}>{busy ? 'Creating account…' : 'Create account'}</button>
           </form>
         ) : step === 'id' ? (

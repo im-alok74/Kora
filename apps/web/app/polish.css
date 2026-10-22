@@ -1,0 +1,7 @@
+/* Overnight polish for the shared public chrome. Loaded with SiteChrome, after landing.css, so it wins on equal weight. */
+
+/* Footer: brand plus three link columns on one row, the legal line underneath. */
+.kora-home .l-footer .l-wrap { grid-template-columns: 1.6fr 1fr 1fr 1fr; }
+@media (max-width: 900px) { .kora-home .l-footer .l-wrap { grid-template-columns: 1.4fr 1fr 1fr; } .kora-home .l-footer .l-wrap > nav[aria-label="Legal"] { grid-column: 1; } }
+@media (max-width: 480px) { .kora-home .l-footer .l-wrap { grid-template-columns: 1fr 1fr; } .kora-home .l-footer .l-wrap > nav[aria-label="Legal"] { grid-column: auto; } }
+.kora-home .l-footer .l-wrap > .l-legal { grid-column: 1 / -1; }
