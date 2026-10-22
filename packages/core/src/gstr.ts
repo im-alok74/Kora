@@ -220,7 +220,7 @@ export async function gstSummary(sql: Sql, t: TenantSession, period: string) {
     totalTax: (taxable.iamt + taxable.camt + taxable.samt + taxable.csamt).toString(),
     notes: [
       'Outward taxable supplies are net of credit notes and include debit notes.',
-      'Input tax credit and inward supplies are not included: Kora does not record purchases yet.',
+      'Input tax credit and inward supplies are not in this summary. Your purchase bills and the credit on them are in the GSTR-3B data.',
       'This summary helps you prepare GSTR-3B. You remain responsible for the return.',
     ],
   };
