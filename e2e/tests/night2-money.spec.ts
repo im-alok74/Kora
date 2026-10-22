@@ -156,3 +156,24 @@ test('a customer signs in to the portal with a code, pays two invoices together,
   await expect(page.getByText('Please confirm the delivery date.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'PO-1.pdf' })).toBeVisible();
 });
+
+test('the invoice shows the money story and a part refund reopens part of it', async ({ page, context }) => {
+  const u = await signedIn(context);
+  await makeBusiness(u.userId, 'Refund Co');
+  const c = await (await page.request.post('/api/parties', { data: { kind: 'customer', name: 'Refund Buyer', stateCode: '27' } })).json();
+  const d = await (await page.request.post('/api/documents', { data: { docType: 'tax_invoice', partyId: c.id, dueDate: ist(10), lines: [{ name: 'Work', hsnSac: '998313', quantity: '1', rate: '1000', taxRateBp: 0, kind: 'service' }] } })).json();
+  await page.request.post(`/api/documents/${d.id}/issue`, { data: {} });
+  await page.request.post(`/api/documents/${d.id}/payments`, { data: { amount: '1000', method: 'bank_transfer' } });
+
+  await page.goto(`/app/invoices/${d.id}`);
+  const tl = page.getByTestId('payment-timeline');
+  await expect(tl).toContainText('Paid in full');
+  await expect(tl).toContainText('Payment received');
+  await tl.getByRole('button', { name: 'Refund some or all of this' }).click();
+  await tl.getByLabel('Refund (Rs)').fill('250');
+  await tl.getByLabel('Note').fill('Goods returned');
+  await tl.getByRole('button', { name: 'Refund', exact: true }).click();
+  await expect(tl).toContainText('Part paid');
+  await expect(tl).toContainText('Rs 250.00 of Rs 1,000.00 is still owed.');
+  await expect(tl).toContainText('Goods returned');
+});

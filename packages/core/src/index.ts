@@ -53,6 +53,7 @@ export * from './team.js';
 export * from './registers.js';
 export * from './attachments.js';
 export * from './credit.js';
+export * from './payment-history.js';
 export * from './bankstatement.js';
 export * from './comments.js';
 export * from './messages.js';
