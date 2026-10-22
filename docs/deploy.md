@@ -162,7 +162,7 @@ exits non-zero.
 
 ## Watching the queue
 
-`GET /api/admin/jobs` with `Authorization: Bearer <CRON_SECRET>` shows jobs counted by queue and status, the oldest job still waiting, and the 25 latest failures (error text, no payloads). `POST /api/admin/jobs` with `{ "queue": "einvoice" }` (or an empty body for every queue) puts failed jobs back in line with a fresh attempt count. Both refuse everyone when `CRON_SECRET` is not set.
+`GET /api/admin/jobs` with `Authorization: Bearer <CRON_SECRET>` shows jobs counted by queue and status, the oldest job still waiting, and the 25 latest failures (error text, no payloads). `POST /api/admin/jobs` with `{ "queue": "einvoice.register" }` (the exact queue name, one of `delivery.send`, `statement.send`, `einvoice.register`, `webhook.deliver`; or an empty body for every queue) puts failed jobs back in line with a fresh attempt count. Both refuse everyone when `CRON_SECRET` is not set.
 
 ## Before going live
 
