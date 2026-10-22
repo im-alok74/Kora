@@ -229,7 +229,7 @@ test('expenses: mileage is worked out, and billable expenses become a draft invo
   await page.getByRole('checkbox').first().check();
   await page.getByRole('button', { name: /Make a draft invoice/ }).click();
   await expect(page).toHaveURL(/\/app\/invoices\//);
-  await expect(page.getByDisplayValue(/Reimbursement: Mileage/)).toBeVisible();
+  await expect(page.locator('input[value^="Reimbursement: Mileage"]').first()).toBeVisible();
   void c;
 });
 
