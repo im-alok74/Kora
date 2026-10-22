@@ -62,10 +62,12 @@ test('pages have no serious accessibility violations', async ({ page, context })
   }
   const anon = await page.context().browser()!.newContext();
   const p = await anon.newPage();
+  await p.emulateMedia({ reducedMotion: 'reduce' }); // entrance animations fade text in; axe must see the settled colours
   await p.goto('/');
   await p.getByRole('heading').first().waitFor();
   const res = await new AxeBuilder({ page: p }).withTags(['wcag2a', 'wcag2aa']).analyze();
-  expect(res.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+  const bad = res.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+  expect(bad.map((v) => `/: ${v.id} ${v.nodes.map((n) => n.target.join(' ') + ' ' + (n.any[0]?.message ?? '')).join(' | ')}`)).toEqual([]);
   await anon.close();
 });
 
