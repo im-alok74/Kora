@@ -10,6 +10,7 @@ import BusinessSwitcher from './business-switcher';
 import SyncStatus from '../../components/SyncStatus';
 import TopBar from '../../components/TopBar';
 import Shortcuts from '../../components/Shortcuts';
+import ProductSurface from '../../components/ProductSurface';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +28,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <span className="role">{active.role}</span>
         <SignOut />
       </SideNav>
-      <div className="content"><ClientOnly><TopBar /><Shortcuts /><SyncStatus />{children}</ClientOnly></div>
+      <div className="content"><ClientOnly><TopBar /><Shortcuts /><SyncStatus /><ProductSurface>{children}</ProductSurface></ClientOnly></div>
     </div>
   );
 }
