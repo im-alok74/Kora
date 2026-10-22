@@ -53,6 +53,9 @@ importers:
       playwright:
         specifier: ^1.49.0
         version: 1.64.1
+      qrcode:
+        specifier: 1.5.4
+        version: 1.5.4
       react:
         specifier: ^19.0.0
         version: 19.3.1
@@ -60,6 +63,9 @@ importers:
         specifier: ^19.0.0
         version: 19.3.1(react@19.3.1)
     devDependencies:
+      '@types/qrcode':
+        specifier: 1.5.6
+        version: 1.5.6
       '@types/react':
         specifier: ^19.0.0
         version: 19.3.0

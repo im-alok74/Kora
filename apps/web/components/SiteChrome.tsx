@@ -4,7 +4,7 @@ import SiteThemeToggle from './SiteThemeToggle';
 
 /** The top bar and footer shared by the landing page, pricing, help and the legal pages. */
 export function SiteHeader() {
-  const links: [string, string][] = [['/#features', 'Features'], ['/#looks', 'Templates'], ['/#who', 'For your business'], ['/pricing', 'Pricing'], ['/help', 'Help']];
+  const links: [string, string][] = [['/#features', 'Features'], ['/#looks', 'Templates'], ['/#who', 'For your business'], ['/pricing', 'Pricing'], ['/tools', 'Free tools'], ['/help', 'Help']];
   return (
     <>
       <a className="k-skip" href="#main-content">Skip to content</a>
@@ -53,6 +53,7 @@ export function SiteFooter() {
           <a href="/#who">Who it is for</a>
           <a href="/#how">How it works</a>
           <a href="/pricing">Pricing</a>
+          <a href="/tools">Free tools</a>
         </nav>
         <nav aria-label="Help">
           <h3>Help</h3>
