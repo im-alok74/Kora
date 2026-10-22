@@ -8,6 +8,15 @@ import { isDate, str, todayIn, ValidationError } from './validation.js';
 export const PAYMENT_METHODS = ['cash', 'upi', 'card', 'netbanking', 'bank_transfer', 'cheque', 'tds', 'client_money', 'other'] as const;
 const RECEIVABLE_TYPES = ['tax_invoice', 'bill_of_supply', 'debit_note'];
 
+/**
+ * A written-off invoice is out of the receivables and its bad debt is on the statement. Money recorded against it as well would
+ * be counted twice, so it has to be taken back first: cancel the write-off, then record the payment.
+ */
+async function assertNotWrittenOff(tx: import('@kora/db').Tx, documentId: string): Promise<void> {
+  const [w] = await tx`select id from document_write_off where document_id = ${documentId} and cancelled_at is null`;
+  if (w) throw new ValidationError('This invoice has been written off as a bad debt. If the money has turned up, cancel the write-off first, then record the payment.');
+}
+
 /** Records money received against one issued invoice. The amount cannot exceed what is outstanding. */
 export async function recordPayment(
   sql: Sql, t: TenantSession,
@@ -25,6 +34,7 @@ export async function recordPayment(
     if (d.status !== 'issued' || !RECEIVABLE_TYPES.includes(d.doc_type as string)) throw new ValidationError('Payments can only be recorded against an issued invoice.');
     const outstanding = BigInt(d.grand_total_paise as string) - BigInt(d.amount_settled_paise as string);
     if (outstanding <= 0n) throw new ValidationError('This invoice is already paid.');
+    await assertNotWrittenOff(tx, i.documentId);
     if (amount > outstanding) throw new ValidationError(`The amount is more than the ${(outstanding / 100n).toString()}.${(outstanding % 100n).toString().padStart(2, '0')} still due.`, 'amount');
     const [b] = await tx`select timezone from business where id = ${t.businessId}`;
     const on = i.receivedOn || todayIn(b!.timezone as string);
