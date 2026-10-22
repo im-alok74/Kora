@@ -1,0 +1,86 @@
+name: release-apps
+
+# Builds the installable Kora apps and attaches them to a GitHub release named app-v<version>.
+# The Download page on the site reads that release, so a new file appears there within ten minutes.
+# Run it from the Actions tab (Run workflow, then type a version such as 0.1.0), or push a tag like app-v0.1.0.
+on:
+  workflow_dispatch:
+    inputs:
+      version: { description: 'Version number, for example 0.1.0', required: true }
+  push:
+    tags: ['app-v*']
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      v: ${{ steps.v.outputs.v }}
+    steps:
+      - id: v
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then echo "v=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"; else echo "v=${GITHUB_REF_NAME#app-v}" >> "$GITHUB_OUTPUT"; fi
+
+  desktop:
+    needs: version
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Build the app
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          npm ci
+          npm version "${{ needs.version.outputs.v }}" --no-git-tag-version --allow-same-version
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then npm run dist:win; else npm run dist:mac; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: |
+            apps/desktop/dist/*.exe
+            apps/desktop/dist/*.dmg
+          if-no-files-found: error
+
+  android:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - name: Build the Android app
+        working-directory: apps/mobile
+        run: |
+          npm install --no-audit --no-fund
+          npx cap add android
+          npx cap sync android
+          cd android && ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk "../Kora-${{ needs.version.outputs.v }}-android.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: apps/mobile/Kora-*.apk
+          if-no-files-found: error
+
+  release:
+    needs: [version, desktop, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: files, merge-multiple: true }
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "app-v${{ needs.version.outputs.v }}" files/* --repo "${{ github.repository }}" \
+            --title "Kora apps ${{ needs.version.outputs.v }}" \
+            --notes "Installers for Windows, Mac and Android. They open the same Kora you use in the browser. The files are not signed yet, so Windows and macOS ask you to confirm the first time."

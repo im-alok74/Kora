@@ -1,0 +1,9 @@
+{
+  "appId": "in.kora.app",
+  "appName": "Kora",
+  "webDir": "www",
+  "server": {
+    "url": "https://kora-git-main-platter2.vercel.app/login",
+    "androidScheme": "https"
+  }
+}
