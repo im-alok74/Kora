@@ -232,9 +232,9 @@ describe('the looks', () => {
     expect(h).toContain('PO-2041');
   });
   it('makes a real PDF in each look', async () => {
-    for (const layout of ['modern', 'minimal'] as const) {
+    for (const layout of ['modern', 'minimal', 'bold', 'elegant', 'ledger', 'corporate', 'soft', 'duo'] as const) {
       const pdf = await renderPdf(renderDocumentHtml(sample({ template: { ...TEMPLATE, layout } })), 'A4');
       expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
     }
-  });
+  }, 60_000);
 });
