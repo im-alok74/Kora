@@ -128,18 +128,30 @@ export async function applyGatewayEvent(sql: Sql, gateway: string, evt: GatewayE
     if (!link) { await done(); return { duplicate: false, reason: 'unknown_link' } as GatewayResult; }
 
     await setTenant(tx, { businessId: link.business_id as string, userId: SYSTEM_USER });
-    const [d] = await tx`select id, party_id, status, grand_total_paise, amount_settled_paise from document where id = ${link.document_id} for update`;
+    const items = await tx`select i.document_id from payment_link_item i join document d on d.id = i.document_id where i.link_id = ${link.link_id} order by d.doc_date, d.number`;
+    const targets = items.length ? items.map((i) => i.document_id as string) : [link.document_id as string];
     const [b] = await tx`select timezone from business where id = ${link.business_id}`;
     const amount = evt.amountPaise;
-    const outstanding = d!.status === 'issued' ? BigInt(d!.grand_total_paise as string) - BigInt(d!.amount_settled_paise as string) : 0n;
-    const allocate = amount < outstanding ? amount : outstanding;
+    // One link can settle several invoices (bulk pay): the money goes to the oldest first, each up to what it still owes.
+    const plan: { id: string; party: string | null; pay: bigint }[] = [];
+    let left = amount;
+    for (const id of targets) {
+      const [d] = await tx`select id, party_id, status, grand_total_paise, amount_settled_paise from document where id = ${id} for update`;
+      const out = d!.status === 'issued' ? BigInt(d!.grand_total_paise as string) - BigInt(d!.amount_settled_paise as string) : 0n;
+      const take = left < out ? left : out;
+      plan.push({ id, party: d!.party_id as string | null, pay: take });
+      left -= take;
+    }
+    const allocate = amount - left;
 
     const [p] = await tx`insert into payment (business_id, party_id, amount_paise, method, gateway, gateway_event_id, gateway_payment_id, received_on)
-                         values (${link.business_id}, ${d!.party_id}, ${amount.toString()}, ${evt.method}, ${gateway}, ${evt.eventId}, ${evt.gatewayPaymentId},
+                         values (${link.business_id}, ${plan[0]!.party}, ${amount.toString()}, ${evt.method}, ${gateway}, ${evt.eventId}, ${evt.gatewayPaymentId},
                                  ${todayIn(b!.timezone as string)}) returning id`;
-    if (allocate > 0n) {
-      await tx`insert into payment_allocation (business_id, payment_id, document_id, amount_paise)
-               values (${link.business_id}, ${p!.id}, ${link.document_id}, ${allocate.toString()})`;
+    for (const x of plan) {
+      if (x.pay > 0n) {
+        await tx`insert into payment_allocation (business_id, payment_id, document_id, amount_paise)
+                 values (${link.business_id}, ${p!.id}, ${x.id}, ${x.pay.toString()})`;
+      }
     }
     await tx`update payment_link set status = 'paid' where id = ${link.link_id}`;
     const [after] = await tx`select number, payment_status from document where id = ${link.document_id}`;

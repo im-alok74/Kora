@@ -125,15 +125,15 @@ export async function partyOverview(sql: Sql, t: TenantSession, id: string) {
         coalesce(sum(case when doc_type in ('tax_invoice', 'bill_of_supply', 'debit_note') then grand_total_paise when doc_type = 'credit_note' then -grand_total_paise else 0 end) filter (where status = 'issued'), 0)::text as billed,
         count(*) filter (where status = 'issued' and doc_type in ('tax_invoice', 'bill_of_supply'))::int as invoices,
         max(doc_date) filter (where status = 'issued')::text as last_billed
-      from document where party_id = ${id}`;
+      from document where party_id in (select party_family(${id}))`;
     const [r] = await tx`select coalesce(sum(outstanding_paise), 0)::text as outstanding, coalesce(sum(outstanding_paise) filter (where due_date < ${today}::date), 0)::text as overdue,
-                                count(*)::int as open_count, max(${today}::date - due_date) filter (where due_date < ${today}::date)::int as max_days_late from receivable where party_id = ${id}`;
+                                count(*)::int as open_count, max(${today}::date - due_date) filter (where due_date < ${today}::date)::int as max_days_late from receivable where party_id in (select party_family(${id}))`;
     const [pay] = await tx`select coalesce(sum(a.amount_paise) filter (where p.method <> 'tds'), 0)::text as received, count(*)::int as n,
                                   avg(extract(epoch from (p.received_on::timestamp - d.doc_date::timestamp)) / 86400)::float as avg_days
-                             from payment p join payment_allocation a on a.payment_id = p.id join document d on d.id = a.document_id where p.party_id = ${id}`;
+                             from payment p join payment_allocation a on a.payment_id = p.id join document d on d.id = a.document_id where p.party_id in (select party_family(${id}))`;
     const docs = await tx`select d.id, d.number, d.doc_type, d.status, d.doc_date::text as doc_date, d.grand_total_paise::text as total_paise, d.payment_status, d.currency
-                            from document d where d.party_id = ${id} order by d.created_at desc limit 25`;
-    const payments = await tx`select p.id, p.received_on::text as received_on, p.amount_paise::text as amount_paise, p.method, p.note from payment p where p.party_id = ${id} order by p.received_on desc, p.created_at desc limit 15`;
+                            from document d where d.party_id in (select party_family(${id})) order by d.created_at desc limit 25`;
+    const payments = await tx`select p.id, p.received_on::text as received_on, p.amount_paise::text as amount_paise, p.method, p.note from payment p where p.party_id in (select party_family(${id})) order by p.received_on desc, p.created_at desc limit 15`;
     return {
       party: { id: p.id as string, kind: p.kind as string, name: p.name as string, gstin: p.gstin as string | null, phone: p.phone as string | null, email: p.email as string | null, stateCode: p.state_code as string, address: p.billing_address as Record<string, unknown>, since: p.created_at as string, archived: p.archived as boolean },
       summary: {
