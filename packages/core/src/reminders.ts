@@ -39,8 +39,9 @@ export function reminderTime(dueDate: string, offsetDays: number): Date {
 /** Called when a document is issued. Only future reminders are created. */
 export async function scheduleReminders(tx: Tx, doc: { id: string; business_id: string; doc_type: string; due_date: string | null }, now = new Date()): Promise<number> {
   if (!doc.due_date || !['tax_invoice', 'bill_of_supply', 'debit_note'].includes(doc.doc_type)) return 0;
-  const [b] = await tx`select reminder_config from business where id = ${doc.business_id}`;
-  const cfg = sanitiseReminderConfig(b?.reminder_config);
+  const [b] = await tx`select b.reminder_config, p.reminder_override from business b
+                         left join document d on d.id = ${doc.id} left join party p on p.id = d.party_id where b.id = ${doc.business_id}`;
+  const cfg = sanitiseReminderConfig(b?.reminder_override ?? b?.reminder_config);
   if (!cfg.enabled) return 0;
   let n = 0;
   for (const off of cfg.offsets) {

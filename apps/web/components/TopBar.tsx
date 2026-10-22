@@ -36,7 +36,13 @@ export default function TopBar() {
   const [dismissed, dismiss, restore] = useDismissed();
   const [dark, setDark] = useState(false);
 
-  useEffect(() => { setDark(document.documentElement.dataset.theme === 'dark'); }, []);
+  useEffect(() => {
+    const sync = () => setDark(document.documentElement.dataset.theme === 'dark');
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
   useEffect(() => { api('/api/notifications').then((r) => setNotices(r.notices)).catch(() => {}); }, []);
 
   const show = useCallback(() => { opener.current = document.activeElement as HTMLElement | null; setOpen(true); setQ(''); setHits([]); setCur(0); }, []);

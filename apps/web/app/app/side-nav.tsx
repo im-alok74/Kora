@@ -1,4 +1,6 @@
 'use client';
+import KoraLogo from '../../components/KoraLogo';
+
 import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import Icon, { type IconName } from '../../components/Icon';
@@ -21,23 +23,23 @@ export default function SideNav({ role, multi = false, children }: { role: strin
     { title: 'Sales', items: [
       { href: '/app/invoices', label: 'Documents', icon: 'documents' }, { href: '/app/pos', label: 'Till', icon: 'rupee', show: role !== 'accountant' }, { href: '/app/recurring', label: 'Recurring', icon: 'repeat' },
       { href: '/app/matters', label: 'Matters', icon: 'briefcase' }, { href: '/app/projects', label: 'Projects', icon: 'clock' }, { href: '/app/customers', label: 'Customers', icon: 'user' }, { href: '/app/items', label: 'Items', icon: 'box' }, { href: '/app/price-lists', label: 'Price lists', icon: 'percent' }] },
-    { title: 'Money', items: [{ href: '/app/network', label: 'Network', icon: 'team' }, { href: '/app/inbox', label: 'Inbox', icon: 'inbox' }, { href: '/app/purchases', label: 'Purchases', icon: 'cart' }, { href: '/app/bank', label: 'Bank', icon: 'database' }, { href: '/app/itc', label: 'Input GST', icon: 'percent' }, { href: '/app/expenses', label: 'Expenses', icon: 'receipt' }, { href: '/app/reports', label: 'Reports', icon: 'chart' }] },
+    { title: 'Money', items: [{ href: '/app/network', label: 'Network', icon: 'team' }, { href: '/app/inbox', label: 'Inbox', icon: 'inbox' }, { href: '/app/purchases', label: 'Purchases', icon: 'cart' }, { href: '/app/vendors', label: 'Vendors', icon: 'user' }, { href: '/app/bank', label: 'Bank', icon: 'database' }, { href: '/app/itc', label: 'Input GST', icon: 'percent' }, { href: '/app/expenses', label: 'Expenses', icon: 'receipt' }, { href: '/app/reports', label: 'Reports', icon: 'chart' }] },
     { title: 'Manage', items: [
-      { href: '/app/data', label: 'Data', icon: 'database' }, { href: '/app/developers', label: 'Developers', icon: 'code', show: role === 'owner' },
+      { href: '/app/data', label: 'Data', icon: 'database' }, { href: '/app/import', label: 'Import', icon: 'inbox', show: role !== 'accountant' }, { href: '/app/developers', label: 'Developers', icon: 'code', show: role === 'owner' },
       { href: '/app/team', label: 'Team', icon: 'team', show: role === 'owner' }, { href: '/app/activity', label: 'Activity', icon: 'clock', show: role !== 'staff' },
-      { href: '/app/security', label: 'Security', icon: 'shield' }, { href: '/app/security', label: 'Security', icon: 'shield' }, { href: '/app/settings', label: 'Settings', icon: 'settings' }] },
+      { href: '/app/security', label: 'Security', icon: 'shield' }, { href: '/app/settings', label: 'Settings', icon: 'settings' }] },
   ];
   const current = (href: string) => (href === '/app' ? path === '/app' : path === href || path.startsWith(href + '/'));
 
   return (
     <>
       <div className="mobile-bar">
-        <a className="brand" href="/app" aria-label="Kora home"><span className="brand-mark" aria-hidden="true">k</span>kora</a>
+        <a className="brand" href="/app" aria-label="Kora home"><KoraLogo /></a>
         <button type="button" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="main-nav" onClick={() => setOpen(!open)}><Icon name={open ? 'close' : 'menu'} /></button>
       </div>
       <div className="scrim" data-open={open} onClick={() => setOpen(false)} aria-hidden="true" />
       <nav className="side" id="main-nav" aria-label="Main" data-open={open}>
-        <a className="brand" href="/app" aria-label="Kora home"><span className="brand-mark" aria-hidden="true">k</span>kora</a>
+        <a className="brand" href="/app" aria-label="Kora home"><KoraLogo /></a>
         {groups.map((g) => {
           const items = g.items.filter((i) => i.show !== false);
           return (

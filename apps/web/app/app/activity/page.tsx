@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '../../../lib/client';
+import EmptyState from '../../../components/EmptyState';
 
 type Entry = { id: string; at: string; actor: string | null; table_name: string; row_id: string | null; action: string; before: any; after: any };
 const NAMES: Record<string, string> = { document: 'Document', payment: 'Payment', payment_allocation: 'Payment applied', party: 'Customer', item: 'Item', member: 'Team', business: 'Business',
@@ -22,7 +23,8 @@ export default function Activity() {
         <option value="">Everything</option>{Object.entries(NAMES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
       </select>
       {err && <p className="error" role="alert">{err}</p>}
-      {rows && (
+      {rows && rows.length === 0 && <EmptyState icon="clock" title="No activity yet">Every change to your invoices, customers and settings is recorded here as you work. Make an invoice and it will show up.</EmptyState>}
+      {rows && rows.length > 0 && (
         <table className="t" style={{ marginTop: 12 }}>
           <thead><tr><th>When</th><th>Who</th><th>What</th><th /></tr></thead>
           <tbody>{rows.map((r) => (

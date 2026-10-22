@@ -1,10 +1,11 @@
 'use client';
+import KoraLoader from '../../../components/KoraLoader';
 import { useEffect, useMemo, useState } from 'react';
 import { STATE_NAMES } from '@kora/tax';
 import { api, rupees } from '../../../lib/client';
 
-type Tab = 'sales' | 'customers' | 'payments' | 'ageing' | 'statement' | 'tds' | 'gst' | 'gstr3b' | 'gstr1';
-const TABS: [Tab, string][] = [['sales', 'Sales register'], ['customers', 'Sales by customer'], ['payments', 'Payments received'], ['ageing', 'Who owes you'], ['statement', 'Customer statement'], ['tds', 'TDS deducted'], ['gst', 'GST summary'], ['gstr3b', 'GSTR-3B data'], ['gstr1', 'GSTR-1 data']];
+type Tab = 'items' | 'months' | 'pnl' | 'payables' | 'sales' | 'customers' | 'payments' | 'ageing' | 'statement' | 'tds' | 'tdspayable' | 'gst' | 'gstr3b' | 'gstr1';
+const TABS: [Tab, string][] = [['sales', 'Sales register'], ['customers', 'Sales by customer'], ['items', 'Sales by item'], ['months', 'Sales by month'], ['pnl', 'Profit and loss'], ['payables', 'Who you owe'], ['payments', 'Payments received'], ['ageing', 'Who owes you'], ['statement', 'Customer statement'], ['tds', 'TDS deducted'], ['tdspayable', 'TDS payable'], ['gst', 'GST summary'], ['gstr3b', 'GSTR-3B data'], ['gstr1', 'GSTR-1 data']];
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
 export default function Reports() {
@@ -18,6 +19,11 @@ export default function Reports() {
   const [loaded, setLoaded] = useState<{ query: string; body: any } | null>(null);
   const [err, setErr] = useState('');
   const [canExport, setCanExport] = useState(false);
+  type View = { name: string; tab: Tab; from: string; to: string; party: string };
+  const [views, setViews] = useState<View[]>([]);
+  const [viewName, setViewName] = useState('');
+  useEffect(() => { try { setViews(JSON.parse(localStorage.getItem('kora.reportViews') ?? '[]')); } catch { /* no saved views */ } }, []);
+  const keepViews = (v: View[]) => { setViews(v); try { localStorage.setItem('kora.reportViews', JSON.stringify(v)); } catch { /* storage blocked: views last until the page closes */ } };
   const [canSend, setCanSend] = useState(false);
   const [contacts, setContacts] = useState<{ id: string; name: string; email: string | null; is_primary: boolean }[]>([]);
   const [contact, setContact] = useState('');
@@ -51,10 +57,15 @@ export default function Reports() {
     const range = `from=${from}&to=${to}`;
     switch (tab) {
       case 'sales': return `/api/reports/sales?${range}`;
+      case 'items': return `/api/reports/items?${range}`;
+      case 'months': return `/api/reports/months?${range}`;
+      case 'pnl': return `/api/reports/pnl?${range}`;
+      case 'payables': return '/api/reports/payables';
       case 'customers': return `/api/reports/customers?${range}`;
       case 'payments': return `/api/reports/payments?${range}`;
       case 'ageing': return `/api/reports/ageing?asOf=${to}`;
       case 'tds': return `/api/reports/tds?${range}`;
+      case 'tdspayable': return `/api/reports/tdspayable?${range}`;
       case 'statement': return party ? `/api/reports/statement?${range}&party=${party}` : '';
       case 'gst': return `/api/reports/gst-summary?period=${month}`;
       case 'gstr3b': return `/api/reports/gstr3b?period=${month}`;
@@ -73,16 +84,27 @@ export default function Reports() {
   const data = loaded && loaded.query === query ? loaded.body : null;
 
   const monthly = tab === 'gst' || tab === 'gstr3b' || tab === 'gstr1';
-  const csvHref = query && ['sales', 'customers', 'payments', 'ageing', 'statement', 'tds'].includes(tab) ? `${query}${query.includes('?') ? '&' : '?'}format=csv` : '';
+  const csvHref = query && ['sales', 'customers', 'items', 'months', 'pnl', 'payables', 'payments', 'ageing', 'statement', 'tds', 'tdspayable'].includes(tab) ? `${query}${query.includes('?') ? '&' : '?'}format=csv` : '';
+  const xlsxHref = csvHref && tab !== 'ageing' ? csvHref.replace(/format=csv$/, 'format=xlsx') : '';
 
   return (
     <>
       <div className="toolbar"><h1>Reports</h1>
         <div className="row" style={{ flex: 'none' }}>
           {csvHref && canExport && <a className="btn secondary" href={csvHref}>Download CSV</a>}
+          {xlsxHref && canExport && <a className="btn secondary" href={xlsxHref}>Download Excel</a>}
+          <button type="button" className="secondary no-print" onClick={() => window.print()}>Print</button>
           {tab === 'gstr1' && canExport && <a className="btn secondary" href={`/api/reports/gstr1?period=${month}&download=1`}>Download GSTR-1 JSON</a>}
           {tab === 'gstr3b' && canExport && <a className="btn secondary" href={`/api/reports/gstr3b?period=${month}&download=1`}>Download GSTR-3B JSON</a>}
         </div>
+      </div>
+      <div className="row no-print" style={{ marginBottom: 12, justifyContent: 'flex-start', alignItems: 'flex-end' }} aria-label="Saved views">
+        {views.length > 0 && (<div><label htmlFor="rv">Saved views</label>
+          <select id="rv" value="" onChange={(e) => { const v = views.find((x) => x.name === e.target.value); if (v) { setTab(v.tab); setFrom(v.from); setTo(v.to); setParty(v.party); } }}>
+            <option value="">Open a saved view</option>{views.map((v) => <option key={v.name} value={v.name}>{v.name}</option>)}</select></div>)}
+        <div><label htmlFor="rn">Save this view as</label><input id="rn" value={viewName} maxLength={40} onChange={(e) => setViewName(e.target.value)} /></div>
+        <button type="button" className="secondary" style={{ flex: 'none' }} disabled={!viewName.trim()} onClick={() => { keepViews([...views.filter((v) => v.name !== viewName.trim()), { name: viewName.trim(), tab, from, to, party }].slice(-12)); setViewName(''); }}>Save view</button>
+        {views.length > 0 && <button type="button" className="link" style={{ flex: 'none' }} onClick={() => keepViews([])}>Clear saved views</button>}
       </div>
       <div role="tablist" className="row" style={{ marginBottom: 12, justifyContent: 'flex-start' }}>
         {TABS.map(([k, v]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? '' : 'secondary'} style={{ flex: 'none', marginTop: 0 }} onClick={() => setTab(k)}>{v}</button>)}
@@ -106,7 +128,7 @@ export default function Reports() {
         </div>)}
       {sent && <p className="ok" role="status">{sent}</p>}
       {err && <p className="error" role="alert">{err}</p>}
-      {!data && !err && <p className="muted">Loading</p>}
+      {!data && !err && <KoraLoader />}
 
       {tab === 'sales' && data && (
         <table className="t"><thead><tr><th>Date</th><th>Number</th><th>Type</th><th>Customer</th><th className="n">Taxable</th><th className="n">Tax</th><th className="n">Total</th></tr></thead>
@@ -129,6 +151,41 @@ export default function Reports() {
           <table className="t" aria-label="TDS deducted by customers"><thead><tr><th>Customer</th><th>GSTIN</th><th className="n">Invoices</th><th className="n">Expected</th><th className="n">Received</th><th className="n">Still to receive</th></tr></thead>
             <tbody>{data.rows.length === 0 ? <tr><td colSpan={6} className="muted">No invoices with TDS in this period.</td></tr> : data.rows.map((r: any, i: number) => <tr key={i}><td>{r.customer}</td><td>{r.gstin}</td><td className="n">{r.invoices}</td><td className="n">{rupees(r.expected)}</td><td className="n">{rupees(r.received)}</td><td className="n"><b>{rupees(r.pending)}</b></td></tr>)}
               {data.rows.length > 0 && <tr><td colSpan={3}><b>Total</b></td><td className="n"><b>{rupees(data.totals.expected)}</b></td><td className="n"><b>{rupees(data.totals.received)}</b></td><td className="n"><b>{rupees(data.totals.pending)}</b></td></tr>}</tbody></table>
+        </>
+      )}
+      {tab === 'tdspayable' && data && (
+        <>
+          <p className="muted">Tax you held back when paying vendors, by vendor and section. Deposit it with the government by the date shown, and file your TDS return from these figures. Your CA will confirm the rates and due dates for your case.</p>
+          <table className="t" aria-label="TDS payable by vendor"><thead><tr><th>Vendor</th><th>PAN</th><th>Section</th><th className="n">Payments</th><th className="n">Paid to vendor</th><th className="n">TDS held back</th></tr></thead>
+            <tbody>{data.rows.length === 0 ? <tr><td colSpan={6} className="muted">No tax held back in this period.</td></tr> : data.rows.map((r: any, i: number) => <tr key={i}><td>{r.vendor}</td><td>{r.pan}</td><td>{r.section}{r.sectionName ? ` (${r.sectionName})` : ''}</td><td className="n">{r.payments}</td><td className="n">{rupees(r.paid)}</td><td className="n"><b>{rupees(r.tds)}</b></td></tr>)}
+              {data.rows.length > 0 && <tr><td colSpan={5}><b>Total to deposit</b></td><td className="n"><b>{rupees(data.total)}</b></td></tr>}</tbody></table>
+          {data.deposits.length > 0 && (
+            <table className="t" aria-label="TDS deposit dates" style={{ marginTop: 16 }}><thead><tr><th>Month paid</th><th>Section</th><th className="n">To deposit</th><th>Deposit by</th></tr></thead>
+              <tbody>{data.deposits.map((d: any, i: number) => <tr key={i}><td>{d.month}</td><td>{d.section}</td><td className="n">{rupees(d.tds)}</td><td>{d.depositBy}</td></tr>)}</tbody></table>)}
+        </>
+      )}
+      {tab === 'items' && data && (
+        <table className="t" aria-label="Sales by item"><thead><tr><th>Item</th><th>HSN or SAC</th><th className="n">Quantity</th><th className="n">Taxable value</th><th className="n">Tax</th><th className="n">Total</th></tr></thead>
+          <tbody>{data.rows.length === 0 ? <tr><td colSpan={6} className="muted">No sales in this period.</td></tr> : data.rows.map((r: any) => <tr key={r.item}><td>{r.item}</td><td>{r.hsn_sac}</td><td className="n">{Number(r.quantity)}</td><td className="n">{rupees(r.taxable)}</td><td className="n">{rupees(r.tax)}</td><td className="n">{rupees(r.total)}</td></tr>)}
+            {data.rows.length > 0 && <tr><td colSpan={3}><b>Total</b></td><td className="n"><b>{rupees(data.totals.taxable)}</b></td><td colSpan={2} /></tr>}</tbody></table>
+      )}
+      {tab === 'months' && data && (
+        <table className="t" aria-label="Sales by month"><thead><tr><th>Month</th><th className="n">Documents</th><th className="n">Taxable value</th><th className="n">Tax</th><th className="n">Total</th></tr></thead>
+          <tbody>{data.rows.length === 0 ? <tr><td colSpan={5} className="muted">No sales in this period.</td></tr> : data.rows.map((r: any) => <tr key={r.month}><td>{r.month}</td><td className="n">{r.documents}</td><td className="n">{rupees(r.taxable)}</td><td className="n">{rupees(r.tax)}</td><td className="n">{rupees(r.total)}</td></tr>)}
+            {data.rows.length > 0 && <tr><td><b>Total</b></td><td className="n"><b>{data.totals.documents}</b></td><td className="n"><b>{rupees(data.totals.taxable)}</b></td><td className="n"><b>{rupees(data.totals.tax)}</b></td><td className="n"><b>{rupees(data.totals.total)}</b></td></tr>}</tbody></table>
+      )}
+      {tab === 'pnl' && data && (
+        <>
+          <p className="muted">A quick guide on what you billed and bought in this period, before GST. It is not a set of accounts.</p>
+          <table className="t" aria-label="Profit and loss"><thead><tr><th>Line</th><th className="n">Amount</th></tr></thead>
+            <tbody>{data.rows.map((r: any, i: number) => <tr key={i} style={r.kind === 'result' ? { fontWeight: 700 } : undefined}><td style={r.indent ? { paddingLeft: 28 } : undefined}>{r.line}</td><td className="n" data-testid={r.line === 'Net profit' ? 'pnl-net' : undefined}>{BigInt(r.amount) < 0n ? `- ${rupees((-BigInt(r.amount)).toString())}` : rupees(r.amount)}</td></tr>)}</tbody></table>
+        </>
+      )}
+      {tab === 'payables' && data && (
+        <>
+          <p className="muted">Bills you have not fully paid, oldest first. Owed in total: <b>{rupees(data.outstanding)}</b>.</p>
+          <table className="t" aria-label="Who you owe"><thead><tr><th>Vendor</th><th>Bill</th><th>Due</th><th className="n">Days late</th><th className="n">Owed</th></tr></thead>
+            <tbody>{data.rows.length === 0 ? <tr><td colSpan={5} className="muted">You owe nothing.</td></tr> : data.rows.map((r: any, i: number) => <tr key={i}><td>{r.vendor}</td><td>{r.bill_number}</td><td>{r.due_date}</td><td className="n">{r.days_late || ''}</td><td className="n">{rupees(r.due_paise)}</td></tr>)}</tbody></table>
         </>
       )}
       {tab === 'ageing' && data && (

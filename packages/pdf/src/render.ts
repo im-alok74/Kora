@@ -172,8 +172,38 @@ table.hsn td{padding:5px 8px;border-bottom:1px solid #edf0ee}
 .foot{margin-top:18px;padding-top:10px;border-top:1px solid #e1e7e4;color:#66726d;text-align:center;font-size:.9em}
 .mark{position:absolute;top:38%;left:14%;font-size:92px;font-weight:800;color:rgba(168,39,39,.11);transform:rotate(-20deg);pointer-events:none}
 tr,.card,.totbox,.payrow{break-inside:avoid}
-@media(max-width:640px){.hd,.parties,.bottom,.payrow{flex-direction:column}.doc{text-align:left}table.items{display:block;overflow-x:auto}}
-${LAYOUT_CSS(accent)}</style></head><body><div class="page lay-${lay}">${draftMark}
+@media screen and (max-width:640px){.hd,.parties,.bottom,.payrow{flex-direction:column}.doc{text-align:left}table.items{display:block;overflow-x:auto}}
+${LAYOUT_CSS(accent)}
+/* Document typography and print layout: shared by previews and exported PDFs. */
+body{color:#202a35;line-height:1.6}
+.page:before{height:3px;border-radius:0;margin-bottom:24px}
+.hd{padding-bottom:8px;gap:30px}.brand{font-size:.94em;color:#596471;max-width:56%;overflow-wrap:anywhere}
+.brand .nm{font-size:1.65em;font-weight:650;letter-spacing:-.025em;margin-bottom:7px;color:#202a35}
+h1{font-size:${compact ? 22 : 30}px;font-weight:500;letter-spacing:-.035em;line-height:1.2}
+.doc{flex-shrink:0;max-width:44%}.subj{font-size:.9em;line-height:1.6;overflow-wrap:anywhere}
+.paidtag{transform:none;font-size:.75em;letter-spacing:.07em;border-width:1px;border-radius:3px;padding:3px 10px;font-weight:600}
+.meta4{border:0;border-top:1px solid #dbe1e7;border-bottom:1px solid #dbe1e7;border-radius:0;background:#fff;margin:24px 0 22px}
+.meta4>div{padding:11px 12px;border-right:0}.meta4>div:first-child{padding-left:0}.meta4 b{font-weight:550}
+.k,.lbl{font-size:.75em;letter-spacing:.07em;color:#687482;margin-bottom:5px}
+.parties{gap:28px;margin-bottom:25px}.card{border:0;border-radius:0;padding:0;line-height:1.7;min-width:0;overflow-wrap:anywhere}.card b.who{font-size:1.05em;font-weight:650}
+table.items th{font-size:.78em;text-transform:none;letter-spacing:0;padding:10px 7px;font-weight:600;background:#f1f4f7;color:#344150;border-top:0;border-bottom:1px solid #d5dde5}
+table.items td{padding:${compact ? 7 : 12}px 7px;border-bottom:1px solid #e6ebef;line-height:1.55}
+table.items td:nth-child(2){min-width:${compact ? 95 : 115}px;overflow-wrap:anywhere}
+table.items th:first-child,table.items td:first-child{width:26px;color:#75808c}
+.bottom{gap:28px;margin-top:22px}.bottom>div:first-child{flex:1.15;min-width:0}.bottom>div:last-child{flex:1;min-width:0}
+.totbox{border:0;border-top:1px solid #d5dde5;border-radius:0;padding-top:6px}.tot td{padding:6px 10px;font-size:.95em}
+.tot tr.g td{border-top:2px solid ${accent};background:color-mix(in srgb,${accent} 7%,white);color:#202a35;font-size:1.15em;padding:12px 10px;font-weight:650}
+.words{font-size:.88em;font-weight:500;line-height:1.7}.note{font-size:.9em;line-height:1.75;overflow-wrap:anywhere;margin-top:16px}.note b{font-weight:600}
+.payrow>div{border:0;border-left:2px solid #dbe1e7;border-radius:0;padding:2px 0 2px 12px}.upi img{width:80px;height:80px}
+table.hsn{margin-top:26px}.sign{margin-top:44px;font-size:.88em}.sign div{padding-top:8px}.foot{font-size:.8em;margin-top:28px}
+.lay-modern .hd{border-radius:0;padding:22px}.lay-modern .hd .brand{max-width:56%}.lay-modern .hd h1{color:white}.lay-modern table.items th{background:${accent};color:white}.lay-modern .meta4{background:#fff}
+.lay-minimal .tot tr.g td{border-top:2px solid #202a35;border-bottom:0;background:white}.lay-minimal .hd{border-bottom:2px solid #202a35;padding-bottom:20px}
+${narrative ? '.page:before{display:none}.hd{border-bottom:2px solid '+accent+';padding-bottom:24px}.brand .nm{font-family:Georgia,serif;font-weight:400}.parties{margin-top:26px}table.items td:nth-child(2){width:65%;line-height:1.85}table.items th{background:white;border-bottom:2px solid #202a35}' : ''}
+${compact ? '.meta4{margin:14px 0}.parties{margin-bottom:14px}.page:before{margin-bottom:14px}.bottom{margin-top:14px}' : ''}
+thead{display:table-header-group}tfoot{display:table-footer-group}
+@media print{.page{max-width:none;padding:0}.hd,.meta4,.parties,.totbox,.sign,.irn{break-inside:avoid}.bottom{display:flex}.bottom>div:first-child{break-inside:auto}.note,.upi{break-inside:avoid}table.items{display:table;width:100%;font-size:${t.paper === 'A5' ? '.8em' : '.97em'}}table.items td:nth-child(2){min-width:0}.n{white-space:normal}.mark{position:fixed}}
+@media screen and (max-width:640px){.brand,.doc{max-width:100%}.doc{text-align:left}.bottom>div{width:100%}.meta4{margin-block:18px}.lay-modern .hd .brand{max-width:100%}}
+</style></head><body><div class="page lay-${lay}">${draftMark}
 <div class="hd"><div class="brand">${logo}<span class="nm">${esc(supplierName)}</span>${supplierName !== s.legal_name ? `${esc(s.legal_name)}<br>` : ''}${addr(s.address)}${s.phone ? `<br>Ph: ${esc(s.phone)}` : ''}${s.email ? `<br>${esc(s.email)}` : ''}
 ${s.gstin ? `<br><b>GSTIN:</b> ${esc(s.gstin)}` : ''}</div>
 <div class="doc"><h1>${esc(title)}</h1>${d.status === 'issued' && d.payment_status === 'paid' && d.doc_type !== 'estimate' ? `<div class="paidtag">${esc(L.paid)}</div>` : ''}${d.subject ? `<div class="subj">${esc(d.subject)}</div>` : ''}</div></div>

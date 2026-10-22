@@ -1,4 +1,5 @@
 'use client';
+import KoraLoader from '../../../components/KoraLoader';
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { api } from '../../../lib/client';
 
@@ -44,7 +45,7 @@ export default function Developers() {
 
   const run = async (fn: () => Promise<void>) => { setErr(''); setMsg(''); setBusy(true); try { await fn(); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); } };
 
-  if (role === null) return <p className="muted">Loading</p>;
+  if (role === null) return <KoraLoader />;
   if (role !== 'owner') return <><h1>Developers</h1><p className="muted">API keys and webhooks are managed by the owner.</p></>;
 
   return (

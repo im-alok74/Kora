@@ -9,7 +9,7 @@ import { str, ValidationError } from './validation.js';
 export const MAX_ATTACHMENTS = 3;
 
 /** The first bytes must match what the file claims to be, so a renamed file cannot be stored as a picture or PDF. */
-function checkFile(file: { name: string; type: string; dataBase64: string }): { name: string; data: Buffer } {
+export function checkFile(file: { name: string; type: string; dataBase64: string }): { name: string; data: Buffer } {
   if (!(RECEIPT_TYPES as readonly string[]).includes(file.type)) throw new ValidationError('An attachment can be a JPEG or PNG picture, or a PDF.', 'type');
   const name = str(file.name, 'File name', { required: true, max: 120 })!.replace(/[^\w.\- ]+/g, '_');
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(file.dataBase64)) throw new ValidationError('The file could not be read.', 'data');
@@ -32,7 +32,7 @@ export async function addAttachment(sql: Sql, t: TenantSession, documentId: stri
     return await inTenant(sql, t, 'document.write', async (tx) => {
       const [d] = await tx`select id from document where id = ${documentId}`;
       if (!d) throw new ValidationError('Document not found.');
-      const [c] = await tx`select count(*)::int as n from document_file where document_id = ${documentId}`;
+      const [c] = await tx`select count(*)::int as n from document_file where document_id = ${documentId} and not from_customer`;
       if ((c!.n as number) >= MAX_ATTACHMENTS) throw new ValidationError(`A document can have at most ${MAX_ATTACHMENTS} attachments. Remove one first.`);
       const [row] = await tx`insert into document_file (business_id, document_id, file_name, content_type, size_bytes, data, storage_key, created_by)
                              values (${t.businessId}, ${documentId}, ${name}, ${file.type}, ${data.length}, ${key ? null : data}, ${key}, ${t.userId}) returning id`;
@@ -46,7 +46,7 @@ export async function addAttachment(sql: Sql, t: TenantSession, documentId: stri
 
 export async function listAttachments(sql: Sql, t: TenantSession, documentId: string) {
   return inTenant(sql, t, 'document.read', (tx) => tx`
-    select id, file_name, content_type, size_bytes, created_at from document_file where document_id = ${documentId} order by created_at`);
+    select id, file_name, content_type, size_bytes, created_at, from_customer from document_file where document_id = ${documentId} order by created_at`);
 }
 
 export async function getAttachment(sql: Sql, t: TenantSession, documentId: string, fileId: string) {

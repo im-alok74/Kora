@@ -86,6 +86,17 @@ describe('estimates', () => {
     expect((await fails(decideEstimate(db.web, owner, id, 'declined'))).message).toMatch(/already been turned into an invoice/);
   });
 
+  it('carries quotation details into the invoice without reusing quotation validity', async () => {
+    const id = await issuedEstimate({ reference: 'PO-402', subject: 'Website refresh', salesperson: 'Asha',
+      extra: [{ label: 'Project', value: 'WEB-26' }], paymentTerms: 'net30', dueDate: addDays(today(), 7) });
+    const made = await convertEstimate(db.web, owner, id);
+    const invoice = (await getDocument(db.web, owner, made.id))!.document;
+    expect(invoice).toMatchObject({ reference: 'PO-402', subject: 'Website refresh', salesperson: 'Asha',
+      extra: [{ label: 'Project', value: 'WEB-26' }], payment_terms: 'net30' });
+    expect(String(invoice.due_date).slice(0, 10)).toBe(addDays(today(), 30));
+    expect((await getDocument(db.web, owner, id))!.document.reference).toBe('PO-402');
+  });
+
   it('can be converted again if the draft invoice is deleted', async () => {
     const id = await issuedEstimate();
     const a = await convertEstimate(db.web, owner, id);

@@ -1,16 +1,14 @@
 import type { Metadata } from 'next';
+import LegalPage from '../../components/LegalPage';
 
-export const metadata: Metadata = { title: 'Privacy policy: Kora', description: 'What data Kora keeps, why, and who can see it.' };
+export const metadata: Metadata = { title: 'Privacy policy', alternates: { canonical: '/privacy' }, description: 'What data Kora keeps, why, and who can see it.' };
 
 const UPDATED = '20 October 2026';
 
 /** Written to match what the software actually does. A lawyer should review and adapt it before launch. */
 export default function Privacy() {
   return (
-    <main className="legal">
-      <p><a href="/">&larr; Kora</a></p>
-      <h1>Privacy policy</h1>
-      <p className="muted">Last updated {UPDATED}</p>
+    <LegalPage title="Privacy policy" updated={UPDATED}>
       <p>This explains what Kora keeps about you and the people you do business with, why, and who can see it. For the data you enter about your customers, you decide what goes in and Kora processes it on your behalf.</p>
 
       <h2>What we keep</h2>
@@ -50,6 +48,6 @@ export default function Privacy() {
 
       <h2>Contact and complaints</h2>
       <p>Privacy questions and complaints: <a href="mailto:privacy@kora.example">privacy@kora.example</a> (replace with your grievance officer&rsquo;s address before launch). If you are not satisfied, you may complain to the Data Protection Board of India under the Digital Personal Data Protection Act, 2023.</p>
-    </main>
+    </LegalPage>
   );
 }
