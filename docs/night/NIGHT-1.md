@@ -9,11 +9,11 @@ Branch `night-1`, worktree `../kora-night-1`, migrations 0110-0119.
 - [x] 4. Credit and debit note guided flow
 - [x] 5. Recurring invoices screen
 - [x] 6. Ten invoice looks, gallery live preview, brand settings
-- [ ] 7. Custom fields on documents and customers
-- [ ] 8. Multi-currency documents
-- [ ] 9. Discounts, shipping, adjustments, round-off, HSN/SAC picker
+- [x] 7. Custom fields on documents and customers
+- [x] 8. Multi-currency documents
+- [x] 9. Discounts, shipping, adjustments, round-off, HSN/SAC picker
 - [ ] 10. PDF fidelity pass
-- [ ] 11. Keyboard-first editor
+- [x] 11. Keyboard-first editor
 - [ ] 12. Polish at 375px and dark mode
 
 ## Log
@@ -49,6 +49,13 @@ Gaps (documents only), in the order I will close them:
 - Task 6 done (code): six new looks (bold, elegant, ledger, corporate, soft, two-tone; 11 selectable plus thermal), four fonts, logo size, signature image. Checked each new look by eye at A4 width.
 - Decision: task 9 discount on the whole bill and a shipping line already exist in the editor; remaining for 9 is the settings for round-off, adjustment line and the HSN/SAC search.
 - Lesson: never run a migration against the e2e database while its server is up (cached prepared statements break). Wait for the e2e run to end.
+
+- Task 7 done: per-business custom fields for documents and customers (migration 0113), answers copied onto documents (kept with their label, so renames never change an issued document), printed on the PDF when set to print. Small edits outside my area: settings page and customers page each got one component.
+- Task 8 done: a rupee document can show a reference total in another currency (0114); foreign quotes print the rupee equivalent; the editor shows both. Tax stays in rupees by design (GST).
+- Task 9 done: adjustment line (not taxed, limited to Rs 10,000) and a round-to-the-rupee choice per document (0115 replaces the one total CHECK with the same check plus the adjustment; tax package gets an optional adjustment). HSN and SAC search list in the editor (about 100 common codes, tax rate suggested only for common services).
+- Task 11 done: Enter moves down a line and adds one at the end, Ctrl+D copies, Alt+Up or Down moves, Ctrl+Z and Ctrl+Y undo and redo, drag to reorder, autosave 2.5 s after the last change with a visible status.
+- e2e: 33 of 34 specs I ran pass. The failing one is first-invoice.spec.ts "home page explains the product" (cannot find a "Sign in to Kora" link on the landing page). The landing page is work in progress from before tonight and is not mine; not touched.
+- Lesson: keep the tree still while the e2e build runs, and never leave a stale lock: the lock dir was hours old after a restart, so I removed it after checking nothing listened on 3200 to 3202.
 
 ## Needs you
 (nothing yet)
