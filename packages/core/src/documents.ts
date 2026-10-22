@@ -224,6 +224,10 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
   if (isNote && !input.originalDocumentId) throw new ValidationError('Choose the invoice this note corrects.', 'originalDocumentId');
   if (!isNote && input.originalDocumentId) throw new ValidationError('Only credit and debit notes point at another invoice.');
   if (isNote) {
+    // Section 34: a note answers one invoice. It goes to that invoice's customer and cannot predate the invoice.
+    const [o] = await tx`select party_id, doc_date::text as doc_date from document where id = ${input.originalDocumentId!}`;
+    if (o?.party_id && (input.partyId ?? null) !== o.party_id) throw new ValidationError('A credit or debit note goes to the same customer as the invoice it corrects.', 'partyId');
+    if (o && b.docDate < (o.doc_date as string)) throw new ValidationError('A credit or debit note cannot be dated before the invoice it corrects.', 'docDate');
     const h = await creditHeadroom(tx, input.originalDocumentId!, id);
     if (input.docType === 'credit_note') {
       try { assertCreditWithinOriginal({ originalTaxablePaise: h.original, alreadyCreditedTaxablePaise: h.already, creditTaxablePaise: b.result.taxablePaise }); }
@@ -685,7 +689,11 @@ export async function startNote(sql: Sql, t: TenantSession, originalId: string, 
       return { ...base, quantity: qty, rate, discount: disc > 0n ? rs(disc) : '' };
     });
   }
+  // A note cannot predate its invoice, so for an invoice dated in the future the draft starts on the invoice's date rather than today.
+  const sameDay = String(src.document.doc_date instanceof Date ? (src.document.doc_date as Date).toISOString() : src.document.doc_date).slice(0, 10);
+  const today = await inTenant(sql, t, 'document.read', async (tx) => { const [b] = await tx`select timezone from business where id = ${t.businessId}`; return todayIn(b!.timezone as string); });
   const input: DocIn = {
+    ...(sameDay > today ? { docDate: sameDay } : {}),
     docType: kind, partyId: src.document.party_id as string | null, originalDocumentId: originalId,
     placeOfSupply: src.document.place_of_supply as string, reverseCharge: src.document.reverse_charge as boolean,
     noteReason: opts.reason ?? null, noteReasonDetail: opts.detail ?? null, lines,

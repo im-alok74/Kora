@@ -71,7 +71,7 @@ export async function createDemoBusiness(sql: Sql, userId: string): Promise<{ bu
   await pay(d.id, '5000', 'upi', -10);
   await issue(doc(c.mehta, -18, 15, 'Quarterly audit support', '998221', '1', '30000', 1800)); // overdue
   const e = await issue(doc(c.walkin, -8, 0, 'Printed stationery set', '4820', '4', '1250', 500));
-  await pay(e.id, '5600', 'cash', -8);
+  await pay(e.id, '5250', 'cash', -8);
   await issue(doc(c.sharma, -3, 15, 'Cabling work, extra points', '995463', '1', '7200', 1800));
   await saveDraft(sql, t, doc(c.iyer, 0, 15, 'Consulting hours', '998313', '6', '850', 1800)); // left as a draft
   await issue(doc(c.mehta, -2, 14, 'Website refresh, phase 2', '998313', '1', '45000', 1800, 'estimate'));

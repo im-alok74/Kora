@@ -132,3 +132,27 @@ describe('an e-invoice carries a manual adjustment, because the portal checks th
     });
   }
 });
+
+describe('a credit or debit note belongs to the invoice it corrects (CGST Act section 34)', () => {
+  it('goes to the same customer, and is not dated before the invoice', async () => {
+    const inv = await mk({ partyId: local, docDate: '2026-10-10', lines: [goods('1000', 1800)] });
+    const note = (over: Partial<DocIn>) => saveDraft(db.web, owner, { docType: 'credit_note', originalDocumentId: inv.id as string, lines: [goods('100', 1800)], ...over } as DocIn);
+    const other = await fails(note({ partyId: regKA, docDate: '2026-10-11' }));
+    expect(other).toBeInstanceOf(ValidationError);
+    expect(other.message).toMatch(/same customer/);
+    const early = await fails(note({ partyId: local, docDate: '2026-10-09' }));
+    expect(early).toBeInstanceOf(ValidationError);
+    expect(early.message).toMatch(/before the invoice/);
+    await expect(note({ partyId: local, docDate: '2026-10-10' })).resolves.toBeTruthy();       // the same day is fine
+    await expect(saveDraft(db.web, owner, { docType: 'debit_note', partyId: local, originalDocumentId: inv.id as string, docDate: '2026-11-01', lines: [goods('50', 1800)] })).resolves.toBeTruthy();
+  });
+});
+
+describe('the late fee GST rate must be a real slab', () => {
+  it('refuses 10%, 12% and above 40%, accepts 18% and 0%', async () => {
+    const { saveLateFeeConfig } = await import('../src/index.js');
+    for (const bp of [1000, 1200, 2800, 4100]) expect(await fails(saveLateFeeConfig(db.web, owner, { enabled: true, gstRateBp: bp }))).toBeInstanceOf(ValidationError);
+    expect(await saveLateFeeConfig(db.web, owner, { enabled: true, gstRateBp: 1800 })).toMatchObject({ gstRateBp: 1800 });
+    expect(await saveLateFeeConfig(db.web, owner, { enabled: true, gstRateBp: 0 })).toMatchObject({ gstRateBp: 0 });
+  });
+});

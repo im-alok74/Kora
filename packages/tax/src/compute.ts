@@ -136,7 +136,7 @@ export function computeDocument(d: DocumentInput): DocumentResult {
   const ignoreRate = d.docType === 'bill_of_supply' && composition;
   if (!ignoreRate && !d.allowedRateBp && d.supplyDate) {
     for (const l of d.lines) {
-      if (allowed.has(l.taxRateBp)) continue;
+      if (allowed.has(l.taxRateBp) || !DEFAULT_ALLOWED_RATE_BP.has(l.taxRateBp)) continue;   // a rate that never existed gets the plain message below
       const pct = l.taxRateBp / 100;
       const reason = d.supplyDate >= RATE_REFORM_DATE
         ? `${pct}% is not a GST rate for supplies on or after 22 September 2025 (the slabs are 0%, 0.25%, 3%, 5%, 18% and 40%). Change the rate on this line.`
