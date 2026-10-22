@@ -1,4 +1,5 @@
 'use client';
+import PaymentTimeline from './payment-timeline';
 import LateFeePanel from '../../../../components/LateFeePanel';
 import EwayPanel from '../../../../components/EwayPanel';
 import { use, useCallback, useEffect, useRef, useState } from 'react';
@@ -304,6 +305,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
       {isIssued && receivable && (
         <div className="panel">
           <h2>Payments</h2>
+          <PaymentTimeline documentId={id} refreshKey={payments} canRefund={role === 'owner' || role === 'accountant'} onChange={() => { void load(); }} />
           {payments.length > 0 && (
             <table className="t" style={{ marginBottom: 12 }}>
               <thead><tr><th>Date</th><th>Method</th><th className="n">Applied</th><th>Note</th><th /></tr></thead>

@@ -1,4 +1,5 @@
 'use client';
+import KoraLoader from '../../../components/KoraLoader';
 import { useCallback, useEffect, useState } from 'react';
 import Icon from '../../../components/Icon';
 import { api, rupees } from '../../../lib/client';
@@ -47,7 +48,7 @@ export default function Itc() {
       <div className="filters"><div style={{ maxWidth: 220 }}><label htmlFor="ip">Month</label><input id="ip" type="month" value={period} onChange={(e) => e.target.value && setPeriod(e.target.value)} /></div></div>
       {err && <p className="error" role="alert">{err}</p>}
       {msg && <p className="ok" role="status">{msg}</p>}
-      {!s && !err && <p className="muted" role="status">Loading</p>}
+      {!s && !err && <KoraLoader />}
 
       {s && (<>
         <div className="stats">

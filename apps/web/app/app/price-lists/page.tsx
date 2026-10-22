@@ -1,4 +1,5 @@
 'use client';
+import KoraLoader from '../../../components/KoraLoader';
 import { useCallback, useEffect, useState } from 'react';
 import Icon from '../../../components/Icon';
 import { api, rupees } from '../../../lib/client';
@@ -71,7 +72,7 @@ export default function PriceLists() {
       )}
       {err && <p className="error" role="alert">{err}</p>}
 
-      {rows === null && <p className="muted" role="status">Loading</p>}
+      {rows === null && <KoraLoader />}
       {rows && rows.length === 0 && <div className="panel empty"><Icon name="percent" size={34} style={{ color: 'var(--text-faint)' }} /><h3>No price lists yet.</h3><p>Add one for wholesale, distributors or any customer who gets their own prices.</p></div>}
       {rows && rows.length > 0 && (
         <table className="t" aria-label="Price lists">

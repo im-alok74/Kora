@@ -1,0 +1,9 @@
+.kora-loader { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 240px; width: 100%; padding: 40px 20px; color: var(--text, #20262e); animation: kora-loader-appear .25s ease-out both; }
+.kora-loader-full { min-height: 100svh; background: var(--surface, #fff); }
+.kora-loader-brand { display: flex; align-items: center; height: 64px; color: var(--accent, #106cd9); }
+.kora-loader-track { width: 112px; height: 2px; margin-top: 20px; background: var(--border, #e2e7ee); overflow: hidden; border-radius: 2px; }
+.kora-loader-track span { display: block; width: 46%; height: 100%; border-radius: inherit; background: var(--accent, #106cd9); animation: kora-loading-travel 1.5s cubic-bezier(.45, 0, .35, 1) infinite; }
+.kora-loader-label { margin-top: 16px; font: 400 13px/1.5 Arial, Helvetica, sans-serif; color: var(--text-muted, #5c6673); }
+@keyframes kora-loading-travel { from { transform: translateX(-110%); } to { transform: translateX(330%); } }
+@keyframes kora-loader-appear { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .kora-loader, .kora-loader * { animation: none !important; }.kora-loader-track span { width: 100%; opacity: .55; } }

@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
+import { renderDocumentHtml, sampleInput } from '@kora/pdf';
 import Icon from '../components/Icon';
 import InvoiceShowcase from '../components/InvoiceShowcase';
 import LandingMotion from '../components/LandingMotion';
 import TemplateCarousel from '../components/TemplateCarousel';
+import { SiteFooter, SiteHeader } from '../components/SiteChrome';
 import './landing.css';
+import './landing-dark.css';
 
-export const metadata: Metadata = {
-  title: 'Kora: GST invoicing and collections for Indian businesses',
-  description: 'Issue correct GST invoices, send them on WhatsApp, collect by UPI and keep your CA happy. Early access.',
-};
+export const metadata: Metadata = { alternates: { canonical: '/' } };
 
 const FEATURES: [React.ComponentProps<typeof Icon>['name'], string, string][] = [
   ['invoice', 'Invoices that are right the first time', 'CGST, SGST and IGST are worked out for you, in whole paise, from the place of supply. Numbers run in sequence for each financial year, and an issued invoice cannot be edited. Mistakes are fixed with credit and debit notes.'],
@@ -47,6 +47,13 @@ const TILES: [string, React.ComponentProps<typeof Icon>['name'], string, string]
   ['sun', 'chart', 'Ready for your CA', 'GSTR-1 data and a GST summary that match your sales ledger.'],
 ];
 
+const SECURITY: [React.ComponentProps<typeof Icon>['name'], string, string][] = [
+  ['shield', 'Each business is kept apart', 'The database itself separates every business from every other, so one business cannot see another by mistake.'],
+  ['team', 'Roles that are enforced', 'Owner, staff and accountant limits are checked in the database, not only on the screen.'],
+  ['clock', 'A log nobody can edit', 'Every change is recorded in an activity log that cannot be edited or deleted.'],
+  ['database', 'Your data is yours', 'Export to Excel or download a full backup any time. Backups are encrypted and restore-tested.'],
+];
+
 const TINTS = ['pink', 'mint', 'sky', 'sun'];
 
 const FAQ: [string, string][] = [
@@ -55,6 +62,8 @@ const FAQ: [string, string][] = [
   ['Can I change an invoice after I issue it?', 'No. An issued invoice and the activity log cannot be edited or deleted. Mistakes are fixed with credit and debit notes, which keeps your record clean for your CA.'],
   ['Do you need my GST portal password?', 'Never. We do not ask for it.'],
   ['Can I use Kora if I am not registered for GST?', 'Yes. When you set up your business you can choose that you are not registered for GST.'],
+  ['What does it cost?', 'You can start free. See the pricing page for the plans. Prices shown there are placeholders while Kora is in early access.'],
+  ['Can I move my data from other software?', 'You can import customers and items from Zoho, Vyapar, Tally and Excel exports. Importing past invoices is not built yet.'],
   ['Is everything switched on yet?', 'Kora is in early access. Some connections, such as WhatsApp delivery and live e-invoice registration, are being switched on with our partners.'],
 ];
 
@@ -71,18 +80,15 @@ const LOOKS: [string, string][] = [
   ['compact', 'Compact'],
 ];
 
-function Paper({ v }: { v: string }) {
-  return (
-    <div className={`paper ${v}`} aria-hidden="true">
-      <div className="p-head"><span className="p-logo" /><span className="p-title">INVOICE</span></div>
-      <div className="p-meta"><i /><i /><i /></div>
-      <div className="p-table">
-        <div className="p-row h"><i /><i /><i /></div>
-        {Array.from({ length: v === 'compact' ? 6 : 3 }).map((_, n) => <div className="p-row" key={n}><i /><i /><i /></div>)}
-      </div>
-      <div className="p-total"><i /><b /></div>
-    </div>
-  );
+function invoiceSamples() {
+  return LOOKS.map(([key, label]) => {
+    const input = sampleInput({ legal_name: 'Studio North · Sample business', state_code: '27', address: { line1: '24 Park Road', city: 'Pune', pincode: '411001' } }, { layout: key, accent: '#1268d3', showHsn: true });
+    input.recipient = { name: 'Maple Works · Sample customer', billing_address: { line1: '18 Lake Road', city: 'Pune', pincode: '411004' } };
+    input.doc.notes = 'Demonstration invoice. No payment is due.';
+    input.doc.terms = 'Payment within 30 days of the invoice date.';
+    input.lines = [ ['Brand consultation', 100000], ['Presentation design', 60000], ['Artwork preparation', 40000] ].map(([name, amount]) => ({ ...input.lines[0], item_name: name, hsn_sac: '9983', quantity: '1.000', unit: 'service', rate_paise: String(amount), taxable_paise: String(amount), cgst_paise: String(Number(amount) * .09), sgst_paise: String(Number(amount) * .09) }));
+    return { key, label, html: renderDocumentHtml(input) };
+  });
 }
 
 function Mock({ k }: { k: string }) {
@@ -110,21 +116,8 @@ function Mock({ k }: { k: string }) {
 export default function Landing() {
   return (
     <LandingMotion>
-      <a className="k-skip" href="#main-content">Skip to content</a>
-      <div className="k-topbar"><a href="/" aria-label="Kora home">kora<span>Business, beautifully simple.</span></a><a href="/login">Sign in <span aria-hidden="true">↗</span></a></div>
-      <header className="l-header">
-        <div className="l-wrap l-bar">
-          <a className="l-brand" href="/" aria-label="Kora Invoice home"><span className="k-product-icon"><Icon name="invoice" size={34} /></span><span><small>Kora</small>Invoice</span></a>
-          <nav aria-label="Primary">
-            <a href="#features">Features</a>
-            <a href="#looks">Templates</a>
-            <a href="#who">For your business</a>
-            <a href="#trust">Resources</a>
-            <a className="btn" href="/login?signup=1">Get started <Icon name="arrow" size={15} /></a>
-          </nav>
-          <details className="k-mobile-menu"><summary aria-label="Navigation menu"><Icon name="menu" size={24} /></summary><nav aria-label="Mobile navigation"><a href="#features">Features</a><a href="#looks">Templates</a><a href="#who">For your business</a><a href="#trust">Resources</a><a href="/login">Sign in</a><a href="/login?signup=1">Get started →</a></nav></details>
-        </div>
-      </header>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: FAQ.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) }) }} />
+      <SiteHeader />
 
       <main id="main-content">
         <div className="l-wrap">
@@ -133,7 +126,7 @@ export default function Landing() {
             <p className="l-lead">Create professional invoices, track payments, and prepare your GST reports with Kora.</p>
             <div className="l-cta">
               <a className="btn" href="/login?signup=1">Get started with Kora <Icon name="arrow" size={18} /></a>
-              <a className="k-demo-link" href="#product-preview"><span aria-hidden="true">▷</span> Explore how it works</a>
+              <a className="k-demo-link" href="/login?signup=1&demo=1"><span aria-hidden="true">▷</span> Try it with sample data</a>
             </div>
             <p className="l-note">Built in India. Built for your business. <span>Now in early access.</span></p>
           </section>
@@ -201,11 +194,7 @@ export default function Landing() {
           <section id="looks" className="l-section" aria-labelledby="l-h">
             <h2 id="l-h">Invoices that look <span className="hl">like your brand</span></h2>
             <p className="l-sub">Pick a look, add your logo and colour, and every invoice and PDF follows it.</p>
-            <TemplateCarousel>
-              {LOOKS.map(([v, label]) => (
-                <a key={v} className="tpl-card" href="/login?signup=1"><div className="tpl-thumb"><Paper v={v} /></div><div className="tpl-foot"><span>{label}</span><Icon name="arrow" size={18} /></div></a>
-              ))}
-            </TemplateCarousel>
+            <TemplateCarousel templates={invoiceSamples()} />
           </section>
 
           <section className="l-section" aria-label="What Kora guarantees">
@@ -219,6 +208,16 @@ export default function Landing() {
                   <div key={t} role="listitem"><b>{t}</b><span>{d}</span></div>
                 ))}
               </div>
+            </div>
+          </section>
+
+          <section id="security" className="l-section" aria-labelledby="s-h">
+            <h2 id="s-h">Your records, <span className="hl">kept safe</span></h2>
+            <p className="l-sub">Plain answers on how Kora protects your business data. We do not ask for your GST portal password.</p>
+            <div className="l-features">
+              {SECURITY.map(([ic, t, d]) => (
+                <article key={t} className="l-feature"><div className="ico"><Icon name={ic} size={20} /></div><div><h3>{t}</h3><p>{d}</p></div></article>
+              ))}
             </div>
           </section>
 
@@ -242,27 +241,7 @@ export default function Landing() {
         </section>
       </main>
 
-      <footer className="l-footer">
-        <div className="l-wrap">
-          <div>
-            <a className="l-brand" href="/" aria-label="Kora home"><span className="brand-mark" aria-hidden="true">k</span>kora</a>
-            <p>GST invoicing and collections for Indian businesses.</p>
-          </div>
-          <nav aria-label="Product">
-            <h3>Product</h3>
-            <a href="#features">Features</a>
-            <a href="#who">Who it is for</a>
-            <a href="#how">How it works</a>
-          </nav>
-          <nav aria-label="Legal">
-            <h3>Trust</h3>
-            <a href="#trust">Questions</a>
-            <a href="/terms">Terms</a>
-            <a href="/privacy">Privacy</a>
-          </nav>
-          <div className="l-legal">Kora prepares your documents. You and your CA stay responsible for every invoice and filing.</div>
-        </div>
-      </footer>
+      <SiteFooter />
     </LandingMotion>
   );
 }

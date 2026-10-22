@@ -1,4 +1,5 @@
 'use client';
+import SiteThemeToggle from '../../../components/SiteThemeToggle';
 import LateFeeSettings from '../../../components/LateFeeSettings';
 import MessagesPanel from '../../../components/MessagesPanel';
 import TemplateGallery from '../../../components/TemplateGallery';
@@ -71,7 +72,11 @@ export default function Settings() {
   return (
     <>
       <h1>Settings</h1>
-      {readOnly && <p className="muted">Only the owner can change settings.</p>}
+      <section className="panel settings-appearance" aria-labelledby="appearance-title">
+        <div><h2 id="appearance-title">Appearance</h2><p className="muted">Light mode is the default. Your theme choice is saved on this browser.</p></div>
+        <SiteThemeToggle />
+      </section>
+      {readOnly && <p className="muted">Only the owner can change business settings.</p>}
       {err && <p className="error" role="alert">{err}</p>}
       {msg && <p className="ok" role="status">{msg}</p>}
       <form className="panel" onSubmit={saveProfile}>

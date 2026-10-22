@@ -28,8 +28,10 @@ export async function createPortalLink(sql: Sql, t: TenantSession, partyId: stri
   await inTenant(sql, t, 'document.issue', async (tx) => {
     const [p] = await tx`select id from party where id = ${partyId}`;
     if (!p) throw new ValidationError('Customer not found.');
+    // A new link keeps the choice about asking for a code, so replacing a link never quietly turns the extra step off.
+    const [prev] = await tx`select code_login from portal_link where party_id = ${partyId} order by created_at desc limit 1`;
     await tx`update portal_link set revoked_at = now() where party_id = ${partyId} and revoked_at is null`;
-    await tx`insert into portal_link (business_id, party_id, token_hash, created_by) values (${t.businessId}, ${partyId}, ${hash}, ${t.userId})`;
+    await tx`insert into portal_link (business_id, party_id, token_hash, created_by, code_login) values (${t.businessId}, ${partyId}, ${hash}, ${t.userId}, ${!!prev?.code_login})`;
   });
   return { token };
 }
@@ -40,7 +42,7 @@ export async function revokePortalLink(sql: Sql, t: TenantSession, partyId: stri
 
 export async function portalStatus(sql: Sql, t: TenantSession, partyId: string) {
   const rows = await inTenant(sql, t, 'document.read', (tx) =>
-    tx`select created_at, view_count, first_viewed_at, last_viewed_at from portal_link where party_id = ${partyId} and revoked_at is null`);
+    tx`select created_at, view_count, first_viewed_at, last_viewed_at, code_login from portal_link where party_id = ${partyId} and revoked_at is null`);
   return rows[0] ? { active: true as const, ...rows[0] } : { active: false as const };
 }
 
@@ -65,17 +67,17 @@ export async function portalOverview(sql: Sql, token: string) {
              (d.grand_total_paise > d.amount_settled_paise
               and coalesce(d.due_date, d.doc_date) < (now() at time zone ${biz!.timezone as string})::date) as overdue
         from document d
-       where d.party_id = ${who.partyId} and d.status = 'issued' and d.doc_type in ${tx(RECEIVABLE)}
+       where d.party_id in (select party_family(${who.partyId})) and d.status = 'issued' and d.doc_type in ${tx(RECEIVABLE)}
        order by d.doc_date desc, d.number desc limit 100`;
     const estimates = await tx`
       select d.id, d.number, d.doc_date::text as doc_date, d.due_date::text as valid_until, d.grand_total_paise, d.currency,
              estimate_status(d.status, d.due_date, ${biz!.timezone as string}, es.decision, es.converted_to_id) as status
         from document d left join estimate_state es on es.document_id = d.id
-       where d.party_id = ${who.partyId} and d.status = 'issued' and d.doc_type = 'estimate'
+       where d.party_id in (select party_family(${who.partyId})) and d.status = 'issued' and d.doc_type = 'estimate'
        order by d.doc_date desc, d.number desc limit 50`;
     const payments = await tx`
       select method, amount_paise, received_on::text as received_on from payment
-       where party_id = ${who.partyId} order by received_on desc, created_at desc limit 10`;
+       where party_id in (select party_family(${who.partyId})) order by received_on desc, created_at desc limit 10`;
     let outstanding = 0n, overdue = 0n;
     for (const i of invoices) {
       const o = BigInt(i.outstanding_paise as string);
@@ -100,7 +102,7 @@ export async function portalStatement(sql: Sql, token: string, f: { from?: strin
 async function ownDocument(sql: Sql, who: { businessId: string; partyId: string }, documentId: string) {
   if (!/^[0-9a-f-]{36}$/i.test(documentId)) return null;
   return withTenant(sql, { businessId: who.businessId, userId: SYSTEM_USER }, async (tx) => {
-    const [d] = await tx`select id, doc_type, status from document where id = ${documentId} and party_id = ${who.partyId} and status = 'issued'`;
+    const [d] = await tx`select id, doc_type, status from document where id = ${documentId} and party_id in (select party_family(${who.partyId})) and status = 'issued'`;
     return d ?? null;
   });
 }

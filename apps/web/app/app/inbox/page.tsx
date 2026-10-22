@@ -1,4 +1,5 @@
 'use client';
+import KoraLoader from '../../../components/KoraLoader';
 import { useCallback, useEffect, useState } from 'react';
 import Icon from '../../../components/Icon';
 import { api } from '../../../lib/client';
@@ -69,7 +70,7 @@ export default function Inbox() {
           <button key={k} type="button" aria-pressed={tab === k} onClick={() => setTab(k)}>{k === 'all' ? 'All' : LABEL[k]}</button>))}
       </div>
 
-      {items === null && !err && <p className="muted" role="status">Loading</p>}
+      {items === null && !err && <KoraLoader />}
       {items && items.length === 0 && (
         <div className="panel empty"><Icon name="inbox" size={34} style={{ color: 'var(--text-faint)' }} /><h3>Nothing here.</h3><p>{tab === 'new' ? 'Nothing is waiting to be reviewed.' : 'No items in this view.'}</p></div>)}
       {items && items.length > 0 && (

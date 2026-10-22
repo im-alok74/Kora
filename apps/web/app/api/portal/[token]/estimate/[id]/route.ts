@@ -1,5 +1,6 @@
 import { portalAnswerEstimate, ValidationError } from '@kora/core';
 import { errorResponse, json, readJson, requireJson, services } from '../../../../../../lib/server';
+import { portalGate } from '../../../../../../lib/portal';
 
 /** Body: { action: 'accept' | 'decline' }. */
 export async function POST(req: Request, ctx: { params: Promise<{ token: string; id: string }> }) {
@@ -7,6 +8,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string;
   if (bad) return bad;
   try {
     const { token, id } = await ctx.params;
+    const gate = await portalGate(token);
+    if (gate) return gate;
     const action = String((await readJson(req)).action ?? '');
     if (action !== 'accept' && action !== 'decline') throw new ValidationError('Choose accept or decline.', 'action');
     const r = await portalAnswerEstimate(services().sql, token, id, action === 'accept' ? 'accepted' : 'declined');

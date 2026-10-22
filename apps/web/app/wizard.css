@@ -1,0 +1,66 @@
+/* The set-up screen, the welcome wizard, password strength, and the demo banner. Theme tokens only, so dark mode follows. */
+.wiz-progress { display: flex; gap: 6px; justify-content: center; margin: 0 0 18px; padding: 0; }
+.wiz-progress span { width: 44px; height: 6px; border-radius: 99px; background: var(--border-strong); }
+.wiz-progress span.on { background: var(--accent); }
+.gs-note { font-size: 14px; margin: 6px 0 0; min-height: 22px; color: var(--text-muted); }
+.gs-note.ok { color: var(--success); }
+.gs-note.bad { color: var(--danger); }
+.setup-demo { margin-top: 16px; font-size: 14px; }
+
+.welcome { max-width: 760px; margin: 0 auto; padding: 8px 0 60px; }
+.welcome h1 { margin-bottom: 6px; }
+.wiz-steps { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 18px 0 22px; }
+.wiz-steps li { display: flex; }
+.wiz-steps button { margin: 0; height: 36px; padding: 0 14px; font-size: 14px; border-radius: 99px; background: var(--surface-raised); color: var(--text); border: 1px solid var(--border-strong); box-shadow: none; }
+.wiz-steps button:hover { border-color: var(--accent); background: var(--surface-raised); color: var(--text); }
+.wiz-steps button[aria-current="step"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+.wiz-steps .tick { color: var(--success); font-weight: 700; margin-right: 6px; }
+.wiz-steps .skip { color: var(--text-muted); margin-right: 6px; }
+.wiz-bar { height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; margin: 10px 0 0; }
+.wiz-bar > i { display: block; height: 100%; background: var(--accent); transition: width .25s ease; }
+.wiz-card { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 14px; padding: 24px; box-shadow: var(--shadow-card); }
+.wiz-card h2 { font-size: 22px; margin: 0 0 4px; }
+.wiz-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; align-items: center; }
+.wiz-actions button, .wiz-actions .btn { margin-top: 0; }
+.wiz-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+.looks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.look { position: relative; border: 2px solid var(--border-strong); border-radius: 10px; padding: 10px; background: var(--surface); cursor: pointer; text-align: center; font-size: 14px; }
+.look input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
+.look:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.look:has(input:focus-visible) { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.look .thumb { display: block; height: 54px; border-radius: 4px; background: var(--surface-raised); border: 1px solid var(--border); margin-bottom: 6px; position: relative; }
+.look .thumb::before { content: ""; position: absolute; left: 8px; right: 8px; top: 9px; height: 7px; border-radius: 2px; background: var(--look-accent, var(--accent)); }
+.look .thumb::after { content: ""; position: absolute; left: 8px; right: 24px; top: 24px; height: 18px; border-radius: 2px; background: repeating-linear-gradient(var(--border-strong) 0 2px, transparent 2px 6px); }
+.logo-preview { max-height: 64px; max-width: 200px; display: block; margin-top: 10px; border: 1px solid var(--border); border-radius: 8px; padding: 6px; background: #fff; }
+
+/* password strength */
+.pw-meter { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 8px 0 4px; }
+.pw-meter i { height: 5px; border-radius: 99px; background: var(--border-strong); }
+.pw-meter[data-score="1"] i:nth-child(-n+1) { background: var(--danger); }
+.pw-meter[data-score="2"] i:nth-child(-n+2) { background: var(--warning); }
+.pw-meter[data-score="3"] i:nth-child(-n+3) { background: var(--success); }
+.pw-meter[data-score="4"] i { background: var(--success); }
+.pw-note { font-size: 13px; color: var(--text-muted); margin: 0; min-height: 20px; }
+.show-pw { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; margin: 8px 0 0; font-size: 14px; }
+
+/* demo banner */
+.demo-banner { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; background: var(--warning-soft); color: var(--warning); border-bottom: 1px solid var(--warning); padding: 10px 16px; font-size: 14px; line-height: 1.4; }
+.demo-banner b { font-weight: 700; }
+.demo-banner button { margin: 0; height: 32px; font-size: 13px; padding: 0 12px; background: var(--surface-raised); color: var(--danger); border: 1px solid var(--danger); box-shadow: none; }
+.demo-banner button:hover { background: var(--danger-soft); color: var(--danger); }
+
+@media (max-width: 560px) { .wiz-grid { grid-template-columns: 1fr; } .looks { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wiz-card { padding: 18px; } .wiz-actions > * { flex: 1 1 100%; } }
+
+/* help button and tour */
+.help-fab { position: fixed; right: 16px; bottom: 16px; z-index: 40; margin: 0; height: 40px; padding: 0 16px; border-radius: 99px; box-shadow: var(--shadow-lift); }
+.help-pop { position: fixed; right: 16px; bottom: 66px; z-index: 41; width: min(340px, calc(100vw - 32px)); background: var(--surface-raised); color: var(--text); border: 1px solid var(--border-strong); border-radius: 14px; padding: 16px; box-shadow: var(--shadow-lift); }
+.help-pop ul { list-style: none; margin: 12px 0 0; padding: 0; }
+.help-pop li { padding: 6px 0; font-size: 15px; }
+.help-pop p { margin: 10px 0; font-size: 15px; line-height: 1.5; }
+.help-pop input { height: 40px; margin-top: 10px; }
+.hp-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.hp-x { margin: 0; width: 32px; height: 32px; padding: 0; background: transparent; color: var(--text); font-size: 22px; box-shadow: none; border: 0; }
+.hp-x:hover { background: var(--surface-sunken); color: var(--text); }
+.hp-nav { display: flex; justify-content: space-between; gap: 10px; }
+.hp-nav button { margin: 0; height: 38px; }
+@media print { .help-fab, .help-pop, .demo-banner { display: none; } }
