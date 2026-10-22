@@ -1,0 +1,47 @@
+/* Dark theme for the public pages. landing.css was drawn light with fixed colours, so this maps its surfaces and text to the theme tokens. */
+/* landing.css sets its own light tokens on .landing.kora-home, so the dark ones are set here with the same weight. The pastel tiles keep their light tints. */
+:root[data-theme="dark"] .landing.kora-home {
+  --bg: #121315; --text: #eceef1; --text-muted: #a9aeb8; --accent: #5aa5ff; --accent-hover: #7ab8ff; --accent-ink: #b9d8ff; --on-accent: #04152b;
+  --surface: #1a1b1e; --surface-raised: #1d1f22; --surface-sunken: #161719; --border: #2b2d32; --border-strong: #3b3e45;
+  --success: #6fd49a; --success-soft: #12301f; --warning: #f0c56d; --warning-soft: #352a12; --band: #0e0f11; color-scheme: dark;
+}
+:root[data-theme="dark"] .kora-home { background: var(--bg); color: var(--text); }
+:root[data-theme="dark"] .kora-home h1, :root[data-theme="dark"] .kora-home h2, :root[data-theme="dark"] .kora-home h3,
+:root[data-theme="dark"] .kora-home .l-hero h1 em, :root[data-theme="dark"] .kora-home .l-close h2 { color: var(--text); }
+:root[data-theme="dark"] .kora-home .l-lead, :root[data-theme="dark"] .kora-home .l-note, :root[data-theme="dark"] .kora-home .l-note span,
+:root[data-theme="dark"] .kora-home .l-sub, :root[data-theme="dark"] .kora-home p { color: var(--text-muted); }
+:root[data-theme="dark"] .k-topbar { border-color: var(--border); background: var(--bg); }
+:root[data-theme="dark"] .k-topbar > a:last-child, :root[data-theme="dark"] .kora-home .l-bar nav a:not(.btn), :root[data-theme="dark"] .kora-home .l-brand { color: var(--text); }
+:root[data-theme="dark"] .k-topbar > a:first-child { color: #7db3f2; }
+:root[data-theme="dark"] .kora-home .l-header { background: var(--bg); border-color: var(--border); }
+:root[data-theme="dark"] .k-mobile-menu > summary { color: var(--text); }
+:root[data-theme="dark"] .kora-home .k-mobile-menu nav { background: var(--surface-raised); border-color: var(--border-strong); }
+:root[data-theme="dark"] .kora-home .l-card, :root[data-theme="dark"] .kora-home .tpl-card, :root[data-theme="dark"] .kora-home .l-do-card,
+:root[data-theme="dark"] .kora-home .l-feature { background: var(--surface-raised); border-color: var(--border); }
+:root[data-theme="dark"] .kora-home .l-feature { background: transparent; }
+:root[data-theme="dark"] .kora-home .l-feature .ico { background: var(--accent-soft); color: var(--accent-ink); }
+:root[data-theme="dark"] .kora-home .l-proof { background: var(--surface); }
+:root[data-theme="dark"] .kora-home .l-proof-l, :root[data-theme="dark"] .kora-home .l-proof-r, :root[data-theme="dark"] .kora-home .l-proof-r b { color: var(--text); }
+:root[data-theme="dark"] .kora-home .l-faq details { border-color: var(--border); }
+:root[data-theme="dark"] .kora-home .l-faq summary { color: var(--text); }
+:root[data-theme="dark"] .kora-home .l-close { background: var(--surface); }
+:root[data-theme="dark"] .kora-home .l-footer { background: var(--surface); border-color: var(--border); color: var(--text-muted); }
+:root[data-theme="dark"] .kora-home .l-footer .l-brand { color: #7db3f2; }
+:root[data-theme="dark"] .kora-home .l-footer a { color: var(--text-muted); }
+:root[data-theme="dark"] .kora-home .l-footer h3 { color: var(--text); }
+/* tinted tiles and paper sheets stay light, with dark ink, so they read as paper and coloured cards */
+:root[data-theme="dark"] .kora-home .k-benefit, :root[data-theme="dark"] .kora-home .k-benefit h3, :root[data-theme="dark"] .kora-home .k-benefit p { color: #171b20; }
+:root[data-theme="dark"] .kora-home .tpl-thumb { background: #3a3430; }
+:root[data-theme="dark"] .kora-home .tpl-foot { color: var(--text); }
+:root[data-theme="dark"] .kora-home .btn:not(.secondary) { background: #3b82e0; color: #08111e; }
+:root[data-theme="dark"] .kora-home .btn.secondary { background: var(--surface-raised); color: var(--text); border-color: var(--border-strong); }
+:root[data-theme="dark"] .kora-home .k-demo-link { color: #7db3f2; }
+:root[data-theme="dark"] .kora-home .site-main a:not(.btn) { color: #7db3f2; }
+:root[data-theme="dark"] .kora-home .site-main .lead { color: var(--text-muted); }
+:root[data-theme="dark"] .kora-home .site-main p, :root[data-theme="dark"] .kora-home .site-main li { color: var(--text); }
+:root[data-theme="dark"] .kora-home .site-main .muted { color: var(--text-muted); }
+:root[data-theme="dark"] .kora-home .site-main .btn.secondary { color: var(--text); }
+:root[data-theme="dark"] .kora-home .plan .ph, :root[data-theme="dark"] .kora-home .draft-banner { color: #f3c969; }
+:root[data-theme="dark"] .kora-home .k-product-icon, :root[data-theme="dark"] .kora-home .l-brand svg { color: #7db3f2; }
+:root[data-theme="dark"] .k-topbar > a:first-child span, :root[data-theme="dark"] .kora-home .l-legal { color: var(--text-muted); }
+:root[data-theme="dark"] .k-preview-copy > a { color: #7db3f2; }

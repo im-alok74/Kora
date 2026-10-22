@@ -688,3 +688,32 @@ ul.notes li { align-items: flex-start; } ul.notes li p { margin: 2px 0 0; white-
   table.t:not(.cards) { display: block; overflow-x: auto; white-space: nowrap; }
   .row { flex-wrap: wrap; }
 }
+/* Public theme control remains visible on desktop and mobile. */
+.site-header-actions { display: flex; align-items: center; gap: 18px; }
+.kora-home .site-header-actions > a { color: var(--text); white-space: nowrap; }
+.kora-home .site-theme-toggle { display: inline-flex; align-items: center; gap: 7px; height: 34px; margin: 0; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 5px; background: var(--surface-raised); color: var(--text); font: inherit; font-size: 12px; box-shadow: none; white-space: nowrap; }
+.kora-home .site-theme-toggle:hover { border-color: var(--accent); }
+.kora-home .site-theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 480px) { .site-header-actions { gap: 10px; } }
+.kora-home .site-header-actions > a { font-size: 12px; text-decoration: none; }
+
+/* The approved multicolour logo uses a white plate for legibility in both themes. */
+.kora-logo { display: inline-flex; align-items: center; justify-content: center; width: 132px; height: 66px; flex: 0 0 auto; background: #fff; border-radius: 6px; overflow: hidden; vertical-align: middle; }
+.kora-logo-vector { display: block; width: 100%; height: 100%; overflow: visible; }
+.side .brand .kora-logo { width: 144px; height: 72px; }
+.mobile-bar .brand .kora-logo { width: 88px; height: 44px; }
+.auth-brand .kora-logo, .auth-brand-link .kora-logo { width: 152px; height: 76px; }
+.kora-loader .kora-loader-brand { height: auto; }
+.kora-loader .kora-logo { width: 200px; height: 100px; }
+@media (prefers-reduced-motion: reduce) { .kora-loader .kora-logo { animation: none; } }
+/* Each coloured link moves in sequence; the wordmark remains anchored. */
+.kora-logo-shape { transform-box: fill-box; transform-origin: center; animation: kora-link-motion 3.6s cubic-bezier(.4,0,.2,1) infinite; }
+.kora-logo-green { animation-delay: .18s; }
+.kora-logo-amber { animation-delay: .36s; }
+.kora-logo-red { animation-delay: .54s; }
+@keyframes kora-link-motion {
+  0%, 8%, 46%, 100% { transform: translateY(0) rotate(0deg); }
+  23% { transform: translateY(-4px) rotate(-5deg); }
+  34% { transform: translateY(1px) rotate(2deg); }
+}
+@media (prefers-reduced-motion: reduce) { .kora-logo-shape { animation: none !important; } }

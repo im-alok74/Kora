@@ -2,6 +2,7 @@
 import ExpenseExtras from './extras';
 import { useCallback, useEffect, useState } from 'react';
 import { api, rupees } from '../../../lib/client';
+import EmptyState from '../../../components/EmptyState';
 
 type Row = { id: string; expense_date: string; vendor: string | null; category: string; amount_paise: string; gst_paise: string; paid_via: string; notes: string | null; has_receipt: boolean };
 type List = { from: string; to: string; rows: Row[]; total: string; gst: string; byCategory: { category: string; total: string }[] };
@@ -120,7 +121,7 @@ export default function Expenses() {
             <div className="panel" style={{ margin: 0 }}><div className="muted">By category</div>
               {list.byCategory.length === 0 ? <div className="muted">Nothing yet</div> : list.byCategory.slice(0, 5).map((c) => <div key={c.category} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>{c.category}</span><span>{rupees(c.total)}</span></div>)}</div>
           </div>
-          {list.rows.length === 0 ? <div className="panel"><p>No expenses in this period.</p></div> : (
+          {list.rows.length === 0 ? <EmptyState icon="receipt" title="No expenses in this period">Record what the business spends, with a receipt photo, and it shows up here with totals by category. Try another period if you expected to see something.</EmptyState> : (
             <table className="t">
               <thead><tr><th>Date</th><th>Vendor</th><th>Category</th><th>Paid by</th><th className="n">Amount</th><th className="n">GST</th><th /></tr></thead>
               <tbody>{list.rows.map((r) => (

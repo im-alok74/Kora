@@ -33,7 +33,7 @@ export async function decideEstimate(sql: Sql, t: TenantSession, documentId: str
  */
 export async function convertEstimate(sql: Sql, t: TenantSession, documentId: string) {
   return inTenant(sql, t, 'document.write', async (tx) => {
-    const [d] = await tx`select d.doc_type, d.status, d.party_id, d.place_of_supply, d.reverse_charge, d.notes, d.terms, d.tcs_bp, d.tds_bp, d.currency, d.exchange_rate_micro,
+    const [d] = await tx`select d.doc_type, d.status, d.party_id, d.place_of_supply, d.reverse_charge, d.notes, d.terms, d.reference, d.subject, d.payment_terms, d.extra, d.salesperson, d.tcs_bp, d.tds_bp, d.currency, d.exchange_rate_micro,
                                 estimate_status(d.status, d.due_date, b.timezone, es.decision, es.converted_to_id) as est,
                                 b.registration_type
                            from document d join business b on b.id = d.business_id left join estimate_state es on es.document_id = d.id
@@ -55,6 +55,10 @@ export async function convertEstimate(sql: Sql, t: TenantSession, documentId: st
       // customer outside India is refused with the same message as any other export, rather than carried over.
       placeOfSupply: d.currency === 'INR' ? (d.place_of_supply as string) : undefined,
       notes: d.notes as string | null, terms: d.terms as string | null,
+      reference: d.reference as string | null, subject: d.subject as string | null,
+      salesperson: d.salesperson as string | null, extra: d.extra as { label: string; value: string }[] | null,
+      // The quote's expiry is not an invoice due date; recalculate from the new invoice date.
+      paymentTerms: d.payment_terms as string | null,
       lines: linesToInput(lines, d.currency === 'INR' ? 1_000_000n : BigInt(d.exchange_rate_micro as string)),
       tcsBp: d.tcs_bp as number, tdsBp: d.tds_bp as number,
     };

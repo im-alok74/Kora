@@ -1,4 +1,5 @@
 'use client';
+import KoraLoader from '../../../components/KoraLoader';
 import { useCallback, useEffect, useState } from 'react';
 import Icon from '../../../components/Icon';
 import { api, rupees, TAX_RATES } from '../../../lib/client';
@@ -80,7 +81,7 @@ export default function Purchases() {
       </div>
       <div className="filters"><div style={{ flex: 1 }}><label htmlFor="pq">Search</label><input id="pq" type="search" placeholder="Vendor or bill number" value={q} onChange={(e) => setQ(e.target.value)} /></div></div>
 
-      {rows === null && !err && <p className="muted" role="status">Loading</p>}
+      {rows === null && !err && <KoraLoader />}
       {rows && rows.length === 0 && <div className="panel empty"><Icon name="receipt" size={34} style={{ color: 'var(--text-faint)' }} /><h3>No bills here.</h3><p>Record a bill from a vendor to track what you owe and the credit you can claim.</p></div>}
       {rows && rows.length > 0 && (
         <table className="t cards" aria-label="Bills">

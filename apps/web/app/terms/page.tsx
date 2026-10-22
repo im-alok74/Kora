@@ -1,16 +1,14 @@
 import type { Metadata } from 'next';
+import LegalPage from '../../components/LegalPage';
 
-export const metadata: Metadata = { title: 'Terms of use: Kora', description: 'The terms on which Kora is offered.' };
+export const metadata: Metadata = { title: 'Terms of use', alternates: { canonical: '/terms' }, description: 'The terms on which Kora is offered.' };
 
 const UPDATED = '20 October 2026';
 
 /** Plain-language terms. A lawyer should review and adapt them before launch. */
 export default function Terms() {
   return (
-    <main className="legal">
-      <p><a href="/">&larr; Kora</a></p>
-      <h1>Terms of use</h1>
-      <p className="muted">Last updated {UPDATED}</p>
+    <LegalPage title="Terms of use" updated={UPDATED}>
 
       <h2>What Kora is</h2>
       <p>Kora is software for issuing GST documents, collecting payments, keeping purchase and expense records, and preparing data for your accountant. It prepares documents and return data. It does not file returns, it does not give tax or legal advice, and it does not replace your accountant. You, with the professionals who advise you, remain responsible for every document you issue and every return you file.</p>
@@ -46,6 +44,6 @@ export default function Terms() {
 
       <h2>Contact</h2>
       <p>Questions about these terms: <a href="mailto:support@kora.example">support@kora.example</a> (replace with your support address before launch).</p>
-    </main>
+    </LegalPage>
   );
 }

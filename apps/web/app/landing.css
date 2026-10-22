@@ -177,3 +177,29 @@
   .kora-home *, .kora-home *::before, .kora-home *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
   .kora-home .l-close h2 { color: #171b20; }
 }
+
+/* Contrast (WCAG AA): small grey text and a link on a tinted panel were just under 4.5:1. */
+.k-topbar > a:first-child span { color: #5d6368; }
+.k-preview-copy > a { color: #0a4fa8; }
+.k-paper-heading small, .k-paper-address small, .k-invoice-paper td small { color: #596470; }
+.kora-home .l-legal { color: #55606b; }
+/* Populated invoice gallery: paper stays white on either preview background. */
+.kora-home .k-template-carousel[data-background] { --preview-bg: #eef1f5; --preview-card: #fff; --preview-ink: #253244; --preview-border: #d9dfe7; }
+.kora-home .k-template-carousel[data-background='dark'] { --preview-bg: #25282e; --preview-card: #1b1e24; --preview-ink: #edf1f7; --preview-border: #424854; }
+.kora-home .k-template-controls { flex-wrap: wrap; align-items: center; }
+.k-template-background { display: flex; align-items: center; gap: 6px; margin-right: auto; font-size: 13px; }
+.k-template-background > span { margin-right: 8px; }
+.kora-home .k-template-background button[aria-pressed='true'] { background: #1268d3; border-color: #1268d3; color: #fff; }
+.kora-home .k-template-carousel[data-background] .tpl-card { display: block; padding: 0; margin: 0; height: auto; text-align: left; white-space: normal; background: var(--preview-card); color: var(--preview-ink); border: 1px solid var(--preview-border); overflow: hidden; }
+.kora-home .k-template-carousel[data-background] .tpl-thumb { display: block; position: relative; height: 390px; padding: 0; background: var(--preview-bg); }
+.kora-home .k-template-carousel[data-background] .tpl-thumb iframe { position: absolute; left: 14px; top: 18px; width: 820px; height: 1100px; transform: scale(.33); transform-origin: top left; border: 0; background: white; pointer-events: none; color-scheme: light; }
+.kora-home .k-template-carousel[data-background] .tpl-foot { display: flex; justify-content: space-between; align-items: center; color: var(--preview-ink); }
+.k-template-caption { font-size: 12px; line-height: 1.7; }
+.k-invoice-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(100svh - 24px); padding: 0; border: 1px solid #cbd1da; border-radius: 10px; background: #fff; color: #253244; color-scheme: light; }
+.k-invoice-dialog[open] { display: flex; flex-direction: column; }
+.k-invoice-dialog::backdrop { background: rgb(10 18 30 / 65%); }
+.k-invoice-dialog header, .k-invoice-dialog footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 20px; font-size: 13px; flex-wrap: wrap; }
+.k-invoice-dialog header { border-bottom: 1px solid #d9dfe7; }.k-invoice-dialog footer { border-top: 1px solid #d9dfe7; }
+.k-invoice-dialog iframe { width: 100%; height: 72svh; min-height: 200px; border: 0; background: white; }
+.k-invoice-dialog a { display: inline-flex; align-items: center; gap: 8px; color: #1268d3; }
+@media (max-width: 800px) { .kora-home .k-template-carousel[data-background] .tpl-thumb { height: 335px; }.kora-home .k-template-carousel[data-background] .tpl-thumb iframe { transform: scale(.28); } .k-template-background { flex-basis: 100%; margin-bottom: 4px; } }

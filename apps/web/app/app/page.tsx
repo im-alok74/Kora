@@ -1,4 +1,5 @@
 'use client';
+import KoraLoader from '../../components/KoraLoader';
 import { useEffect, useState } from 'react';
 import { formatMoney } from '@kora/tax';
 import Icon from '../../components/Icon';
@@ -43,7 +44,7 @@ export default function Dashboard() {
     api('/api/business').then((b) => setRole(b.role));
   }, []);
   if (err) return <p className="error" role="alert">{err}</p>;
-  if (!d) return <p className="muted">Loading</p>;
+  if (!d) return <KoraLoader />;
 
   const canWrite = role === 'owner' || role === 'staff';
   const max = d.chart.reduce((m, c) => (BigInt(c.total) > m ? BigInt(c.total) : m), 1n);
@@ -79,6 +80,10 @@ export default function Dashboard() {
                 {!s.done && <a href={s.href} className="btn secondary sm" aria-label={`${s.label}: open`}>Open</a>}
               </li>))}
           </ul>
+          <p className="muted" style={{ marginTop: 12 }}>
+            <a href="/app/welcome">Open the guided setup</a>
+            {d.setup.documents === 0 && <> · <button type="button" className="link" onClick={async () => { try { await api('/api/demo', { body: {} }); window.location.href = '/app'; } catch (e) { setErr((e as Error).message); } }} data-testid="try-demo">Try it with sample data</button> (a labelled demo business you can remove in one click)</>}
+          </p>
         </section>)}
 
       <section className="stats" aria-label="At a glance">
