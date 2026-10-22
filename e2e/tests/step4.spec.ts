@@ -14,7 +14,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 test('expenses are recorded with a receipt, filtered, edited, exported and deleted', async ({ page, context }) => {
   await owner(context);
   await page.goto('/app/expenses');
-  await expect(page.getByText('No expenses in this period.')).toBeVisible();
+  await expect(page.getByText('No expenses in this period')).toBeVisible();
 
   await page.getByRole('button', { name: 'Add an expense' }).click();
   await page.getByLabel('Vendor').fill('City Cabs');

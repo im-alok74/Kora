@@ -23,7 +23,7 @@ test.describe('public pages', () => {
   test('pricing shows three plans, says the prices are placeholders, and has a comparison table', async ({ page }) => {
     await page.goto('/pricing');
     await expect(page.getByRole('heading', { name: 'Starter' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Business' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Business', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Firm' })).toBeVisible();
     await expect(page.getByText('Placeholder prices.')).toBeVisible();
     await expect(page.getByRole('table')).toContainText('Payment reminders');
@@ -77,7 +77,7 @@ test.describe('sign-up screen', () => {
     await expect(page.locator('#id-err')).toContainText('valid 10-digit Indian mobile number');
     await page.getByLabel('Your name').fill('Test Person');
     await page.getByLabel('Mobile number or email').fill(`n4${uniq()}@example.test`);
-    await page.getByRole('button', { name: 'Create account' }).click();
+    await page.locator('form').getByRole('button', { name: 'Create account' }).click();
     await expect(page).toHaveURL(/\/app\/projects|\/setup/);
     await page.goto('/login?signup=1');
     // signed in already, so the login page forwards; the choice was stored for the next visit

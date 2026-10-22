@@ -23,7 +23,7 @@ async function invoiceFor(page: Page, o: { gstin?: string; address?: boolean; na
 test('an invoice to a registered business is registered with the portal and carries the IRN and QR', async ({ page, context, browser }) => {
   await setup(context);
   const id = await invoiceFor(page);
-  await expect(page.getByTestId('einvoice').getByText('Registered.')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId('einvoice').getByText('Registered.', { exact: true })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId('einvoice')).toContainText(/IRN [0-9a-f]{64}/);
   const share = await (await page.request.post(`/api/documents/${id}/share`, { data: {} })).json();
   const anon = await browser.newContext();
@@ -56,7 +56,7 @@ test('a rejection is explained in plain words, fixed on the same screen, and res
   await expect(page.locator('p[role="alert"]').first()).toContainText('must be from Karnataka');
   await panel.getByLabel('Buyer GSTIN').fill(gstin('29', 'FIXED'));
   await panel.getByRole('button', { name: 'Resubmit e-invoice' }).click();
-  await expect(panel.getByText('Registered.')).toBeVisible({ timeout: 60_000 });
+  await expect(panel.getByText('Registered.', { exact: true })).toBeVisible({ timeout: 60_000 });
   await expect(panel).toContainText('1 earlier attempt');
 });
 
@@ -71,7 +71,7 @@ test('missing buyer details are caught before anything is sent, and fixed in pla
   await panel.getByLabel('City').fill('Bengaluru');
   await panel.getByLabel('Pincode').fill('560001');
   await panel.getByRole('button', { name: 'Resubmit e-invoice' }).click();
-  await expect(panel.getByText('Registered.')).toBeVisible({ timeout: 60_000 });
+  await expect(panel.getByText('Registered.', { exact: true })).toBeVisible({ timeout: 60_000 });
   const doc = await (await page.request.get(`/api/documents/${id}`)).json();
   expect(doc.document.recipient_snapshot.billing_address.pincode).toBe('560001');
 });
@@ -86,14 +86,14 @@ test('a portal outage shows that it is retrying, then succeeds on its own', asyn
     await db`update job set run_at = now() where payload->>'documentId' = ${id} and status = 'queued'`;
     await page.waitForTimeout(3000);
   }
-  await expect(panel.getByText('Registered.')).toBeVisible({ timeout: 60_000 });
+  await expect(panel.getByText('Registered.', { exact: true })).toBeVisible({ timeout: 60_000 });
 });
 
 test('the e-invoice and the invoice can be cancelled within the window', async ({ page, context }) => {
   await setup(context);
   await invoiceFor(page);
   const panel = page.getByTestId('einvoice');
-  await expect(panel.getByText('Registered.')).toBeVisible({ timeout: 60_000 });
+  await expect(panel.getByText('Registered.', { exact: true })).toBeVisible({ timeout: 60_000 });
   await panel.getByRole('button', { name: 'Cancel e-invoice' }).click();
   await panel.getByLabel('Remark').fill('Wrong quantity');
   await panel.getByRole('button', { name: 'Confirm cancellation' }).click();

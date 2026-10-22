@@ -8,7 +8,7 @@ test('create an account with a password and no code, sign out, and sign in again
   await page.getByLabel('I am').selectOption('lawyer');
   await page.getByLabel('Mobile number or email').fill(email);
   await page.getByLabel(/^Password/).fill('a good long password');
-  await page.getByRole('button', { name: 'Create account' }).click();
+  await page.locator('form').getByRole('button', { name: 'Create account' }).click();
   await expect(page).toHaveURL(/\/setup/);                     // a new account has no business yet
 
   await page.request.post('/api/auth/logout', { data: {} });

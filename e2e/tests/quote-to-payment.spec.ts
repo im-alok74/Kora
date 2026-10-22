@@ -20,6 +20,7 @@ test('quotation details survive conversion, PDF and two payments with receipts',
   expect((await page.request.post(`/api/documents/${quote.id}/issue`, { data: {} })).ok()).toBeTruthy();
   await page.goto(`/app/invoices/${quote.id}`);
   await page.getByRole('button', { name: 'Mark accepted' }).click();
+  await page.getByRole('button', { name: 'Save answer' }).click();
   await expect(page.getByTestId('estimate-status')).toHaveText('Accepted');
   await page.getByRole('button', { name: 'Convert to invoice' }).click();
   await expect(page.getByRole('heading', { name: 'Edit draft' })).toBeVisible();
