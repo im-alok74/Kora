@@ -59,7 +59,7 @@ test('a recurring invoice is set up, made by the worker on its date, and can be 
   await owner(context);
   await page.request.post('/api/parties', { data: { kind: 'customer', name: 'Monthly Client', stateCode: '27' } });
   await page.goto('/app/recurring');
-  await expect(page.getByText('No recurring invoices yet.')).toBeVisible();
+  await expect(page.getByText('No recurring invoices yet', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'New recurring invoice' }).click();
   await page.getByLabel('Name', { exact: true }).fill('Monthly retainer');
   await page.getByLabel('Customer', { exact: true }).selectOption({ label: 'Monthly Client' });
