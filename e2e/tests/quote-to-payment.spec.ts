@@ -24,6 +24,7 @@ test('quotation details survive conversion, PDF and two payments with receipts',
   await page.getByRole('button', { name: 'Save answer' }).click();
   await expect(page.getByTestId('estimate-status')).toHaveText('Accepted');
   await page.getByRole('button', { name: 'Convert to invoice' }).click();
+  await page.getByRole('link', { name: 'Edit' }).click();   // a converted quote opens as a draft; the editor is one click away
   await expect(page.getByRole('heading', { name: 'Edit draft' })).toBeVisible();
   await expect(page.getByLabel('Order or PO number')).toHaveValue('PO-402');
   await expect(page.getByLabel('Subject', { exact: true })).toHaveValue('Website refresh');
