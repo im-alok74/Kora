@@ -1,4 +1,5 @@
 'use client';
+import KoraLoader from '../../../components/KoraLoader';
 import { useEffect, useState } from 'react';
 import Icon from '../../../components/Icon';
 import { api, rupees } from '../../../lib/client';
@@ -26,7 +27,7 @@ export default function Firm() {
   };
 
   if (err) return <p className="error" role="alert">{err}</p>;
-  if (!f) return <p className="muted">Loading</p>;
+  if (!f) return <KoraLoader />;
   const rows = f.clients.filter((c) => (!only || c.needsAttention) && (c.name + ' ' + (c.gstin ?? '')).toLowerCase().includes(q.trim().toLowerCase()));
 
   return (

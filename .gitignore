@@ -11,3 +11,4 @@ playwright-report
 backups
 .backup-test
 .next-e2e
+.next-local-preview

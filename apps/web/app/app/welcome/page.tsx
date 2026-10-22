@@ -1,4 +1,5 @@
 'use client';
+import KoraLoader from '../../../components/KoraLoader';
 import { useCallback, useEffect, useState } from 'react';
 import { STATE_NAMES } from '@kora/tax';
 import { api } from '../../../lib/client';
@@ -40,7 +41,7 @@ export default function Welcome() {
   const run = async (fn: () => Promise<void>) => { setBusy(true); setErr(''); try { await fn(); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); } };
 
   if (err && !onb) return <p className="error" role="alert">{err}</p>;
-  if (!onb || !biz || !tpl) return <p className="muted">Loading</p>;
+  if (!onb || !biz || !tpl) return <KoraLoader />;
 
   const doneCount = onb.steps.filter((s) => s.state !== 'todo').length;
   const stateOf = (k: Key) => onb.steps.find((s) => s.key === k)!.state;

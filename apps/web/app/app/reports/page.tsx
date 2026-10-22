@@ -1,4 +1,5 @@
 'use client';
+import KoraLoader from '../../../components/KoraLoader';
 import { useEffect, useMemo, useState } from 'react';
 import { STATE_NAMES } from '@kora/tax';
 import { api, rupees } from '../../../lib/client';
@@ -106,7 +107,7 @@ export default function Reports() {
         </div>)}
       {sent && <p className="ok" role="status">{sent}</p>}
       {err && <p className="error" role="alert">{err}</p>}
-      {!data && !err && <p className="muted">Loading</p>}
+      {!data && !err && <KoraLoader />}
 
       {tab === 'sales' && data && (
         <table className="t"><thead><tr><th>Date</th><th>Number</th><th>Type</th><th>Customer</th><th className="n">Taxable</th><th className="n">Tax</th><th className="n">Total</th></tr></thead>

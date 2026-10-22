@@ -1,4 +1,6 @@
+import KoraLogo from './KoraLogo';
 import Icon from './Icon';
+import SiteThemeToggle from './SiteThemeToggle';
 
 /** The top bar and footer shared by the landing page, pricing, help and the legal pages. */
 export function SiteHeader() {
@@ -6,10 +8,10 @@ export function SiteHeader() {
   return (
     <>
       <a className="k-skip" href="#main-content">Skip to content</a>
-      <div className="k-topbar"><a href="/" aria-label="Kora home">kora<span>Business, beautifully simple.</span></a><a href="/login">Sign in <span aria-hidden="true">↗</span></a></div>
+      <div className="k-topbar"><a href="/" aria-label="Kora home">kora<span>Business, beautifully simple.</span></a><div className="site-header-actions"><SiteThemeToggle /><a href="/login">Sign in <span aria-hidden="true">↗</span></a></div></div>
       <header className="l-header">
         <div className="l-wrap l-bar">
-          <a className="l-brand" href="/" aria-label="Kora Invoice home"><span className="k-product-icon"><Icon name="invoice" size={34} /></span><span><small>Kora</small>Invoice</span></a>
+          <a className="l-brand" href="/" aria-label="Kora Invoice home"><KoraLogo /></a>
           <nav aria-label="Primary">
             {links.map(([h, t]) => <a key={h} href={h}>{t}</a>)}
             <a className="btn" href="/login?signup=1">Get started <Icon name="arrow" size={15} /></a>
@@ -42,7 +44,7 @@ export function SiteFooter() {
     <footer className="l-footer">
       <div className="l-wrap">
         <div>
-          <a className="l-brand" href="/" aria-label="Kora home"><span className="brand-mark" aria-hidden="true">k</span>kora</a>
+          <a className="l-brand" href="/" aria-label="Kora home"><KoraLogo /></a>
           <p>GST invoicing and collections for Indian businesses.</p>
         </div>
         <nav aria-label="Product">
