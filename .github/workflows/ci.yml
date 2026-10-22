@@ -6,18 +6,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with: { version: 10 }
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:up
       - run: pnpm db:smoke
       - run: pnpm typecheck
+      - name: Install Chromium for PDF and end-to-end tests
+        run: pnpm --filter @kora/pdf exec playwright install --with-deps chromium
       - run: pnpm test
       - run: pnpm build
         env:
           DATABASE_URL: postgres://kora_web:kora_web_dev@localhost:54329/kora
           OTP_HMAC_SECRET: ci-only-secret-ci-only-secret-ci-only-1234
-      - name: Install Chromium for PDF and end-to-end tests
-        run: pnpm --filter @kora/pdf exec playwright install --with-deps chromium
       - run: pnpm e2e

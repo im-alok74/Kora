@@ -55,3 +55,5 @@ export * from './xlsx.js';
 export * from './invoiceimport.js';
 export * from './tallyimport.js';
 export * from './ewaybill.js';
+export * from './onboarding.js';
+export * from './demo.js';

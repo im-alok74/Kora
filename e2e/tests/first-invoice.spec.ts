@@ -21,6 +21,8 @@ test('a new user signs up, issues an invoice and sends it on WhatsApp in under 6
   await page.getByLabel('GSTIN').fill(gstin('27')); step();
   await page.getByRole('button', { name: 'Create business' }).click(); step();
 
+  await expect(page.getByRole('heading', { name: 'Welcome to Kora' })).toBeVisible();
+  await page.getByRole('link', { name: 'Skip setup and make an invoice now' }).click(); step();
   await expect(page.getByRole('heading', { name: /New tax invoice/ })).toBeVisible();
   await page.getByLabel('Customer', { exact: true }).selectOption('__new'); step();
   await page.getByLabel('Customer name').fill('Verma Stores'); step();
@@ -79,7 +81,7 @@ test('the home page explains the product and leads to sign-in', async ({ page })
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('GST invoicing');
   await expect(page.getByRole('heading', { name: /From first login to first payment/ })).toBeVisible();
-  await page.getByRole('link', { name: 'Sign in to Kora' }).first().click();
+  await page.getByRole('link', { name: /^Sign in/ }).first().click();
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole('heading', { name: 'Sign in to Kora' })).toBeVisible();
 });

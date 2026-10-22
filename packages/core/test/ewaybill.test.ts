@@ -142,14 +142,14 @@ describe('making an e-way bill for an issued invoice', () => {
     const billId = (await ewayOverview(db.web, owner, id)).bills[0]!.id as string;
     await expect(cancelEwayBill(db.web, owner, gsp(), billId, { reason: 'mistake', remark: '' })).rejects.toThrow(/Remark/);
     await expect(cancelEwayBill(db.web, owner, gsp(), billId, { reason: 'nonsense', remark: 'x' })).rejects.toThrow(/Choose why/);
-    await cancelEwayBill(db.web, owner, gsp(), billId, { reason: 'mistake', remark: 'Wrong vehicle' });
+    await cancelEwayBill(db.web, owner, gsp(), billId, { reason: 'mistake', remark: 'Wrong vehicle' }, clock);
     const after = (await ewayOverview(db.web, owner, id)).bills[0]!;
     expect(after).toMatchObject({ status: 'cancelled', cancel_reason: 'Wrong vehicle' });
     await expect(cancelEwayBill(db.web, owner, gsp(), billId, { reason: 'mistake', remark: 'again' })).rejects.toThrow(/Only an active/);
     expect((await createEwayBill(db.web, owner, gsp(), id, transport)).ewbNumber).not.toBe(made.ewbNumber);
     // a bill older than a day cannot be cancelled
     const second = (await ewayOverview(db.web, owner, id)).bills.find((b) => b.status === 'active')!.id as string;
-    await expect(cancelEwayBill(db.web, owner, gsp(), second, { reason: 'other', remark: 'late' }, new Date(Date.now() + 25 * 3600_000))).rejects.toThrow(/within 24 hours/);
+    await expect(cancelEwayBill(db.web, owner, gsp(), second, { reason: 'other', remark: 'late' }, new Date(clock.getTime() + 25 * 3600_000))).rejects.toThrow(/within 24 hours/);
   });
   it('gives the JSON for the portal\'s own upload page, and only for a document that passes', async () => {
     const id = await invoice(ka, [{ name: 'Steel rods', hsn: '7214', qty: '10', rate: '6000' }]);

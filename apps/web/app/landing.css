@@ -177,3 +177,9 @@
   .kora-home *, .kora-home *::before, .kora-home *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
   .kora-home .l-close h2 { color: #171b20; }
 }
+
+/* Contrast (WCAG AA): small grey text and a link on a tinted panel were just under 4.5:1. */
+.k-topbar > a:first-child span { color: #5d6368; }
+.k-preview-copy > a { color: #0a4fa8; }
+.k-paper-heading small, .k-paper-address small, .k-invoice-paper td small { color: #596470; }
+.kora-home .l-legal { color: #55606b; }
