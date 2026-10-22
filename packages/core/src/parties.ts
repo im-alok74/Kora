@@ -74,9 +74,9 @@ export async function updateParty(sql: Sql, t: TenantSession, id: string, input:
 
 export async function listParties(sql: Sql, t: TenantSession, f: { q?: string; kind?: string; limit?: number; offset?: number } = {}) {
   return inTenant(sql, t, 'party.read', (tx) => tx`
-    select id, kind, name, gstin, phone, email, state_code, currency, billing_address, shipping_address, udyam_number, msme_class
+    select id, kind, name, gstin, phone, email, state_code, currency, billing_address, shipping_address, udyam_number, msme_class, tags, credit_limit_paise::text as credit_limit_paise
       from party
-     where archived_at is null
+     where archived_at is null and merged_into is null
        and (${f.q ?? null}::text is null or name ilike ${'%' + (f.q ?? '') + '%'} or gstin ilike ${'%' + (f.q ?? '') + '%'})
        and (${f.kind ?? null}::text is null or kind = ${f.kind ?? ''} or kind = 'both')
      order by name limit ${Math.min(f.limit ?? 100, 500)} offset ${f.offset ?? 0}`);

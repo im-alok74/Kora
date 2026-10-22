@@ -5,6 +5,7 @@ import Icon from '../../../../components/Icon';
 import { api, DOC_LABEL, rupees } from '../../../../lib/client';
 import RemindersPanel from './reminders-panel';
 import PortalPanel from './portal-panel';
+import ExtrasPanel from './extras-panel';
 
 type Overview = {
   party: { id: string; kind: string; name: string; gstin: string | null; phone: string | null; email: string | null; stateCode: string; address: Record<string, string>; since: string; archived: boolean };
@@ -13,7 +14,7 @@ type Overview = {
   payments: { id: string; received_on: string; amount_paise: string; method: string; note: string | null }[];
 };
 const ADV_METHODS: [string, string][] = [['bank_transfer', 'Bank transfer'], ['upi', 'UPI'], ['cash', 'Cash'], ['cheque', 'Cheque'], ['card', 'Card'], ['netbanking', 'Net banking'], ['other', 'Other']];
-const TABS = [['overview', 'Overview'], ['documents', 'Documents'], ['payments', 'Payments'], ['people', 'People and places'], ['reminders', 'Reminders'], ['portal', 'Portal'], ['details', 'Details']] as const;
+const TABS = [['overview', 'Overview'], ['documents', 'Documents'], ['payments', 'Payments'], ['people', 'People and places'], ['reminders', 'Reminders'], ['portal', 'Portal'], ['limits', 'Notes and limits'], ['details', 'Details']] as const;
 
 type Contact = { id: string; name: string; designation: string | null; email: string | null; phone: string | null; is_primary: boolean };
 type PartyAddress = { id: string; label: string; address: Record<string, string>; state_code: string; is_default_billing: boolean; is_default_shipping: boolean };
@@ -233,6 +234,7 @@ export default function Customer({ params }: { params: Promise<{ id: string }> }
       </>)}
 
       {tab === 'reminders' && <RemindersPanel partyId={id} canWrite={canWrite} />}
+      {tab === 'limits' && <ExtrasPanel partyId={id} canWrite={canWrite} isOwner={role === 'owner'} />}
       {tab === 'portal' && <PortalPanel partyId={id} canWrite={canWrite} />}
       {tab === 'details' && (
         <div className="panel">

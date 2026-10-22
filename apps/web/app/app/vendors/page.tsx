@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { gstinValid, STATE_NAMES } from '@kora/tax';
 import { api, rupees } from '../../../lib/client';
-import { csvText, downloadCsv } from '../../../lib/listTools';
+import PartyTidy from '../../../components/PartyTidy';
 
 type Vendor = { id: string; name: string; gstin: string | null; state_code: string; phone: string | null; email: string | null; udyam_number: string | null; msme_class: string | null };
 type Due = { id: string; billNumber: string; vendor: string; deadline: string; duePaise: string; state: 'overdue' | 'soon' | 'ok'; daysLeft: number };
@@ -78,9 +78,8 @@ export default function Vendors() {
         {editing && <button type="button" className="secondary" style={{ marginLeft: 8 }} onClick={() => { setEditing(null); setForm(EMPTY); }}>Cancel</button>}
         {err && <p className="error" role="alert">{err}</p>}
       </form>
+      <PartyTidy kind="vendor" canMerge onMerged={() => void load()} />
       <label htmlFor="vq">Search</label><input id="vq" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 320, marginBottom: 12 }} />
-      {rows.length > 0 && <div className="listtools"><button type="button" className="secondary sm" onClick={() => downloadCsv('vendors.csv', csvText(['Name', 'GSTIN', 'State code', 'Mobile', 'Email', 'Udyam number', 'Size'],
-        rows.map((p) => [p.name, p.gstin ?? '', p.state_code, p.phone ?? '', p.email ?? '', p.udyam_number ?? '', p.msme_class ?? ''])))}>Export CSV</button></div>}
       <table className="t cards" aria-label="Vendors">
         <thead><tr><th>Name</th><th>GSTIN</th><th>State</th><th>MSME</th><th /></tr></thead>
         <tbody>{rows.map((p) => (

@@ -32,7 +32,7 @@ export async function portalBulkPaymentLink(sql: Sql, token: string, gateway: Pa
     const docs = await tx`
       select d.id, d.number, d.doc_date, (d.grand_total_paise - d.amount_settled_paise) as outstanding, p.name, p.phone, p.email
         from document d join party p on p.id = d.party_id
-       where d.id in ${tx(ids)} and d.party_id = ${who.partyId} and d.status = 'issued' and d.doc_type in ${tx(RECEIVABLE)}
+       where d.id in ${tx(ids)} and d.party_id in (select party_family(${who.partyId})) and d.status = 'issued' and d.doc_type in ${tx(RECEIVABLE)}
        order by d.doc_date, d.number`;
     if (docs.length !== ids.length) throw new ValidationError('One of those invoices was not found.');
     if (docs.some((d) => BigInt(d.outstanding as string) <= 0n)) throw new ValidationError('One of those invoices is already paid. Refresh the page and choose again.');
@@ -65,7 +65,7 @@ export async function portalBulkPaymentLink(sql: Sql, token: string, gateway: Pa
 // ---------------------------------------------------------------- comments and purchase orders
 async function ownDoc(tx: import('@kora/db').Tx, partyId: string, documentId: string, types?: string[]) {
   if (!UUID.test(documentId)) return null;
-  const [d] = await tx`select id, doc_type, number from document where id = ${documentId} and party_id = ${partyId} and status = 'issued'`;
+  const [d] = await tx`select id, doc_type, number from document where id = ${documentId} and party_id in (select party_family(${partyId})) and status = 'issued'`;
   if (!d || (types && !types.includes(d.doc_type as string))) return null;
   return d;
 }
@@ -151,7 +151,7 @@ export async function portalStatementPdfData(sql: Sql, token: string, f: { from?
     const [supplier] = await tx`select legal_name, trade_name, gstin, address, phone, timezone from business where id = ${who.businessId}`;
     const [tpl] = await tx`select config->>'accent' as accent from document_template where business_id = ${who.businessId} and is_default limit 1`;
     const today = todayIn(supplier!.timezone as string);
-    const open = await tx`select (${today}::date - due_date) as late, outstanding_paise::text as o from receivable where party_id = ${who.partyId}`;
+    const open = await tx`select (${today}::date - due_date) as late, outstanding_paise::text as o from receivable where party_id in (select party_family(${who.partyId}))`;
     const ageing: Record<string, bigint> = { not_due: 0n, d1_30: 0n, d31_60: 0n, d61_90: 0n, d90_plus: 0n };
     for (const r of open) {
       const d = r.late as number;

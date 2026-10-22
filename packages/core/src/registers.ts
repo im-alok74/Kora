@@ -176,23 +176,25 @@ export async function customerStatement(sql: Sql, t: TenantSession, partyId: str
     const { from, to } = dateRange(f, b!.timezone as string);
     const [party] = await tx`select id, name, gstin from party where id = ${partyId}`;
     if (!party) throw new ValidationError('Customer not found.');
+    const brought = await tx`select opening_balance_paise, opening_balance_on::text as on from party where id in (select party_family(${partyId})) and opening_balance_paise <> 0`;
     const docs = await tx`
       select doc_date::text as date, doc_type, number, grand_total_paise from document
-       where party_id = ${partyId} and status = 'issued' and doc_type in ('tax_invoice', 'bill_of_supply', 'debit_note', 'credit_note') order by doc_date, number`;
+       where party_id in (select party_family(${partyId})) and status = 'issued' and doc_type in ('tax_invoice', 'bill_of_supply', 'debit_note', 'credit_note') order by doc_date, number`;
     const pays = await tx`
       select p.received_on::text as date, p.method, p.gateway, p.amount_paise
-        from payment p where p.party_id = ${partyId} order by p.received_on, p.created_at`;
+        from payment p where p.party_id in (select party_family(${partyId})) order by p.received_on, p.created_at`;
     const backs = await tx`
       select r.refunded_on::text as date, r.method, r.amount_paise
         from payment_refund r join payment p on p.id = r.payment_id
-       where p.party_id = ${partyId} order by r.refunded_on, r.created_at`;
+       where p.party_id in (select party_family(${partyId})) order by r.refunded_on, r.created_at`;
     const offs = await tx`
       select w.written_off_on::text as date, w.amount_paise, d.doc_type, d.number
         from document_write_off w join document d on d.id = w.document_id
-       where d.party_id = ${partyId} and w.cancelled_at is null order by w.written_off_on, w.created_at`;
+       where d.party_id in (select party_family(${partyId})) and w.cancelled_at is null order by w.written_off_on, w.created_at`;
     type E = { date: string; description: string; debit: bigint; credit: bigint };
     // Documents, then payments, then refunds, within a day: the sort is stable, so a bill comes before the money for it.
     const entries: E[] = [
+      ...brought.map((o) => ({ date: o.on as string, description: 'Opening balance brought forward', debit: BigInt(o.opening_balance_paise as string) > 0n ? BigInt(o.opening_balance_paise as string) : 0n, credit: BigInt(o.opening_balance_paise as string) < 0n ? -BigInt(o.opening_balance_paise as string) : 0n })),
       ...docs.map((d) => ({ date: d.date as string, description: `${TYPE_LABEL[d.doc_type as string]} ${d.number}`,
         debit: d.doc_type === 'credit_note' ? 0n : BigInt(d.grand_total_paise as string), credit: d.doc_type === 'credit_note' ? BigInt(d.grand_total_paise as string) : 0n })),
       ...pays.map((p) => ({ date: p.date as string, description: payLabel(p.method as string, p.gateway as string | null), debit: 0n, credit: BigInt(p.amount_paise as string) })),
