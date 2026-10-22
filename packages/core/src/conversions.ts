@@ -1,6 +1,7 @@
 import type { Sql } from '@kora/db';
 import type { DocType } from '@kora/tax';
 import { convertEstimate } from './estimates.js';
+import { copyCustom } from './customfields.js';
 import { FOREIGN_OK, linesToInput, persist, type DocIn } from './documents.js';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { ValidationError } from './validation.js';
@@ -32,7 +33,7 @@ export async function reviseEstimate(sql: Sql, t: TenantSession, documentId: str
       paymentTerms: d.payment_terms as string | null, extra: d.extra as { label: string; value: string }[] | null, salesperson: d.salesperson as string | null,
       dueDate: d.due_date as string | null, tcsBp: Number(d.tcs_bp ?? 0), tdsBp: Number(d.tds_bp ?? 0),
       ...(foreign ? { currency: d.currency as string, exchangeRate: rateText(BigInt(String(d.exchange_rate_micro))) } : {}),
-      lines: linesToInput(lines), previousVersionId: documentId, version: Number(d.version) + 1,
+      lines: linesToInput(lines), previousVersionId: documentId, version: Number(d.version) + 1, custom: await copyCustom(tx, d.custom_values),
     });
     return { id: made.id, version: Number(d.version) + 1, alreadyStarted: false };
   });
@@ -89,7 +90,7 @@ export async function convertDocument(sql: Sql, t: TenantSession, documentId: st
       tcsBp: toInvoice ? Number(d.tcs_bp ?? 0) : 0, tdsBp: toInvoice ? Number(d.tds_bp ?? 0) : 0,
       ...(keepsCurrency ? { currency: d.currency as string, exchangeRate: rateText(rate) } : {}),
       lines: linesToInput(lines, foreign && !keepsCurrency ? rate : 1_000_000n),
-      sourceDocumentId: documentId,
+      sourceDocumentId: documentId, custom: await copyCustom(tx, d.custom_values),
     };
     const made = await persist(tx, t, null, input);
     return { id: made.id, alreadyConverted: false, warnings: made.warnings };

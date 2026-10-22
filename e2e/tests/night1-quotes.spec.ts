@@ -90,3 +90,31 @@ test('the new recurring form shows the dates it would run on and what auto-send 
   await page.getByLabel('On each date').selectOption('issue_and_send');
   await expect(page.getByTestId('mode-help')).toContainText('sends it to the customer');
 });
+
+test('a custom field is filled on an invoice, printed on it, and kept for a customer', async ({ page, context }) => {
+  await owner(context);
+  const field = await (await page.request.post('/api/custom-fields', { data: { entity: 'document', label: 'Project code', kind: 'text', showOnPdf: true } })).json();
+  const cust = await (await page.request.post('/api/custom-fields', { data: { entity: 'customer', label: 'Vendor code', kind: 'text', showOnPdf: true } })).json();
+  expect(field.id && cust.id).toBeTruthy();
+  await page.request.post('/api/parties', { data: { kind: 'customer', name: 'Field Buyer', stateCode: '27' } });
+
+  await page.goto('/app/customers');
+  await page.getByRole('row', { name: /Field Buyer/ }).getByRole('button', { name: 'Fields' }).click();
+  await page.getByLabel('Vendor code').fill('V-204');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Saved.')).toBeVisible();
+
+  await page.goto('/app/invoices/new');
+  await page.getByLabel('Customer', { exact: true }).selectOption({ label: 'Field Buyer' });
+  await page.getByLabel('Line 1 description').fill('Consulting');
+  await page.getByLabel('Line 1 HSN or SAC').fill('998313');
+  await page.getByLabel('Line 1 rate').fill('1000');
+  await page.getByLabel('Project code').fill('P-77');
+  await page.getByRole('button', { name: 'Issue tax invoice' }).click();
+  await page.waitForURL(/\/app\/invoices\/[0-9a-f-]{36}/);
+  const id = page.url().match(/invoices\/([0-9a-f-]{36})/)![1];
+  const html = (await (await page.request.get(`/api/documents/${id}/html`)).json()).html as string;
+  expect(html).toContain('Project code');
+  expect(html).toContain('P-77');
+  expect(html).toContain('Vendor code:</span> V-204');
+});

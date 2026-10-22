@@ -2,6 +2,7 @@
 import LateFeeSettings from '../../../components/LateFeeSettings';
 import MessagesPanel from '../../../components/MessagesPanel';
 import TemplateGallery from '../../../components/TemplateGallery';
+import CustomFieldsSettings from '../../../components/CustomFieldsSettings';
 import { useEffect, useState } from 'react';
 import { api } from '../../../lib/client';
 
@@ -141,6 +142,8 @@ export default function Settings() {
       )}
 
       <LateFeeSettings readOnly={readOnly} />
+
+      <CustomFieldsSettings readOnly={readOnly} />
 
       {tpl && (
         <div className="panel">

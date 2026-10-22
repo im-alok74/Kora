@@ -49,3 +49,16 @@ describe('the looks', () => {
     expect(h).toContain('Goods returned: 3 chairs &lt;b&gt;broken&lt;/b&gt;');
   });
 });
+
+describe('custom fields on the page', () => {
+  it('prints the document fields that are set to print, and the customer fields under the customer, escaped', () => {
+    const input = sampleInput(supplier, TPL);
+    input.doc = { ...input.doc, custom_values: [{ id: 'a', label: 'Project code', value: 'P-<9>', pdf: true }, { id: 'b', label: 'Site visit', value: '2026-11-01', pdf: false }] };
+    input.recipient = { ...input.recipient!, custom_values: [{ id: 'c', label: 'Vendor code', value: 'V-204', pdf: true }] };
+    const h = renderDocumentHtml(input);
+    expect(h).toContain('Project code');
+    expect(h).toContain('P-&lt;9&gt;');
+    expect(h).not.toContain('Site visit');
+    expect(h).toContain('Vendor code:</span> V-204');
+  });
+});

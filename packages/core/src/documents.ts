@@ -8,6 +8,7 @@ import { ConflictError, isDate, str, todayIn, ValidationError } from './validati
 import { scheduleReminders } from './reminders.js';
 import { queueEinvoiceIfRequired } from './einvoice.js';
 import { emitEvent } from './webhooks.js';
+import { copyCustom, resolveCustom } from './customfields.js';
 
 export const DOC_TYPES: readonly DocType[] =
   ['tax_invoice', 'bill_of_supply', 'estimate', 'proforma', 'delivery_challan', 'credit_note', 'debit_note', 'sales_order'];
@@ -64,6 +65,8 @@ export interface DocIn {
   tdsBp?: number;
   originalDocumentId?: string | null;
   /** Why a credit or debit note was raised, one of NOTE_REASONS, and an optional sentence of detail. */
+  /** Answers to the business's custom document fields, by field id. */
+  custom?: Record<string, string> | null;
   noteReason?: string | null;
   noteReasonDetail?: string | null;
   /** A revised quote points at the one it replaces. */
@@ -204,6 +207,7 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
   }
   const r = b.result;
   const s = (x: bigint) => x.toString();
+  const customValues = await resolveCustom(tx, 'document', input.custom);
   const fields = {
     doc_type: input.docType, party_id: input.partyId ?? null, place_of_supply: b.placeOfSupply,
     reverse_charge: input.reverseCharge ?? false, doc_date: b.docDate, due_date: input.dueDate ?? null,
@@ -213,6 +217,7 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
     original: input.originalDocumentId ?? null, tcs_bp: input.tcsBp ?? 0, tds_bp: input.tdsBp ?? 0, currency: b.currency, rate: b.rateMicro.toString(),
     reference: str(input.reference, 'Reference', { max: 60 }), subject: str(input.subject, 'Subject', { max: 200 }), payment_terms: input.paymentTerms || null,
     extra: cleanExtra(input.extra), salesperson: str(input.salesperson, 'Salesperson', { max: 80 }),
+    custom_values: customValues === null ? null : tx.json(customValues as never),
     note_reason: input.noteReason ?? null, note_reason_detail: str(input.noteReasonDetail, 'Detail', { max: 300 }),
     previous_version_id: input.previousVersionId ?? null, version: input.version ?? 1, source_document_id: input.sourceDocumentId ?? null,
   };
@@ -232,7 +237,7 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
              tcs_bp = ${fields.tcs_bp}, tds_bp = ${fields.tds_bp}, currency = ${fields.currency}, exchange_rate_micro = ${fields.rate},
              reference = ${fields.reference}, subject = ${fields.subject}, payment_terms = ${fields.payment_terms},
              extra = ${fields.extra === null ? null : tx.json(fields.extra as any)}, salesperson = ${fields.salesperson},
-             note_reason = coalesce(${fields.note_reason}, note_reason), note_reason_detail = coalesce(${fields.note_reason_detail}, note_reason_detail)
+             custom_values = ${fields.custom_values}, note_reason = coalesce(${fields.note_reason}, note_reason), note_reason_detail = coalesce(${fields.note_reason_detail}, note_reason_detail)
              where id = ${id}`;
     // previous_version_id, version and source_document_id are set once, when the draft is made, and never edited.
   } else {
@@ -240,11 +245,11 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
       insert into document (business_id, doc_type, party_id, place_of_supply, reverse_charge, doc_date, due_date, taxable_paise, cgst_paise,
                             sgst_paise, igst_paise, cess_paise, tcs_paise, tds_paise, round_off_paise, grand_total_paise, notes, terms,
                             original_document_id, created_by, client_ref, tcs_bp, tds_bp, currency, exchange_rate_micro, reference, subject, payment_terms, extra, salesperson,
-                            previous_version_id, version, source_document_id, note_reason, note_reason_detail)
+                            previous_version_id, version, source_document_id, note_reason, note_reason_detail, custom_values)
       values (${t.businessId}, ${fields.doc_type}, ${fields.party_id}, ${fields.place_of_supply}, ${fields.reverse_charge}, ${fields.doc_date},
               ${fields.due_date}, ${fields.taxable}, ${fields.cgst}, ${fields.sgst}, ${fields.igst}, ${fields.cess}, ${fields.tcs}, ${fields.tds},
               ${fields.round_off}, ${fields.grand}, ${fields.notes}, ${fields.terms}, ${fields.original}, ${t.userId}, ${clientRef}, ${fields.tcs_bp}, ${fields.tds_bp}, ${fields.currency}, ${fields.rate}, ${fields.reference}, ${fields.subject}, ${fields.payment_terms}, ${fields.extra === null ? null : tx.json(fields.extra as any)}, ${fields.salesperson},
-              ${fields.previous_version_id}, ${fields.version}, ${fields.source_document_id}, ${fields.note_reason}, ${fields.note_reason_detail})
+              ${fields.previous_version_id}, ${fields.version}, ${fields.source_document_id}, ${fields.note_reason}, ${fields.note_reason_detail}, ${fields.custom_values})
       returning id`;
     docId = row!.id as string;
   }
@@ -555,7 +560,7 @@ export async function previewDocumentData(sql: Sql, t: TenantSession, input: Doc
       tcs_paise: s(r.tcsPaise), tds_paise: s(r.tdsPaise), round_off_paise: s(r.roundOffPaise), grand_total_paise: s(r.grandTotalPaise),
       notes: str(input.notes, 'Notes', { max: 2000 }), terms: str(input.terms, 'Terms', { max: 2000 }), reference: str(input.reference, 'Reference', { max: 60 }),
       subject: str(input.subject, 'Subject', { max: 200 }), extra: cleanExtra(input.extra), salesperson: str(input.salesperson, 'Salesperson', { max: 80 }),
-      original_number: original?.number ?? null,
+      original_number: original?.number ?? null, custom_values: await resolveCustom(tx, 'document', input.custom),
     };
     const lines = b.lines.map((l, i) => {
       const c = r.lines[i]!;
@@ -654,7 +659,9 @@ export async function duplicateDocument(sql: Sql, t: TenantSession, sourceId: st
   if (d.doc_type === 'credit_note' || d.doc_type === 'debit_note') throw new ValidationError('A note answers one invoice. Start a new note from the invoice instead.');
   const rateMicro = BigInt(String(d.exchange_rate_micro ?? 1_000_000));
   const foreign = !!d.currency && d.currency !== 'INR';
+  const custom = await inTenant(sql, t, 'document.read', (tx) => copyCustom(tx, d.custom_values));
   const input: DocIn = {
+    custom,
     docType: d.doc_type as DocType, partyId: d.party_id as string | null, placeOfSupply: d.place_of_supply as string, reverseCharge: d.reverse_charge as boolean,
     notes: d.notes as string | null, terms: d.terms as string | null, reference: d.reference as string | null, subject: d.subject as string | null,
     paymentTerms: d.payment_terms as string | null, extra: d.extra as { label: string; value: string }[] | null, salesperson: d.salesperson as string | null, tcsBp: Number(d.tcs_bp ?? 0), tdsBp: Number(d.tds_bp ?? 0),

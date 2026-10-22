@@ -171,7 +171,10 @@ export function renderDocumentHtml(i: RenderInput): string {
   const cell = (k: string, v: string) => `<div><span class="k">${esc(k)}</span><b>${v}</b></div>`;
   const metaCells = [cell(L.no, esc(d.number ?? 'Draft')), cell(L.date, esc(d.doc_date)), d.due_date ? cell(L.due, esc(d.due_date)) : '',
     d.original_number ? cell(L.against, esc(d.original_number)) : '', d.note_reason ? cell(L.reason, esc([NOTE_REASON_TEXT[d.note_reason] ?? d.note_reason, d.note_reason_detail].filter(Boolean).join(': '))) : '', d.reference ? cell(L.reference, esc(d.reference)) : '', d.salesperson ? cell(L.salesperson, esc(d.salesperson)) : '', cell(L.placeOfSupply, place)].join('');
-  const extraCells = Array.isArray(d.extra) ? d.extra.map((x: { label: string; value: string }) => cell(String(x.label ?? ''), esc(x.value))).join('') : '';
+  // Details the business added to this document, and the custom fields it defined for documents that are set to print.
+  const printable = (v: unknown) => (Array.isArray(v) ? (v as { label?: string; value?: string; pdf?: boolean }[]).filter((x) => x && x.pdf !== false && x.label && x.value) : []);
+  const extraCells = [...(Array.isArray(d.extra) ? d.extra : []), ...printable(d.custom_values)].map((x: { label: string; value: string }) => cell(String(x.label ?? ''), esc(x.value))).join('');
+  const buyerCustom = printable(r?.custom_values).map((x) => `<br><span class="k" style="display:inline">${esc(x.label)}:</span> ${esc(x.value)}`).join('');
   const ship = r?.shipping_address && Object.keys(r.shipping_address).length ? addr(r.shipping_address) : '';
 
   // The tax by HSN or SAC and rate: the summary a buyer and an auditor look for first.
@@ -238,7 +241,7 @@ ${LAYOUT_CSS(accent)}</style></head><body><div class="page lay-${lay}">${draftMa
 ${s.gstin ? `<br><b>GSTIN:</b> ${esc(s.gstin)}` : ''}</div>
 <div class="doc"><h1>${esc(title)}</h1>${d.status === 'issued' && d.payment_status === 'paid' && d.doc_type !== 'estimate' ? `<div class="paidtag">${esc(L.paid)}</div>` : ''}${d.subject ? `<div class="subj">${esc(d.subject)}</div>` : ''}</div></div>
 <div class="meta4">${metaCells}</div>${extraCells ? `<div class="meta4 extra">${extraCells}</div>` : ''}
-<div class="parties"><div class="card"><span class="lbl">${esc(L.billTo)}</span>${r ? `<b class="who">${esc(r.name)}</b><br>${addr(r.billing_address)}${r.gstin ? `<br><b>GSTIN:</b> ${esc(r.gstin)}` : ''}${r.phone ? `<br>Ph: ${esc(r.phone)}` : ''}` : esc(L.walkIn)}</div>
+<div class="parties"><div class="card"><span class="lbl">${esc(L.billTo)}</span>${r ? `<b class="who">${esc(r.name)}</b><br>${addr(r.billing_address)}${r.gstin ? `<br><b>GSTIN:</b> ${esc(r.gstin)}` : ''}${r.phone ? `<br>Ph: ${esc(r.phone)}` : ''}${buyerCustom}` : esc(L.walkIn)}</div>
 ${ship ? `<div class="card"><span class="lbl">${esc(L.shipTo)}</span>${ship}</div>` : ''}</div>
 <table class="items"><thead>${narrative ? `<tr><th>#</th><th>Particulars of professional services</th><th>SAC</th><th class="n">Fee</th>${taxHead}</tr>` : `<tr><th>#</th><th>${esc(L.description)}</th><th>HSN/SAC</th><th class="n">${esc(L.qty)}</th><th class="n">${esc(L.rate)}</th><th class="n">${esc(L.discount)}</th><th class="n">${esc(L.taxable)}</th>${taxHead}</tr>`}</thead><tbody>${rows}</tbody></table>
 <div class="bottom"><div>${t.showAmountInWords && !foreign ? `<div class="words">${esc(rupeesInWords(BigInt(d.grand_total_paise)))}</div>` : ''}

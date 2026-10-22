@@ -7,6 +7,7 @@ import { cacheGet, cacheSet, getDraft, isNetworkError, newId, putDraft, removeDr
 import { localTotals, type BusinessFacts, type PartyFacts } from '../lib/localTotals';
 import { effectiveDiscounts, shippingRateBp } from '../lib/discounts';
 import { syncDrafts } from '../lib/sync';
+import CustomFieldInputs, { type CustomDef } from './CustomFieldInputs';
 
 type Line = { key: number; itemId: string | null; name: string; hsnSac: string; quantity: string; rate: string; discount: string; taxRateBp: number; kind: 'goods' | 'service'; taxInclusive: boolean };
 type Party = PartyFacts & { phone: string | null; currency?: string };
@@ -55,6 +56,8 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
   const [billDiscount, setBillDiscount] = useState('');
   const [salesperson, setSalesperson] = useState('');
   const [extra, setExtra] = useState<{ label: string; value: string }[]>([]);
+  const [customDefs, setCustomDefs] = useState<CustomDef[]>([]);
+  const [custom, setCustom] = useState<Record<string, string>>({});
   const [view, setView] = useState<'edit' | 'preview'>('edit');
   const [paidNow, setPaidNow] = useState(false);
   const [paidVia, setPaidVia] = useState('cash');
@@ -95,7 +98,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
   const fill = (p: Record<string, any>) => {
     setDocType(p.docType); setPartyId(p.partyId ?? ''); setDocDate(p.docDate ?? ''); setDueDate(p.dueDate ?? ''); setNotes(p.notes ?? ''); setTerms(p.terms ?? '');
     setRcm(!!p.reverseCharge); setOriginal(p.originalDocumentId ?? null); setTcsPct(bpToPct(p.tcsBp)); setTdsPct(bpToPct(p.tdsBp)); setCurrency(p.currency ?? 'INR'); setRate(p.exchangeRate ?? '');
-    setReference(p.reference ?? ''); setSubject(p.subject ?? ''); setPaymentTerms(p.paymentTerms ?? ''); setSalesperson(p.salesperson ?? ''); setExtra(p.extra ?? []);
+    setReference(p.reference ?? ''); setSubject(p.subject ?? ''); setPaymentTerms(p.paymentTerms ?? ''); setSalesperson(p.salesperson ?? ''); setExtra(p.extra ?? []); setCustom(p.custom ?? {});
     setLines((p.lines as any[]).map((l) => ({ key: seq++, itemId: l.itemId ?? null, name: l.name, hsnSac: l.hsnSac ?? '', quantity: String(l.quantity), rate: String(l.rate),
       discount: l.discount ?? '', taxRateBp: l.taxRateBp, kind: l.kind ?? 'goods', taxInclusive: !!l.taxInclusive })));
   };
@@ -105,6 +108,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
       try {
         setParties(await fromServerOrDevice<Party[]>('parties', '/api/parties', (r) => r.parties, []));
         setItems(await fromServerOrDevice<Item[]>('items', '/api/items', (r) => r.items, []));
+        setCustomDefs(await fromServerOrDevice<CustomDef[]>('custom-fields-doc', '/api/custom-fields?entity=document', (r) => r.fields, []));
         setBusiness(await fromServerOrDevice<BusinessFacts | null>('business', '/api/business', (r) => r.business, null));
         if (localIdProp) {
           const d = await getDraft(localIdProp);
@@ -117,6 +121,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
             setDocType(d.doc_type); setPartyId(d.party_id ?? ''); setDocDate(d.doc_date); setDueDate(d.due_date ?? ''); setNotes(d.notes ?? ''); setTerms(d.terms ?? '');
             setRcm(d.reverse_charge); setOriginal(d.original_document_id); setTcsPct(bpToPct(d.tcs_bp)); setTdsPct(bpToPct(d.tds_bp)); setCurrency(d.currency ?? 'INR'); setRate(d.currency && d.currency !== 'INR' ? microToText(d.exchange_rate_micro) : '');
             setReference(d.reference ?? ''); setSubject(d.subject ?? ''); setPaymentTerms(d.payment_terms ?? ''); setSalesperson(d.salesperson ?? ''); setExtra(d.extra ?? []);
+            setCustom(Object.fromEntries(((d.custom_values ?? []) as { id: string; value: string }[]).map((v) => [v.id, v.value])));
             setLines(ls.map((l: any) => ({ key: seq++, itemId: l.item_id, name: l.item_name, hsnSac: l.hsn_sac ?? '', quantity: String(l.quantity).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '') || '1',
               rate: rs(l.rate_paise), discount: BigInt(l.discount_paise) > 0n ? rs(l.discount_paise) : '', taxRateBp: l.tax_rate_bp, kind: 'goods', taxInclusive: !!l.price_includes_tax })));
           } catch (e) {
@@ -147,6 +152,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
     originalDocumentId: original, tcsBp: pctToBp(tcsPct) ?? 0, tdsBp: pctToBp(tdsPct) ?? 0,
     reference: reference.trim() || null, subject: subject.trim() || null, paymentTerms: paymentTerms || null, salesperson: salesperson.trim() || null,
     extra: extra.filter((x) => x.label.trim() || x.value.trim()),
+    custom: Object.fromEntries(Object.entries(custom).filter(([id, v]) => v.trim() && customDefs.some((d) => d.id === id))),
     ...(currency !== 'INR' && quote ? { currency, exchangeRate: rate } : {}),
     lines: (() => {
       const kept = lines.filter((l) => l.name.trim() || l.rate);
@@ -154,7 +160,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
       return kept.map((l, i) => ({ itemId: l.itemId, name: l.name, hsnSac: l.hsnSac || null, quantity: l.quantity || '0',
         rate: l.rate || '0', discount: disc[i] || undefined, taxRateBp: l.taxRateBp, kind: l.kind, taxInclusive: l.taxInclusive || undefined }));
     })(),
-  }), [docType, partyId, docDate, dueDate, notes, terms, reverseCharge, lines, original, tcsPct, tdsPct, currency, rate, quote, reference, subject, paymentTerms, billDiscount, salesperson, extra]);
+  }), [docType, partyId, docDate, dueDate, notes, terms, reverseCharge, lines, original, tcsPct, tdsPct, currency, rate, quote, reference, subject, paymentTerms, billDiscount, salesperson, extra, custom, customDefs]);
 
   // Live totals. The server is the authority; offline, the same tax library runs on this device.
   useEffect(() => {
@@ -433,6 +439,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
               <button type="button" className="link" aria-label={`Remove extra detail ${i + 1}`} onClick={() => setExtra((xs) => xs.filter((_, k) => k !== i))}>Remove</button>
             </div>))}
           {extra.length < 5 && <button type="button" className="secondary sm" style={{ marginTop: 6 }} onClick={() => setExtra((xs) => [...xs, { label: '', value: '' }])}><Icon name="plus" size={16} />Add an extra detail</button>}
+          {customDefs.length > 0 && (<><p className="section-label">Your own fields</p><CustomFieldInputs defs={customDefs} values={custom} onChange={setCustom} idPrefix="cf" /></>)}
           <label htmlFor="nt" style={{ marginTop: 0 }}>Notes</label><textarea id="nt" value={notes} onChange={(e) => setNotes(e.target.value)} />
           <label htmlFor="tm">Terms</label><textarea id="tm" value={terms} onChange={(e) => setTerms(e.target.value)} />
           <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" style={{ width: 'auto', height: 'auto' }} checked={reverseCharge} onChange={(e) => setRcm(e.target.checked)} /> Tax is payable by the recipient (reverse charge)</label>
