@@ -279,6 +279,7 @@ thead{display:table-header-group}tfoot{display:table-footer-group}
 @media print{.page{max-width:none;padding:0}.hd,.meta4,.parties,.totbox,.sign,.irn{break-inside:avoid}.bottom{display:flex}.bottom>div:first-child{break-inside:auto}.note,.upi{break-inside:avoid}table.items{display:table;width:100%;font-size:${t.paper === 'A5' ? '.8em' : '.97em'}}table.items td:nth-child(2){min-width:0}.n{white-space:normal}.mark{position:fixed}}
 @media screen and (max-width:640px){.brand,.doc{max-width:100%}.doc{text-align:left}.bottom>div{width:100%}.meta4{margin-block:18px}.lay-modern .hd .brand{max-width:100%}}
 @media print{.lay-bold .hd,.lay-duo .hd{margin:0 0 18px}.lay-corporate{padding-left:18px!important}}
+@media print{.note{margin-top:8px;line-height:1.45}.words{line-height:1.45}table.hsn{margin-top:12px}.sign{margin-top:22px}.foot{margin-top:12px}.meta4{margin:12px 0}.parties{margin-bottom:10px}}
 </style></head><body><div class="page lay-${lay}">${draftMark}
 <div class="hd"><div class="brand">${logo}<span class="nm">${esc(supplierName)}</span>${supplierName !== s.legal_name ? `${esc(s.legal_name)}<br>` : ''}${addr(s.address)}${s.phone ? `<br>Ph: ${esc(s.phone)}` : ''}${s.email ? `<br>${esc(s.email)}` : ''}
 ${s.gstin ? `<br><b>GSTIN:</b> ${esc(s.gstin)}` : ''}</div>
