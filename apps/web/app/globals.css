@@ -676,6 +676,18 @@ ul.notes li { align-items: flex-start; } ul.notes li p { margin: 2px 0 0; white-
 .look .thumb { display: block; position: relative; height: 230px; overflow: hidden; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
 .look .thumb iframe { position: absolute; top: 0; left: 0; width: 820px; height: 1100px; border: 0; transform: scale(.205); transform-origin: top left; pointer-events: none; }
 
+/* Printing a report: only the report, on white. */
+@media print {
+  nav.side, .mobile-bar, .scrim, [role="tablist"], .toolbar .row, .filters { display: none !important; }
+  body, main { background: #fff !important; color: #000 !important; }
+  .panel { box-shadow: none !important; }
+}
+
+/* Wide tables scroll sideways on a phone instead of being cut off. */
+@media (max-width: 700px) {
+  table.t:not(.cards) { display: block; overflow-x: auto; white-space: nowrap; }
+  .row { flex-wrap: wrap; }
+}
 /* Public theme control remains visible on desktop and mobile. */
 .site-header-actions { display: flex; align-items: center; gap: 18px; }
 .kora-home .site-header-actions > a { color: var(--text); white-space: nowrap; }

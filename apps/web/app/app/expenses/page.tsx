@@ -1,4 +1,5 @@
 'use client';
+import ExpenseExtras from './extras';
 import { useCallback, useEffect, useState } from 'react';
 import { api, rupees } from '../../../lib/client';
 import EmptyState from '../../../components/EmptyState';
@@ -136,6 +137,7 @@ export default function Expenses() {
                 </tr>))}</tbody>
             </table>)}
         </>)}
+      {list && <ExpenseExtras rows={list.rows} canWrite={canWrite} onChange={() => { void load(); }} />}
     </>
   );
 }

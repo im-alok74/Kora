@@ -4,6 +4,7 @@ import { CURRENCIES, gstinValid, STATE_NAMES } from '@kora/tax';
 import { api } from '../../../lib/client';
 import EmptyState from '../../../components/EmptyState';
 import { csvText, downloadCsv } from '../../../lib/listTools';
+import PartyTidy from '../../../components/PartyTidy';
 
 type Party = { id: string; name: string; gstin: string | null; state_code: string; phone: string | null; email: string | null; currency?: string; billing_address?: Record<string, string> };
 const EMPTY = { name: '', gstin: '', stateCode: '', phone: '', email: '', currency: 'INR', line1: '', city: '', pincode: '' };
@@ -84,6 +85,7 @@ export default function Customers() {
         {editing && <button type="button" className="secondary" style={{ marginLeft: 8 }} onClick={() => { setEditing(null); setForm(EMPTY); }}>Cancel</button>}
         {err && <p className="error" role="alert">{err}</p>}
       </form>
+      <PartyTidy kind="customer" canMerge={role === 'owner'} onMerged={() => void load()} />
       <label htmlFor="sq">Search</label><input id="sq" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 320, marginBottom: 12 }} />
       {portal && (
         <div className="panel" role="region" aria-label={`Portal for ${portal.party.name}`} data-testid="portal-panel">

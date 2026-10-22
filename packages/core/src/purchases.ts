@@ -2,6 +2,7 @@ import { computeLine, DEFAULT_ALLOWED_RATE_BP, parseQuantity, parseRupees, TaxEr
 import type { Sql } from '@kora/db';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { isDate, str, todayIn, ValidationError } from './validation.js';
+import { msmeCovered, msmeDeadline, msmeStatus } from './msme.js';
 
 const rs = (p: bigint | string | number) => { const n = BigInt(p); return `${n / 100n}.${(n % 100n).toString().padStart(2, '0')}`; };
 const PAY_METHODS = ['cash', 'upi', 'card', 'netbanking', 'bank_transfer', 'cheque', 'other'] as const;
@@ -68,25 +69,40 @@ export async function listBills(sql: Sql, t: TenantSession, f: { q?: string; sta
   if (f.to && !isDate(f.to)) throw new ValidationError('Enter dates as YYYY-MM-DD.', 'to');
   if (f.state && !['open', 'paid', 'cancelled'].includes(f.state)) throw new ValidationError('Choose open, paid or cancelled.', 'state');
   const like = f.q ? `%${f.q.replace(/[%_\\]/g, '\\$&')}%` : null;
-  return inTenant(sql, t, 'purchase.read', (tx) => tx`
-    select b.id, b.bill_number, b.bill_date::text as bill_date, b.due_date::text as due_date, b.status, b.reverse_charge, b.itc_status, p.name as vendor,
+  return inTenant(sql, t, 'purchase.read', async (tx) => {
+    const [biz] = await tx`select timezone from business where id = ${t.businessId}`;
+    const today = todayIn(biz!.timezone as string);
+    const rows = await tx`
+    select p.msme_class, b.id, b.bill_number, b.bill_date::text as bill_date, b.due_date::text as due_date, b.status, b.reverse_charge, b.itc_status, p.name as vendor,
            b.taxable_paise::text, (b.cgst_paise + b.sgst_paise + b.igst_paise + b.cess_paise)::text as tax_paise, b.total_paise::text, b.paid_paise::text, (b.total_paise - b.paid_paise)::text as due_paise
       from purchase_bill b join party p on p.id = b.party_id
      where (${like}::text is null or b.bill_number ilike ${like} or p.name ilike ${like})
        and (${f.state ?? null}::text is null or (${f.state ?? ''} = 'cancelled' and b.status = 'cancelled') or (b.status = 'recorded' and ((${f.state ?? ''} = 'paid' and b.paid_paise >= b.total_paise) or (${f.state ?? ''} = 'open' and b.paid_paise < b.total_paise))))
        and (${f.from ?? null}::date is null or b.bill_date >= ${f.from ?? null}::date) and (${f.to ?? null}::date is null or b.bill_date <= ${f.to ?? null}::date)
-     order by b.bill_date desc, b.created_at desc limit ${Math.min(500, f.limit ?? 100)}`);
+     order by b.bill_date desc, b.created_at desc limit ${Math.min(500, f.limit ?? 100)}`;
+    return rows.map((r) => {
+      const open = r.status === 'recorded' && BigInt(r.due_paise as string) > 0n;
+      if (!open || !msmeCovered(r.msme_class as string)) return r;
+      const deadline = msmeDeadline(r.bill_date as string, r.due_date as string | null);
+      return { ...r, msme_deadline: deadline, msme_state: msmeStatus(deadline, today).state, msme_days_left: msmeStatus(deadline, today).daysLeft };
+    });
+  });
 }
 
 export async function getBill(sql: Sql, t: TenantSession, id: string) {
   return inTenant(sql, t, 'purchase.read', async (tx) => {
-    const [b] = await tx`select b.*, b.bill_date::text as bill_date_s, b.due_date::text as due_date_s, p.name as vendor, p.gstin as vendor_gstin
+    const [b] = await tx`select b.*, b.bill_date::text as bill_date_s, b.due_date::text as due_date_s, p.name as vendor, p.gstin as vendor_gstin, p.udyam_number, p.msme_class
                            from purchase_bill b join party p on p.id = b.party_id where b.id = ${id}`;
     if (!b) return null;
     const lines = await tx`select line_no, description, hsn_sac, (quantity_milli::numeric / 1000)::text as quantity, rate_paise::text, discount_paise::text, tax_rate_bp, taxable_paise::text, cgst_paise::text, sgst_paise::text, igst_paise::text, cess_paise::text, total_paise::text from purchase_line where bill_id = ${id} order by line_no`;
-    const payments = await tx`select id, paid_on::text as paid_on, amount_paise::text, method, note from purchase_payment where bill_id = ${id} order by paid_on, created_at`;
+    const payments = await tx`select id, paid_on::text as paid_on, amount_paise::text, tds_paise::text, tds_section, method, note from purchase_payment where bill_id = ${id} order by paid_on, created_at`;
     const [m] = await tx`select period, invoice_number from gstr2b_entry where bill_id = ${id} limit 1`;
+    const [biz] = await tx`select timezone from business where id = ${t.businessId}`;
+    const open = b.status === 'recorded' && BigInt(b.paid_paise as string) < BigInt(b.total_paise as string);
+    const deadline = msmeCovered(b.msme_class as string) ? msmeDeadline(b.bill_date_s as string, b.due_date_s as string | null) : null;
+    const msme = deadline ? { class: b.msme_class as string, udyamNumber: b.udyam_number as string, deadline, open, ...msmeStatus(deadline, todayIn(biz!.timezone as string)) } : null;
     return {
+      msme,
       bill: {
         id: b.id as string, vendor: b.vendor as string, vendorGstin: b.vendor_gstin as string | null, partyId: b.party_id as string, billNumber: b.bill_number as string,
         billDate: b.bill_date_s as string, dueDate: b.due_date_s as string | null, supply: b.supply as string, reverseCharge: b.reverse_charge as boolean, status: b.status as string,
@@ -120,9 +136,20 @@ export async function setItcStatus(sql: Sql, t: TenantSession, id: string, statu
   });
 }
 
-export async function payBill(sql: Sql, t: TenantSession, id: string, i: { amount: string; method?: string; paidOn?: string; note?: string | null }) {
+/** Sections of the Income Tax Act under which a business holds back tax when paying a vendor. The rate is the CA's call, so Kora records the amount you enter. */
+export const TDS_SECTIONS: [string, string][] = [
+  ['194C', 'Contractors and job work'], ['194J', 'Professional and technical fees'], ['194H', 'Commission and brokerage'], ['194I', 'Rent'],
+  ['194Q', 'Purchase of goods'], ['194A', 'Interest other than on securities'], ['194O', 'E-commerce operators'], ['194M', 'Contract or fees by an individual or HUF'],
+  ['195', 'Payments to non-residents'],
+];
+
+export async function payBill(sql: Sql, t: TenantSession, id: string, i: { amount: string; method?: string; paidOn?: string; note?: string | null; tds?: string | null; tdsSection?: string | null }) {
   const amount = paise(i.amount, 'amount');
   if (amount <= 0n) throw new ValidationError('The amount must be more than zero.', 'amount');
+  const tds = i.tds ? paise(i.tds, 'tds') : 0n;
+  if (tds < 0n) throw new ValidationError('The tax held back cannot be negative.', 'tds');
+  const tdsSection = tds > 0n ? String(i.tdsSection ?? '').trim().toUpperCase() : null;
+  if (tds > 0n && !TDS_SECTIONS.some(([k]) => k === tdsSection)) throw new ValidationError('Choose the section under which you held back the tax.', 'tdsSection');
   const method = i.method ?? 'bank_transfer';
   if (!(PAY_METHODS as readonly string[]).includes(method)) throw new ValidationError('Choose how it was paid.', 'method');
   const note = str(i.note, 'Note', { max: 300 });
@@ -130,21 +157,21 @@ export async function payBill(sql: Sql, t: TenantSession, id: string, i: { amoun
     const [b] = await tx`select status, total_paise, paid_paise from purchase_bill where id = ${id} for update`;
     if (!b || b.status !== 'recorded') throw new ValidationError('Bill not found, or it is cancelled.');
     const due = BigInt(b.total_paise as string) - BigInt(b.paid_paise as string);
-    if (amount > due) throw new ValidationError(`Only Rs ${rs(due)} is still due on this bill.`, 'amount');
+    if (amount + tds > due) throw new ValidationError(`Only Rs ${rs(due)} is still due on this bill.`, 'amount');
     const [biz] = await tx`select timezone from business where id = ${t.businessId}`;
     const on = i.paidOn || todayIn(biz!.timezone as string);
     if (!isDate(on)) throw new ValidationError('Enter the date as YYYY-MM-DD.', 'paidOn');
-    const [p] = await tx`insert into purchase_payment (business_id, bill_id, paid_on, amount_paise, method, note, created_by) values (${t.businessId}, ${id}, ${on}, ${amount.toString()}, ${method}, ${note}, ${t.userId}) returning id`;
-    await tx`update purchase_bill set paid_paise = paid_paise + ${amount.toString()} where id = ${id}`;
-    return { id: p!.id as string, duePaise: (due - amount).toString() };
+    const [p] = await tx`insert into purchase_payment (business_id, bill_id, paid_on, amount_paise, method, note, tds_paise, tds_section, created_by) values (${t.businessId}, ${id}, ${on}, ${amount.toString()}, ${method}, ${note}, ${tds.toString()}, ${tdsSection}, ${t.userId}) returning id`;
+    await tx`update purchase_bill set paid_paise = paid_paise + ${(amount + tds).toString()} where id = ${id}`;
+    return { id: p!.id as string, duePaise: (due - amount - tds).toString() };
   });
 }
 
 export async function removeBillPayment(sql: Sql, t: TenantSession, paymentId: string): Promise<void> {
   await inTenant(sql, t, 'purchase.write', async (tx) => {
-    const [p] = await tx`delete from purchase_payment where id = ${paymentId} returning bill_id, amount_paise`;
+    const [p] = await tx`delete from purchase_payment where id = ${paymentId} returning bill_id, amount_paise, tds_paise`;
     if (!p) throw new ValidationError('Payment not found.');
-    await tx`update purchase_bill set paid_paise = paid_paise - ${String(p.amount_paise)} where id = ${p.bill_id}`;
+    await tx`update purchase_bill set paid_paise = paid_paise - ${(BigInt(p.amount_paise as string) + BigInt(p.tds_paise as string)).toString()} where id = ${p.bill_id}`;
   });
 }
 

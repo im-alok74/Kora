@@ -1,7 +1,8 @@
 'use client';
 import { use, useCallback, useEffect, useState } from 'react';
 import { formatMoney } from '@kora/tax';
-import { api, DOC_LABEL, rupees } from '../../../lib/client';
+import { api, ApiError, DOC_LABEL, rupees } from '../../../lib/client';
+import { CodeGate, DocTalk } from './parts';
 
 type Invoice = { id: string; doc_type: string; number: string; doc_date: string; due_date: string | null; grand_total_paise: string; outstanding_paise: string; payment_status: string; overdue: boolean };
 type Estimate = { id: string; number: string; doc_date: string; valid_until: string | null; grand_total_paise: string; status: string; currency: string };
@@ -18,6 +19,8 @@ export default function Portal({ params }: { params: Promise<{ token: string }> 
   const { token } = use(params);
   const [data, setData] = useState<Overview | null>(null);
   const [dead, setDead] = useState(false);
+  const [needsCode, setNeedsCode] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState('');
@@ -26,7 +29,8 @@ export default function Portal({ params }: { params: Promise<{ token: string }> 
   const [stmt, setStmt] = useState<Statement | null>(null);
 
   const load = useCallback(async () => {
-    try { setData(await api(`/api/portal/${token}`)); } catch (e) { setDead(true); setErr((e as Error).message); }
+    try { setData(await api(`/api/portal/${token}`)); setNeedsCode(false); }
+    catch (e) { if (e instanceof ApiError && e.status === 401) { setNeedsCode(true); return; } setDead(true); setErr((e as Error).message); }
   }, [token]);
   useEffect(() => { void load(); }, [load]);
 
@@ -41,9 +45,12 @@ export default function Portal({ params }: { params: Promise<{ token: string }> 
     try { await fn(); } catch (e) { setErr((e as Error).message); } finally { setBusy(''); }
   };
 
+  if (needsCode) return <CodeGate token={token} onDone={() => { void load(); }} />;
   if (dead) return <main><h1>This link is not valid</h1><p className="muted">{err || 'Ask the business that sent it for a new link.'}</p></main>;
   if (!data) return <main><p className="muted">Loading</p></main>;
   const owing = BigInt(data.totals.outstanding) > 0n;
+  const open = data.invoices.filter((i) => BigInt(i.outstanding_paise) > 0n);
+  const pickedTotal = open.filter((i) => picked.includes(i.id)).reduce((n, i) => n + BigInt(i.outstanding_paise), 0n);
   const query = `${from ? `from=${from}&` : ''}${to ? `to=${to}&` : ''}`;
 
   return (
@@ -87,12 +94,17 @@ export default function Portal({ params }: { params: Promise<{ token: string }> 
 
       <section aria-label="Invoices">
         <h2>Invoices</h2>
-        {data.invoices.length === 0 ? <div className="panel"><p>No invoices yet.</p></div> : (
-          <table className="t"><thead><tr><th>Document</th><th>Date</th><th>Due</th><th className="n">Amount</th><th className="n">Balance</th><th /></tr></thead>
+        {data.invoices.length === 0 ? <div className="panel"><p>No invoices yet.</p></div> : (<>
+          {picked.length >= 2 && (
+            <div className="panel" role="status"><b>{picked.length} invoices chosen, {rupees(pickedTotal)} in all.</b>{' '}
+              <button disabled={!!busy} onClick={() => act('many', async () => { const r = await api(`/api/portal/${token}/pay-many`, { body: { ids: picked } }); window.location.href = r.url; })}>Pay {rupees(pickedTotal)} together</button>{' '}
+              <button className="secondary" onClick={() => setPicked([])}>Clear</button></div>)}
+          <table className="t"><thead><tr><th><span className="sr-only">Choose</span></th><th>Document</th><th>Date</th><th>Due</th><th className="n">Amount</th><th className="n">Balance</th><th /></tr></thead>
             <tbody>{data.invoices.map((i) => {
               const bal = BigInt(i.outstanding_paise);
               return (
                 <tr key={i.id}>
+                  <td>{bal > 0n && <input type="checkbox" style={{ width: 'auto', height: 'auto' }} aria-label={`Choose ${i.number} to pay together`} checked={picked.includes(i.id)} onChange={(e) => setPicked(e.target.checked ? [...picked, i.id] : picked.filter((x) => x !== i.id))} />}</td>
                   <td><a href={`/portal/${token}/open/${i.id}`} target="_blank" rel="noreferrer">{i.number}</a> <span className="muted">{DOC_LABEL[i.doc_type]}</span></td>
                   <td>{i.doc_date}</td>
                   <td>{i.due_date ?? ''}{i.overdue && <> <span className="chip cancelled">Overdue</span></>}</td>
@@ -101,7 +113,7 @@ export default function Portal({ params }: { params: Promise<{ token: string }> 
                   <td className="n">{bal > 0n && <button disabled={!!busy} aria-label={`Pay ${i.number}`}
                     onClick={() => act(`p${i.id}`, async () => { const r = await api(`/api/portal/${token}/pay/${i.id}`, { body: {} }); window.location.href = r.url; })}>Pay {rupees(i.outstanding_paise)}</button>}</td>
                 </tr>);
-            })}</tbody></table>)}
+            })}</tbody></table></>)}
       </section>
 
       {data.estimates.some((e) => e.status !== 'open') && (
@@ -110,6 +122,13 @@ export default function Portal({ params }: { params: Promise<{ token: string }> 
           <table className="t"><thead><tr><th>Estimate</th><th>Date</th><th className="n">Amount</th><th>Status</th></tr></thead>
             <tbody>{data.estimates.filter((e) => e.status !== 'open').map((e) => (
               <tr key={e.id}><td><a href={`/portal/${token}/open/${e.id}`} target="_blank" rel="noreferrer">{e.number}</a></td><td>{e.doc_date}</td><td className="n">{e.currency === 'INR' ? rupees(e.grand_total_paise) : formatMoney(BigInt(e.grand_total_paise), e.currency)}</td><td>{EST[e.status] ?? e.status}</td></tr>))}</tbody></table>
+        </section>)}
+
+      {data.estimates.length > 0 && (
+        <section aria-label="Talk about an estimate">
+          <h2>Comments and purchase orders</h2>
+          {data.estimates.map((e) => (
+            <details key={e.id} className="panel"><summary>Estimate {e.number}</summary><DocTalk token={token} id={e.id} number={e.number} estimate /></details>))}
         </section>)}
 
       {data.payments.length > 0 && (
@@ -125,6 +144,7 @@ export default function Portal({ params }: { params: Promise<{ token: string }> 
           <div className="row no-print" style={{ flex: 'none' }}>
             <div><label htmlFor="pf">From</label><input id="pf" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
             <div><label htmlFor="pt">To</label><input id="pt" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
+            <a className="btn secondary" href={`/api/portal/${token}/statement?${query}format=pdf`} target="_blank" rel="noreferrer">Download PDF</a>
             <a className="btn secondary" href={`/api/portal/${token}/statement?${query}format=csv`}>Download CSV</a>
             <button className="secondary" onClick={() => window.print()}>Print</button>
           </div>
