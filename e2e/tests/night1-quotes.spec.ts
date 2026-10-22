@@ -24,6 +24,7 @@ test('the customer answers a quote from the shared link with a comment, and the 
   await v.getByLabel('Your name').fill('Anita');
   await v.getByRole('button', { name: 'Decline' }).click();
   await expect(v.getByRole('alert')).toContainText('briefly why');
+  await v.getByLabel('Your name').fill('Anita');
   await v.getByLabel(/Comment/).fill('Please bring the price down');
   await v.getByRole('button', { name: 'Decline' }).click();
   await expect(v.getByRole('heading', { name: 'You declined this quote' })).toBeVisible();
@@ -117,4 +118,30 @@ test('a custom field is filled on an invoice, printed on it, and kept for a cust
   expect(html).toContain('Project code');
   expect(html).toContain('P-77');
   expect(html).toContain('Vendor code:</span> V-204');
+});
+
+test('the editor works from the keyboard and saves the draft by itself', async ({ page, context }) => {
+  await owner(context);
+  await page.goto('/app/invoices/new');
+  await expect(page.getByTestId('save-status')).toContainText('saves by itself');
+  await page.getByLabel('Line 1 description').fill('Chair');
+  await page.getByLabel('Line 1 HSN or SAC').fill('9401');
+  await page.getByLabel('Line 1 rate').fill('100');
+  await page.getByLabel('Line 1 rate').press('Enter');                       // Enter on the last line adds one and moves to it
+  await expect(page.getByLabel('Line 2 description')).toBeFocused();
+  await page.getByLabel('Line 2 description').fill('Table');
+  await page.getByLabel('Line 2 description').press('Control+d');            // copy the line
+  await expect(page.getByLabel('Line 3 description')).toHaveValue('Table');
+  await page.getByLabel('Line 3 description').press('Alt+ArrowUp');          // move it up
+  await expect(page.getByLabel('Line 2 description')).toHaveValue('Table');
+  await page.getByLabel('Line 2 description').press('Control+z');            // undo the move
+  await page.getByLabel('Line 3 description').press('Control+z');
+  await expect(page.getByLabel('Line 3 description')).toHaveCount(0);        // the copy is undone
+  await page.getByRole('button', { name: 'Move line 1 down' }).click();
+  await expect(page.getByLabel('Line 1 description')).toHaveValue('Table');
+
+  // the draft saves a couple of seconds after the last change, and says so
+  await expect(page.getByTestId('save-status')).toContainText('Draft saved at', { timeout: 20_000 });
+  await page.goto('/app/invoices');
+  await expect(page.getByRole('row', { name: /Draft/ }).first()).toBeVisible();
 });

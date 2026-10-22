@@ -675,3 +675,8 @@ ul.notes li { align-items: flex-start; } ul.notes li p { margin: 2px 0 0; white-
 .look .muted { font-size: 12.5px; line-height: 17px; font-weight: 400; }
 .look .thumb { display: block; position: relative; height: 230px; overflow: hidden; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
 .look .thumb iframe { position: absolute; top: 0; left: 0; width: 820px; height: 1100px; border: 0; transform: scale(.205); transform-origin: top left; pointer-events: none; }
+
+/* keyboard-first line editor */
+.drag-grip{display:inline-block;margin-right:6px;color:var(--muted,#66726d);cursor:grab;user-select:none;letter-spacing:-2px}
+.line-table tr[draggable="true"]:active .drag-grip{cursor:grabbing}
+.save-status{margin:4px 0 8px;font-size:.92em}
