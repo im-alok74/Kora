@@ -6,14 +6,19 @@ import { ValidationError } from './validation.js';
  * What a business can change about how its documents look. Nothing here can remove a statutory field.
  * The renderer always prints the fields in LOCKED_FIELDS, whatever this config says.
  */
+export const LAYOUT_KEYS = ['classic', 'compact', 'modern', 'minimal', 'narrative', 'thermal', 'bold', 'elegant', 'ledger', 'corporate', 'soft', 'duo'] as const;
+export const FONT_KEYS = ['sans', 'serif', 'round', 'mono'] as const;
+
 export interface TemplateConfig {
   accent: string;                 // #rrggbb
-  font: 'sans' | 'serif';
-  layout: 'classic' | 'compact' | 'modern' | 'minimal' | 'narrative' | 'thermal';
+  font: 'sans' | 'serif' | 'round' | 'mono';
+  layout: (typeof LAYOUT_KEYS)[number];
   paper: 'A4' | 'A5';
   /** The language of the fixed words on the document. */
   language: 'en' | 'hi' | 'mr' | 'gu';
   logoDataUrl: string | null;     // png or jpeg, up to 150 KB
+  logoSize: 'small' | 'medium' | 'large';
+  signatureDataUrl: string | null; // png or jpeg, up to 100 KB, printed above the signatory line
   showBank: boolean;
   showTerms: boolean;
   showNotes: boolean;
@@ -24,7 +29,7 @@ export interface TemplateConfig {
 }
 
 export const DEFAULT_TEMPLATE: TemplateConfig = {
-  accent: '#0b5d4f', font: 'sans', layout: 'classic', paper: 'A4', language: 'en', logoDataUrl: null,
+  accent: '#0b5d4f', font: 'sans', layout: 'classic', paper: 'A4', language: 'en', logoDataUrl: null, logoSize: 'medium', signatureDataUrl: null,
   showBank: true, showTerms: true, showNotes: true, showSignature: true, showAmountInWords: true, showUpiQr: true, footerText: '',
 };
 
@@ -36,6 +41,7 @@ export const LOCKED_FIELDS = [
 ] as const;
 
 const MAX_LOGO_BYTES = 150 * 1024;
+const MAX_SIGNATURE_BYTES = 100 * 1024;
 
 /** Strict allow-list. Unknown keys are dropped; bad values are rejected, never passed through to HTML. */
 export function sanitiseTemplate(raw: unknown): TemplateConfig {
@@ -45,9 +51,9 @@ export function sanitiseTemplate(raw: unknown): TemplateConfig {
   const accent = r.accent === undefined ? d.accent : String(r.accent);
   if (!/^#[0-9a-fA-F]{6}$/.test(accent)) throw new ValidationError('Choose a colour as #rrggbb.', 'accent');
   const font = r.font === undefined ? d.font : r.font;
-  if (font !== 'sans' && font !== 'serif') throw new ValidationError('Choose a font.', 'font');
+  if (!(FONT_KEYS as readonly unknown[]).includes(font)) throw new ValidationError('Choose a font.', 'font');
   const layout = r.layout === undefined ? d.layout : r.layout;
-  if (layout !== 'classic' && layout !== 'compact' && layout !== 'modern' && layout !== 'minimal' && layout !== 'narrative' && layout !== 'thermal') throw new ValidationError('Choose a layout.', 'layout');
+  if (!(LAYOUT_KEYS as readonly unknown[]).includes(layout)) throw new ValidationError('Choose a layout.', 'layout');
   const paper = r.paper === undefined ? d.paper : r.paper;
   if (paper !== 'A4' && paper !== 'A5') throw new ValidationError('Choose A4 or A5.', 'paper');
   const language = r.language === undefined ? d.language : r.language;
@@ -60,10 +66,20 @@ export function sanitiseTemplate(raw: unknown): TemplateConfig {
     if (Math.floor((m[2]!.length * 3) / 4) > MAX_LOGO_BYTES) throw new ValidationError('The logo must be under 150 KB.', 'logoDataUrl');
     logo = s;
   }
+  let signature: string | null = null;
+  if (r.signatureDataUrl) {
+    const s = String(r.signatureDataUrl);
+    const m = /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/=]+)$/.exec(s);
+    if (!m) throw new ValidationError('The signature must be a PNG or JPEG image.', 'signatureDataUrl');
+    if (Math.floor((m[2]!.length * 3) / 4) > MAX_SIGNATURE_BYTES) throw new ValidationError('The signature image must be under 100 KB.', 'signatureDataUrl');
+    signature = s;
+  }
+  const logoSize = r.logoSize === undefined ? d.logoSize : r.logoSize;
+  if (logoSize !== 'small' && logoSize !== 'medium' && logoSize !== 'large') throw new ValidationError('Choose a logo size.', 'logoSize');
   const footer = r.footerText === undefined ? '' : String(r.footerText).trim();
   if (footer.length > 200) throw new ValidationError('The footer is too long.', 'footerText');
   return {
-    accent: accent.toLowerCase(), font, layout, paper, language, logoDataUrl: logo,
+    accent: accent.toLowerCase(), font: font as TemplateConfig['font'], layout: layout as TemplateConfig['layout'], paper, language, logoDataUrl: logo, logoSize, signatureDataUrl: signature,
     showBank: bool('showBank'), showTerms: bool('showTerms'), showNotes: bool('showNotes'),
     showSignature: bool('showSignature'), showAmountInWords: bool('showAmountInWords'), showUpiQr: bool('showUpiQr'), footerText: footer,
   };

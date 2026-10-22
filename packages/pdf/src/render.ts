@@ -34,7 +34,64 @@ const LAYOUT_CSS = (accent: string) => `
 .lay-minimal table.items th{background:transparent;border-top:1px solid #1b2321;border-bottom:1px solid #1b2321;color:#1b2321}
 .lay-minimal .tot tr.g td{background:transparent;color:#1b2321;border-top:2px solid #1b2321;border-bottom:2px solid #1b2321}
 .lay-minimal .paidtag{border-color:#1b2321;color:#1b2321}
+.lay-bold:before{display:none}
+.lay-bold .hd{background:#1b2321;color:#fff;margin:-28px -28px 18px;padding:24px 28px}
+.lay-bold .hd .brand,.lay-bold .hd .brand .nm,.lay-bold .subj{color:#fff}
+.lay-bold h1{color:#fff;text-transform:uppercase;letter-spacing:.06em;display:inline-block;border-bottom:4px solid ${accent};padding-bottom:4px}
+.lay-bold .paidtag{border-color:#fff;color:#fff}
+.lay-bold table.items th{background:#1b2321;color:#fff;border:0}
+.lay-elegant:before{height:1px;border-radius:0}
+.lay-elegant .hd{flex-direction:column;align-items:center;text-align:center;border-bottom:1px solid ${accent};padding-bottom:14px}
+.lay-elegant .doc{text-align:center}.lay-elegant .subj{margin-left:auto;margin-right:auto}
+.lay-elegant h1,.lay-elegant .brand .nm{font-family:Georgia,"Times New Roman","Noto Serif Devanagari","Noto Serif Gujarati",serif;font-weight:400;letter-spacing:.14em;text-transform:uppercase}
+.lay-elegant .meta4{border:0;border-top:1px solid #d8dedb;border-bottom:1px solid #d8dedb;border-radius:0;background:transparent}
+.lay-elegant .card{border:0;border-left:2px solid ${accent};border-radius:0;padding-left:12px}
+.lay-elegant table.items th{background:transparent;border-top:1px solid ${accent};border-bottom:1px solid ${accent};color:${accent}}
+.lay-elegant .tot tr.g td{background:transparent;color:${accent};border-top:1px solid ${accent};border-bottom:1px solid ${accent}}
+.lay-elegant .totbox,.lay-elegant .payrow>div,.lay-elegant .irn{border-radius:0}
+.lay-ledger:before{display:none}
+.lay-ledger h1{color:#1b2321;text-transform:uppercase;letter-spacing:.05em;font-size:24px}
+.lay-ledger table.items{border:1px solid #1b2321}
+.lay-ledger table.items th,.lay-ledger table.items td{border:1px solid #9aa5a0}
+.lay-ledger table.items th{background:#eef2f0;color:#1b2321}
+.lay-ledger table.items tbody tr:nth-child(even) td{background:#f8faf9}
+.lay-ledger .card,.lay-ledger .totbox,.lay-ledger .meta4,.lay-ledger .payrow>div,.lay-ledger .irn{border-radius:0;border-color:#1b2321;background:#fff}
+.lay-ledger .tot tr.g td{background:#1b2321}
+.lay-ledger table.hsn th,.lay-ledger table.hsn td{border:1px solid #9aa5a0}
+.lay-corporate:before{display:none}
+.lay-corporate{border-left:10px solid ${accent};padding-left:24px!important}
+.lay-corporate .hd{border-bottom:2px solid ${accent};padding-bottom:12px}
+.lay-corporate .meta4{border:0;border-bottom:1px solid #d8dedb;border-radius:0;background:transparent}
+.lay-corporate .card{border:0;background:color-mix(in srgb,${accent} 6%,#fff)}
+.lay-corporate table.items th{background:${accent};color:#fff;border:0}
+.lay-corporate .totbox{border:2px solid ${accent}}
+.lay-soft{background:color-mix(in srgb,${accent} 4%,#fff);border-radius:18px}
+.lay-soft:before{height:10px;border-radius:6px}
+.lay-soft h1{background:${accent};color:#fff;display:inline-block;padding:6px 18px;border-radius:999px;font-size:20px}
+.lay-soft .card,.lay-soft .meta4,.lay-soft .totbox,.lay-soft .payrow>div,.lay-soft .irn{background:#fff;border:0;border-radius:16px;box-shadow:0 1px 0 rgba(0,0,0,.08)}
+.lay-soft table.items th{background:transparent;border:0;color:${accent}}
+.lay-soft table.items td{border-bottom:1px dashed #cfd7d3}
+.lay-duo:before{display:none}
+.lay-duo .hd{display:grid;grid-template-columns:1.2fr 1fr;gap:0;align-items:stretch;margin:-28px -28px 18px}
+.lay-duo .brand{padding:24px 28px;background:color-mix(in srgb,${accent} 10%,#fff)}
+.lay-duo .doc{padding:24px 28px;background:${accent};color:#fff}
+.lay-duo h1,.lay-duo .subj,.lay-duo .doc .paidtag{color:#fff;border-color:#fff}
+.lay-duo table.items th{background:color-mix(in srgb,${accent} 12%,#fff)}
+@media(max-width:640px){.lay-duo .hd{grid-template-columns:1fr}}
 `;
+
+/** Every look that restyles the main layout, besides the classic one. The thermal receipt has its own renderer. */
+export const STYLED_LAYOUTS = ['modern', 'minimal', 'bold', 'elegant', 'ledger', 'corporate', 'soft', 'duo'] as const;
+
+/** System font stacks only, so the PDF looks the same on any server and nothing is fetched from the internet. */
+const FONT_STACKS: Record<string, string> = {
+  sans: 'Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Devanagari","Noto Sans Gujarati",sans-serif',
+  serif: 'Georgia,"Source Serif 4","Noto Serif Devanagari","Noto Serif Gujarati",serif',
+  round: '"Trebuchet MS","Segoe UI",system-ui,"Noto Sans Devanagari","Noto Sans Gujarati",sans-serif',
+  mono: '"Courier New",ui-monospace,monospace,"Noto Sans Devanagari","Noto Sans Gujarati"',
+};
+const LOGO_HEIGHT: Record<string, number> = { small: 38, medium: 58, large: 84 };
+
 
 export function esc(v: unknown): string {
   return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -59,8 +116,9 @@ export function renderDocumentHtml(i: RenderInput): string {
   const L = labelsFor(t.language);
   const narrative = t.layout === 'narrative';
   const compact = t.layout === 'compact';
-  const lay = t.layout === 'modern' || t.layout === 'minimal' ? t.layout : 'classic';
-  const serif = t.font === 'serif';
+  const lay = (STYLED_LAYOUTS as readonly string[]).includes(t.layout) ? t.layout : 'classic';
+  const fontStack = FONT_STACKS[t.font] ?? FONT_STACKS.sans!;
+  const logoH = LOGO_HEIGHT[t.logoSize] ?? 58;
   const accent = accentColour(t);
   const intra = s.state_code === d.place_of_supply;
   const showTax = d.doc_type !== 'bill_of_supply';
@@ -106,6 +164,7 @@ export function renderDocumentHtml(i: RenderInput): string {
     ? `<div class="irn"><div><b>IRN</b> ${esc(i.irn.irn)}<br><b>Ack no</b> ${esc(i.irn.ackNo)} &nbsp; <b>Ack date</b> ${esc(i.irn.ackDate)}</div>${i.irn.qrDataUrl && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(i.irn.qrDataUrl) ? `<img src="${i.irn.qrDataUrl}" alt="e-invoice QR">` : ''}</div>` : '';
   const upiBlock = i.upi && t.showUpiQr !== false && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(i.upi.qrDataUrl)
     ? `<div class="upi"><img src="${i.upi.qrDataUrl}" alt="UPI QR code"><div><b>${esc(L.scanToPay)} ${esc(i.upi.amountText)}</b><br>UPI: ${esc(i.upi.vpa)}</div></div>` : '';
+  const signature = t.signatureDataUrl && /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(t.signatureDataUrl) ? `<img src="${t.signatureDataUrl}" alt="">` : '';
   const logo = t.logoDataUrl && /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(t.logoDataUrl) ? `<img class="logo" src="${t.logoDataUrl}" alt="">` : '';
 
   const supplierName = s.trade_name || s.legal_name;
@@ -134,12 +193,12 @@ export function renderDocumentHtml(i: RenderInput): string {
 <title>${esc(title)} ${esc(d.number ?? '')}</title><style>
 @page { size: ${t.paper === 'A5' ? 'A5' : 'A4'}; margin: 12mm; }
 *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-body{margin:0;background:#fff;color:#1b2321;font:${compact ? 11 : 12.5}px/1.5 ${serif ? 'Georgia,"Source Serif 4","Noto Serif Devanagari","Noto Serif Gujarati",serif' : 'Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Devanagari","Noto Sans Gujarati",sans-serif'};font-variant-numeric:tabular-nums}
+body{margin:0;background:#fff;color:#1b2321;font:${compact ? 11 : 12.5}px/1.5 ${fontStack};font-variant-numeric:tabular-nums}
 .page{position:relative;max-width:820px;margin:0 auto;padding:${compact ? 12 : 28}px}
 .page:before{content:"";display:block;height:6px;border-radius:3px;background:${accent};margin-bottom:${compact ? 10 : 20}px}
 .hd{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
 .brand{color:#4a5651;line-height:1.55}.brand .nm{display:block;font-size:1.5em;font-weight:700;color:#1b2321;line-height:1.25}
-.logo{max-height:58px;max-width:170px;display:block;margin-bottom:8px}
+.logo{max-height:${logoH}px;max-width:${Math.round(logoH * 3)}px;display:block;margin-bottom:8px}
 .doc{text-align:right}.paidtag{display:inline-block;margin-top:8px;padding:2px 14px;border:2px solid #1b6b40;color:#1b6b40;border-radius:6px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;transform:rotate(-3deg)}.subj{margin-top:6px;color:#4a5651;max-width:320px;margin-left:auto;font-size:1.02em}
 h1{font-size:${compact ? 20 : 28}px;margin:0;color:${accent};font-weight:700;letter-spacing:-.01em;line-height:1.1}
 .meta4{display:flex;flex-wrap:wrap;margin:${compact ? 12 : 20}px 0 14px;border:1px solid #e1e7e4;border-radius:10px;overflow:hidden;background:color-mix(in srgb,${accent} 5%,#fff)}
@@ -168,6 +227,7 @@ table.hsn th{text-align:left;padding:6px 8px;color:#66726d;font-weight:600;font-
 table.hsn th.n{text-align:right}
 table.hsn td{padding:5px 8px;border-bottom:1px solid #edf0ee}
 .irn{display:flex;justify-content:space-between;gap:12px;border:1px solid #e1e7e4;border-radius:10px;padding:10px 14px;margin-top:14px;word-break:break-all}.irn img{width:92px;height:92px}
+.sign img{display:block;margin:0 0 4px auto;max-height:56px;max-width:180px}
 .sign{margin-top:30px;text-align:right}.sign div{display:inline-block;border-top:1px solid #8a948f;padding-top:5px;min-width:200px;text-align:center;color:#33403b}
 .foot{margin-top:18px;padding-top:10px;border-top:1px solid #e1e7e4;color:#66726d;text-align:center;font-size:.9em}
 .mark{position:absolute;top:38%;left:14%;font-size:92px;font-weight:800;color:rgba(168,39,39,.11);transform:rotate(-20deg);pointer-events:none}
@@ -188,7 +248,7 @@ ${payRow}${optional(t.showNotes, L.notes, d.notes)}${optional(t.showTerms, L.ter
 ${rcm && showTax ? `<tr class="sub"><td colspan="2">Tax shown above is payable by the recipient.</td></tr>` : ''}
 ${foreign ? `<tr class="sub"><td colspan="2">All amounts are in ${esc(d.currency)}. Exchange rate used: 1 ${esc(d.currency)} = Rs ${rateText}. This is not a tax invoice.</td></tr>` : ''}
 ${tdsRows}</table></div></div></div>
-${taxSummary}${irnBlock}${t.showSignature ? `<div class="sign"><div>${esc(L.signatory)}<br>${esc(supplierName)}</div></div>` : ''}
+${taxSummary}${irnBlock}${t.showSignature ? `<div class="sign">${signature}<div>${esc(L.signatory)}<br>${esc(supplierName)}</div></div>` : ''}
 ${t.footerText ? `<div class="foot">${esc(t.footerText)}</div>` : ''}
 </div></body></html>`;
 }

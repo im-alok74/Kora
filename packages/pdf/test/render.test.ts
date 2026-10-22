@@ -225,7 +225,7 @@ describe('the looks', () => {
     expect(renderDocumentHtml(sample())).toContain('class="page lay-classic"');
   });
   it('lists each look once and draws a sample of it', () => {
-    expect(LAYOUTS.map((l) => l.key)).toEqual(['classic', 'modern', 'minimal', 'compact', 'narrative']);
+    expect(LAYOUTS.map((l) => l.key)).toEqual(['classic', 'modern', 'minimal', 'compact', 'bold', 'elegant', 'ledger', 'corporate', 'soft', 'duo', 'narrative']);
     const h = renderSample({ legal_name: 'Acme', state_code: '27', gstin: '27AAPFU0939F1ZV' }, { ...TEMPLATE, layout: 'modern' });
     expect(h).toContain('lay-modern');
     expect(h).toContain('Sample Customer');

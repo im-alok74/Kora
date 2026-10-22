@@ -4,11 +4,11 @@ Branch `night-1`, worktree `../kora-night-1`, migrations 0110-0119.
 
 ## Tasks
 - [x] 1. Research Zoho Invoice and two others, write the documents gap list
-- [ ] 2. Quotation flow end to end
-- [ ] 3. Proforma, sales order, delivery challan as first-class types
-- [ ] 4. Credit and debit note guided flow
-- [ ] 5. Recurring invoices screen
-- [ ] 6. Ten invoice looks, gallery live preview, brand settings
+- [x] 2. Quotation flow end to end
+- [x] 3. Proforma, sales order, delivery challan as first-class types
+- [x] 4. Credit and debit note guided flow
+- [x] 5. Recurring invoices screen
+- [x] 6. Ten invoice looks, gallery live preview, brand settings
 - [ ] 7. Custom fields on documents and customers
 - [ ] 8. Multi-currency documents
 - [ ] 9. Discounts, shipping, adjustments, round-off, HSN/SAC picker
@@ -41,6 +41,14 @@ Gaps (documents only), in the order I will close them:
 7. Tax invoices are rupee only, with no second-currency reference total.
 8. No bill-level discount, shipping charge, adjustment line or round-off setting.
 9. Editor: check keyboard flow, duplicate line, reorder, undo, visible autosave.
+
+- Task 2 done: customer answers from the shared link (name, comment, accept or decline), staff can record an answer with a comment, quote versions (revise, old version withdrawn on issue), valid-until defaults to 30 days, convert lands on the new draft. Migration 0110.
+- Task 3 done: sales_order is a document type with its own SO series; estimate, sales order, proforma and challan convert forward into each other and into an invoice (one draft each, never doubled). 0110 widens two type CHECK constraints (dropped and re-added with the extra value; no data touched). Small edit outside my area: packages/tax DocType gets 'sales_order'.
+- Task 4 done: guided credit and debit note page (kind, reason, pick lines, quantity and rate), reason printed on the note. Migration 0111.
+- Task 5 done: schedule panel with next six dates and amounts, skip next, pause, mode help text, date preview in the form. Migration 0112 (adds a skipped run status).
+- Task 6 done (code): six new looks (bold, elegant, ledger, corporate, soft, two-tone; 11 selectable plus thermal), four fonts, logo size, signature image. Checked each new look by eye at A4 width.
+- Decision: task 9 discount on the whole bill and a shipping line already exist in the editor; remaining for 9 is the settings for round-off, adjustment line and the HSN/SAC search.
+- Lesson: never run a migration against the e2e database while its server is up (cached prepared statements break). Wait for the e2e run to end.
 
 ## Needs you
 (nothing yet)
