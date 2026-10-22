@@ -74,3 +74,12 @@ describe('totals in both currencies', () => {
     expect(renderDocumentHtml(input)).not.toContain('Equivalent in rupees');
   });
 });
+
+describe('print layout', () => {
+  it('drops the screen padding when printed, repeats the table heading, and lays payment blocks side by side', () => {
+    const h = renderDocumentHtml(sampleInput(supplier, TPL));
+    expect(h).toContain('@media print{.page{padding:0');
+    expect(h).toContain('thead{display:table-header-group}');
+    expect(h).toContain('.payrow{display:flex;flex-direction:row');
+  });
+});

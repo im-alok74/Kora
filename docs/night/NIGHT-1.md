@@ -12,7 +12,7 @@ Branch `night-1`, worktree `../kora-night-1`, migrations 0110-0119.
 - [x] 7. Custom fields on documents and customers
 - [x] 8. Multi-currency documents
 - [x] 9. Discounts, shipping, adjustments, round-off, HSN/SAC picker
-- [ ] 10. PDF fidelity pass
+- [x] 10. PDF fidelity pass
 - [x] 11. Keyboard-first editor
 - [ ] 12. Polish at 375px and dark mode
 
@@ -56,6 +56,8 @@ Gaps (documents only), in the order I will close them:
 - Task 11 done: Enter moves down a line and adds one at the end, Ctrl+D copies, Alt+Up or Down moves, Ctrl+Z and Ctrl+Y undo and redo, drag to reorder, autosave 2.5 s after the last change with a visible status.
 - e2e: 33 of 34 specs I ran pass. The failing one is first-invoice.spec.ts "home page explains the product" (cannot find a "Sign in to Kora" link on the landing page). The landing page is work in progress from before tonight and is not mine; not touched.
 - Lesson: keep the tree still while the e2e build runs, and never leave a stale lock: the lock dir was hours old after a restart, so I removed it after checking nothing listened on 3200 to 3202.
+
+- Task 10 done: rendered every look at A4 with 3 and 70 lines, the thermal roll, and Hindi, Marathi and Gujarati, and looked at the pages. Fixed: a 3-line invoice spilled onto a second page in every look (screen padding doubled the print margin; payment blocks stacked), and the elegant look still spilled its footer line. Now 1 page each; 70 lines make 5 pages with the heading repeated and the totals on the last page. Hindi and Gujarati glyphs render. The amount in words stays in English on every language, as before. Script: packages/pdf/scripts/fidelity.ts.
 
 ## Needs you
 (nothing yet)

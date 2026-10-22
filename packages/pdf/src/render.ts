@@ -42,6 +42,7 @@ const LAYOUT_CSS = (accent: string) => `
 .lay-bold table.items th{background:#1b2321;color:#fff;border:0}
 .lay-elegant:before{height:1px;border-radius:0}
 .lay-elegant .hd{flex-direction:column;align-items:center;text-align:center;border-bottom:1px solid ${accent};padding-bottom:14px}
+.lay-elegant .hd{gap:6px;padding-bottom:8px}.lay-elegant .brand{line-height:1.4}.lay-elegant .meta4{margin:10px 0}.lay-elegant .parties{margin-bottom:10px}.lay-elegant table.items td{padding:7px 8px}.lay-elegant h1{font-size:22px}
 .lay-elegant .doc{text-align:center}.lay-elegant .subj{margin-left:auto;margin-right:auto}
 .lay-elegant h1,.lay-elegant .brand .nm{font-family:Georgia,"Times New Roman","Noto Serif Devanagari","Noto Serif Gujarati",serif;font-weight:400;letter-spacing:.14em;text-transform:uppercase}
 .lay-elegant .meta4{border:0;border-top:1px solid #d8dedb;border-bottom:1px solid #d8dedb;border-radius:0;background:transparent}
@@ -233,7 +234,7 @@ table.tot{width:100%;border-collapse:collapse}.tot td{padding:6px 14px;color:#4a
 .tot tr.sub td{font-size:.92em;color:#66726d}
 .words{font-weight:600;color:#33403b;margin-bottom:8px}
 .rcm{margin:8px 0;font-weight:600;color:#8a4b00}
-.payrow{display:flex;flex-direction:column;gap:10px;margin-top:10px}.payrow>div{flex:1;margin:0;border:1px solid #e1e7e4;border-radius:10px;padding:10px 14px}
+.payrow{display:flex;flex-direction:row;flex-wrap:wrap;gap:10px;margin-top:10px}.payrow>div{flex:1;margin:0;border:1px solid #e1e7e4;border-radius:10px;padding:10px 14px}
 .upi{display:flex;gap:12px;align-items:center}.upi img{width:92px;height:92px}
 .note{margin-top:10px;color:#33403b}
 table.hsn{width:100%;border-collapse:collapse;margin-top:18px;font-size:.88em}
@@ -246,6 +247,8 @@ table.hsn td{padding:5px 8px;border-bottom:1px solid #edf0ee}
 .foot{margin-top:18px;padding-top:10px;border-top:1px solid #e1e7e4;color:#66726d;text-align:center;font-size:.9em}
 .mark{position:absolute;top:38%;left:14%;font-size:92px;font-weight:800;color:rgba(168,39,39,.11);transform:rotate(-20deg);pointer-events:none}
 tr,.card,.totbox,.payrow{break-inside:avoid}
+thead{display:table-header-group}
+@media print{.page{padding:0;max-width:none}.lay-bold .hd,.lay-duo .hd{margin:0 0 18px}.lay-corporate{padding-left:18px!important}}
 @media(max-width:640px){.hd,.parties,.bottom,.payrow{flex-direction:column}.doc{text-align:left}table.items{display:block;overflow-x:auto}}
 ${LAYOUT_CSS(accent)}</style></head><body><div class="page lay-${lay}">${draftMark}
 <div class="hd"><div class="brand">${logo}<span class="nm">${esc(supplierName)}</span>${supplierName !== s.legal_name ? `${esc(s.legal_name)}<br>` : ''}${addr(s.address)}${s.phone ? `<br>Ph: ${esc(s.phone)}` : ''}${s.email ? `<br>${esc(s.email)}` : ''}
