@@ -60,9 +60,6 @@ Authorization: Bearer kora_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 | `GET /invoices/{id}` | read | One document with its lines and payments |
 | `POST /invoices` | write | Make a draft, or issue it straight away with `"issue": true` |
 
-A document body may also carry `reference` (the buyer's order or PO number, up to 60 characters), `subject` (up to 200) and `paymentTerms` (`receipt`, `net15`, `net30`, `net45`, `net60`, `eom` or `custom`). A preset other than `custom` fills `dueDate` when you leave it out; a `dueDate` you send always wins. These freeze when the document is issued, like everything else on it.
-
-On the web app, `POST /api/documents/{id}/duplicate` makes a new draft from an existing document.
 | `POST /invoices/{id}/issue` | write | Issue a draft: gives it its number and locks it |
 | `POST /invoices/{id}/payments` | write | Record a payment: `{ amount: "500.00", method, receivedOn?, note? }` |
 | `GET /invoices/{id}/payments` | read | Payments on a document |
@@ -76,6 +73,10 @@ On the web app, `POST /api/documents/{id}/duplicate` makes a new draft from an e
 | `POST /purchases` | write | Record a bill: vendor, bill number and date, and lines with rate and tax |
 | `GET /stock?q=&low=1` | read | Stock on hand for tracked items; `low=1` lists those at or under their reorder level |
 | `POST /stock/{itemId}/adjust` | write | `{ mode: "in" \| "out" \| "count", quantity, note?, date? }` |
+
+A document body may also carry `reference` (the buyer's order or PO number, up to 60 characters), `subject` (up to 200) and `paymentTerms` (`receipt`, `net15`, `net30`, `net45`, `net60`, `eom` or `custom`). A preset other than `custom` fills `dueDate` when you leave it out; a `dueDate` you send always wins. These freeze when the document is issued, like everything else on it.
+
+Everything else in the app (the web screens use `/api/...` routes without the `v1`) is not part of this API. Those routes use the signed-in browser session, can change at any time, and are not described here.
 
 ### Making an invoice
 
@@ -183,7 +184,10 @@ Under **Data**:
 - **Excel**: one workbook with a sheet each for customers, items, documents, document lines, payments and expenses. Money is real numbers with two decimals; text that starts with `=` stays text and never runs as a formula.
 - **Backup (ZIP)**: a CSV for each kind of record, `data.json` with the same data for other software (money in paise), and a `README.txt`. It does not include PDFs, receipt photos or settings. Taking a backup or a workbook is recorded in the activity log.
 - **Tally**: sales, credit notes and receipts as a Tally import file. See the notes below.
-- **Import**: customers or items from a CSV (save your Excel sheet as CSV). The first row names the columns; common names such as *Customer Name*, *Mobile*, *GST Number*, *HSN or SAC*, *GST %* are understood. States can be a full name or a two-digit code. Rows that already exist (same GSTIN or name) are skipped, so importing the same file twice adds nothing. At most 2,000 rows and 1 MB a file. Each row is checked on its own: good rows are added, and every problem row is reported by its line number and left out.
+- **Import**: customers or items from a CSV or an Excel file, or customers from a Tally ledger export (XML). The first row names the columns; common names such as *Customer Name*, *Mobile*, *GST Number*, *HSN or SAC*, *GST %* are understood. States can be a full name or a two-digit code. Rows that already exist (same GSTIN or name) are skipped, so importing the same file twice adds nothing. At most 2,000 rows and 1 MB a file. Each row is checked on its own: good rows are added, and every problem row is reported by its line number and left out.
+- **Import invoices**: old invoices from a CSV or Excel file, as **drafts** (tax invoices, bills of supply, estimates or proforma invoices). The old invoice number is kept as the reference, and the draft gets a new Kora number when you issue it. At most 200 invoices and 2,000 rows a file, and importing the same file twice does not repeat the drafts.
+
+The Data and Import screens use the signed-in session, not an API key, so none of the above is in the `/api/v1` API.
 
 ### Tally notes
 
