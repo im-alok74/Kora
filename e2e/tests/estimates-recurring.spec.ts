@@ -20,10 +20,14 @@ test('an estimate is accepted, then turned into an invoice once', async ({ page,
   await expect(page.getByTestId('estimate-status')).toHaveText('Open');
   await expect(page.getByText(/valid until/)).toBeVisible();
   await page.getByRole('button', { name: 'Mark accepted' }).click();
+  await page.getByRole('button', { name: 'Save answer' }).click();
   await expect(page.getByText('Marked as accepted.')).toBeVisible();
   await expect(page.getByTestId('estimate-status')).toHaveText('Accepted');
 
   await page.getByRole('button', { name: 'Convert to invoice' }).click();
+  await expect(page.getByRole('heading', { name: /Tax invoice/ })).toBeVisible();
+  await expect(page.getByText(/Made from/)).toBeVisible();
+  await page.getByRole('link', { name: 'Edit' }).click();
   await expect(page.getByRole('heading', { name: 'Edit draft' })).toBeVisible();
   await expect(page.getByLabel('Line 1 description')).toHaveValue('Website');
   await expect(page.getByTestId('grand-total')).toHaveText('Rs 5,900.00');
@@ -55,7 +59,7 @@ test('a recurring invoice is set up, made by the worker on its date, and can be 
   await owner(context);
   await page.request.post('/api/parties', { data: { kind: 'customer', name: 'Monthly Client', stateCode: '27' } });
   await page.goto('/app/recurring');
-  await expect(page.getByText('No recurring invoices yet.')).toBeVisible();
+  await expect(page.getByText('No recurring invoices yet', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'New recurring invoice' }).click();
   await page.getByLabel('Name', { exact: true }).fill('Monthly retainer');
   await page.getByLabel('Customer', { exact: true }).selectOption({ label: 'Monthly Client' });

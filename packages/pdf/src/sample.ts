@@ -6,6 +6,12 @@ export const LAYOUTS: { key: string; label: string; about: string }[] = [
   { key: 'modern', label: 'Modern', about: 'A solid colour header and table heading. Bold, for a brand that wants to be seen.' },
   { key: 'minimal', label: 'Minimal', about: 'Black and white with fine lines. Prints cleanly on any printer.' },
   { key: 'compact', label: 'Compact', about: 'Smaller type and tighter spacing, for invoices with many lines.' },
+  { key: 'bold', label: 'Bold', about: 'A dark header band and a heavy title. Stands out on a desk.' },
+  { key: 'elegant', label: 'Elegant', about: 'Centred header, thin colour rules and spaced capitals. For studios and consultants.' },
+  { key: 'ledger', label: 'Ledger', about: 'A full grid like an account book. Easy for accountants to tick off.' },
+  { key: 'corporate', label: 'Corporate', about: 'A colour bar down the side and a solid table heading. Calm and formal.' },
+  { key: 'soft', label: 'Soft', about: 'Rounded cards on a tinted page and a pill title. Friendly for shops and services.' },
+  { key: 'duo', label: 'Two-tone', about: 'The header splits into a tinted half and a colour half. Easy to spot in a pile.' },
   { key: 'narrative', label: 'Professional fees', about: 'Particulars and a single fee column, for lawyers and consultants.' },
 ];
 

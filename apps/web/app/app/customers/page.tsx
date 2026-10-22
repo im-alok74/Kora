@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
+import PartyCustomFields from '../../../components/PartyCustomFields';
 import { CURRENCIES, gstinValid, STATE_NAMES } from '@kora/tax';
 import { api } from '../../../lib/client';
 import EmptyState from '../../../components/EmptyState';
@@ -19,6 +20,7 @@ export default function Customers() {
   const [role, setRole] = useState('');
   const [portal, setPortal] = useState<{ party: Party; active: boolean; views: number; lastViewed: string | null; url: string | null; copied: boolean } | null>(null);
   useEffect(() => { api('/api/business').then((b) => setRole(b.role)); }, []);
+  const [fieldsFor, setFieldsFor] = useState<Party | null>(null);
   const canPortal = role === 'owner' || role === 'staff';
 
   const openPortal = async (party: Party) => {
@@ -87,6 +89,7 @@ export default function Customers() {
       </form>
       <PartyTidy kind="customer" canMerge={role === 'owner'} onMerged={() => void load()} />
       <label htmlFor="sq">Search</label><input id="sq" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 320, marginBottom: 12 }} />
+      {fieldsFor && <PartyCustomFields partyId={fieldsFor.id} name={fieldsFor.name} canWrite={role === 'owner' || role === 'staff'} onClose={() => setFieldsFor(null)} />}
       {portal && (
         <div className="panel" role="region" aria-label={`Portal for ${portal.party.name}`} data-testid="portal-panel">
           <div className="toolbar" style={{ marginBottom: 8 }}>
@@ -129,6 +132,7 @@ export default function Customers() {
           <tr key={p.id}><td><a href={`/app/customers/${p.id}`}>{p.name}</a>{p.currency && p.currency !== 'INR' ? <span className="muted"> ({p.currency})</span> : null}</td><td>{p.gstin ?? ''}</td><td>{p.state_code === '96' ? 'Outside India' : STATE_NAMES[p.state_code]}</td><td>{p.phone ?? ''}</td>
             <td className="n"><button className="link" onClick={() => { setEditing(p.id); setForm({ name: p.name, gstin: p.gstin ?? '', stateCode: p.state_code, phone: p.phone ?? '', email: p.email ?? '', currency: p.currency ?? 'INR', line1: p.billing_address?.line1 ?? '', city: p.billing_address?.city ?? '', pincode: p.billing_address?.pincode ?? '' }); window.scrollTo(0, 0); }}>Edit</button>{' '}
               {canPortal && <button className="link" onClick={() => void openPortal(p)}>Portal</button>}{' '}
+              <button className="link" onClick={() => setFieldsFor(p)}>Fields</button>{' '}
               <button className="link" onClick={async () => { await api(`/api/parties/${p.id}`, { method: 'DELETE' }); await load(); }}>Archive</button></td></tr>))}</tbody>
       </table>}
     </>

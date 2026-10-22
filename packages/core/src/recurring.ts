@@ -138,6 +138,55 @@ async function setActive(sql: Sql, t: TenantSession, id: string, active: boolean
 
 export const setRecurringActive = (sql: Sql, t: TenantSession, id: string, active: boolean) => setActive(sql, t, id, active, 'invoice');
 
+/**
+ * The dates a schedule will run on next, soonest first, stopping at its end date. It is plain date arithmetic, so the form can
+ * show the dates before anything is saved. `occurrence` is how many dates have already gone by (0 for a new schedule).
+ */
+export function upcomingDates(p: { startDate: string; everyN: number; unit: RecurUnit; occurrence?: number; endDate?: string | null }, count = 6): string[] {
+  const out: string[] = [];
+  const first = p.occurrence ?? 0;
+  for (let k = first; out.length < count && k < first + 1000; k++) {
+    const d = occurrenceDate(p.startDate, p.everyN, p.unit, k);
+    if (p.endDate && d > p.endDate) break;
+    out.push(d);
+  }
+  return out;
+}
+
+/**
+ * Skips the next date of a running schedule: no invoice is made for it, the schedule moves on to the following date, and the
+ * skipped date shows in the history so nobody wonders where the invoice went.
+ */
+export async function skipNextRecurring(sql: Sql, t: TenantSession, id: string) {
+  return inTenant(sql, t, 'document.write', async (tx) => {
+    const [p] = await tx`select id, business_id, start_date, every_n, unit, end_date, occurrence, next_run_date, active from recurring_profile
+                          where id = ${id} and kind = 'invoice' and archived_at is null for update`;
+    if (!p) throw new ValidationError('Recurring invoice not found.');
+    if (!p.active) throw new ValidationError('This schedule is paused. Resume it first.');
+    const skipped = p.next_run_date as string;
+    const k = Number(p.occurrence) + 1;
+    const next = occurrenceDate(p.start_date as string, p.every_n as number, p.unit as RecurUnit, k);
+    await tx`insert into recurring_run (business_id, profile_id, run_date, status, note)
+             values (${t.businessId}, ${id}, ${skipped}, 'skipped', 'Skipped by you.') on conflict (profile_id, run_date) do nothing`;
+    const finished = !!p.end_date && next > (p.end_date as string);
+    await tx`update recurring_profile set occurrence = ${k}, next_run_date = ${next}, active = ${!finished} where id = ${id}`;
+    return { id, skipped, nextRunDate: finished ? null : next };
+  });
+}
+
+/** The next few runs of a saved schedule, and what each invoice would come to at today's prices and rates. */
+export async function recurringPreview(sql: Sql, t: TenantSession, id: string, count = 6) {
+  const cur = await getRecurring(sql, t, id);
+  if (!cur) throw new ValidationError('Recurring invoice not found.');
+  const p = cur.profile as unknown as Profile & { active: boolean };
+  const dates = p.active ? upcomingDates({ startDate: p.start_date, everyN: p.every_n, unit: p.unit, occurrence: p.occurrence, endDate: p.end_date }, Math.min(count, 12)) : [];
+  const totals = await previewTotals(sql, t, { docType: p.doc_type, partyId: p.party_id, lines: p.payload.lines });
+  return {
+    active: p.active, mode: p.mode, channel: p.channel, amountPaise: totals.grandTotal,
+    dates: dates.map((date) => ({ date, dueDate: p.terms_days > 0 ? addDays(date, p.terms_days) : null })),
+  };
+}
+
 export async function deleteRecurring(sql: Sql, t: TenantSession, id: string): Promise<void> {
   await inTenant(sql, t, 'document.write', async (tx) => {
     const r = await tx`delete from recurring_profile where id = ${id} and kind = 'invoice' returning id`;

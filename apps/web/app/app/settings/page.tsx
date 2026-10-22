@@ -3,11 +3,12 @@ import SiteThemeToggle from '../../../components/SiteThemeToggle';
 import LateFeeSettings from '../../../components/LateFeeSettings';
 import MessagesPanel from '../../../components/MessagesPanel';
 import TemplateGallery from '../../../components/TemplateGallery';
+import CustomFieldsSettings from '../../../components/CustomFieldsSettings';
 import { useEffect, useState } from 'react';
 import { api } from '../../../lib/client';
 
 type Rem = { enabled: boolean; channel: string; offsets: number[] };
-type Tpl = { accent: string; font: string; layout: string; paper: string; language?: string; logoDataUrl: string | null; showBank: boolean; showTerms: boolean;
+type Tpl = { accent: string; font: string; layout: string; paper: string; language?: string; logoDataUrl: string | null; logoSize?: string; signatureDataUrl?: string | null; showBank: boolean; showTerms: boolean;
   showNotes: boolean; showSignature: boolean; showAmountInWords: boolean; showUpiQr: boolean; footerText: string };
 
 export default function Settings() {
@@ -55,6 +56,12 @@ export default function Settings() {
     } catch (x) { setErr((x as Error).message); }
   };
 
+  const onSignature = (f: File | undefined) => {
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => setT({ signatureDataUrl: String(r.result) });
+    r.readAsDataURL(f);
+  };
   const onLogo = (f: File | undefined) => {
     if (!f) return;
     const r = new FileReader();
@@ -141,6 +148,8 @@ export default function Settings() {
 
       <LateFeeSettings readOnly={readOnly} />
 
+      <CustomFieldsSettings readOnly={readOnly} />
+
       {tpl && (
         <div className="panel">
           <h2>Invoice template</h2>
@@ -151,16 +160,21 @@ export default function Settings() {
               <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0 }}>
                 <div className="row">
                   <div><label htmlFor="tc">Colour</label><input id="tc" type="color" value={tpl.accent} onChange={(e) => setT({ accent: e.target.value })} style={{ padding: 2 }} /></div>
-                  <div><label htmlFor="tf">Font</label><select id="tf" value={tpl.font} onChange={(e) => setT({ font: e.target.value })}><option value="sans">Sans-serif</option><option value="serif">Serif</option></select></div>
+                  <div><label htmlFor="tf">Font</label><select id="tf" value={tpl.font} onChange={(e) => setT({ font: e.target.value })}><option value="sans">Clean sans-serif</option><option value="serif">Classic serif</option><option value="round">Friendly rounded</option><option value="mono">Typewriter</option></select></div>
                 </div>
                 <div className="row">
-                  <div><label htmlFor="tl">Layout</label><select id="tl" value={tpl.layout} onChange={(e) => setT({ layout: e.target.value })}><option value="classic">Classic</option><option value="compact">Compact</option><option value="modern">Modern</option><option value="minimal">Minimal</option><option value="narrative">Professional services (particulars and fee)</option><option value="thermal">Receipt (80 mm roll)</option></select></div>
+                  <div><label htmlFor="tl">Layout</label><select id="tl" value={tpl.layout} onChange={(e) => setT({ layout: e.target.value })}><option value="classic">Classic</option><option value="compact">Compact</option><option value="modern">Modern</option><option value="minimal">Minimal</option><option value="bold">Bold</option><option value="elegant">Elegant</option><option value="ledger">Ledger</option><option value="corporate">Corporate</option><option value="soft">Soft</option><option value="duo">Two-tone</option><option value="narrative">Professional services (particulars and fee)</option><option value="thermal">Receipt (80 mm roll)</option></select></div>
                   <div><label htmlFor="tp">Paper</label><select id="tp" value={tpl.paper} onChange={(e) => setT({ paper: e.target.value })}><option value="A4">A4</option><option value="A5">A5</option></select></div>
                   <div><label htmlFor="tg">Language</label><select id="tg" value={tpl.language ?? 'en'} onChange={(e) => setT({ language: e.target.value })}><option value="en">English</option><option value="hi">Hindi</option><option value="mr">Marathi</option><option value="gu">Gujarati</option></select></div>
                 </div>
                 <label htmlFor="lg">Logo (PNG or JPEG, under 150 KB)</label>
                 <input id="lg" type="file" accept="image/png,image/jpeg" onChange={(e) => onLogo(e.target.files?.[0])} />
                 {tpl.logoDataUrl && <button type="button" className="link" onClick={() => setT({ logoDataUrl: null })}>Remove logo</button>}
+                <label htmlFor="ls">Logo size</label>
+                <select id="ls" value={tpl.logoSize ?? 'medium'} onChange={(e) => setT({ logoSize: e.target.value })}><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select>
+                <label htmlFor="sg">Signature image (PNG or JPEG, under 100 KB)</label>
+                <input id="sg" type="file" accept="image/png,image/jpeg" onChange={(e) => onSignature(e.target.files?.[0])} />
+                {tpl.signatureDataUrl && <button type="button" className="link" onClick={() => setT({ signatureDataUrl: null })}>Remove signature</button>}
                 {([['showBank', 'Payment details'], ['showAmountInWords', 'Total in words'], ['showUpiQr', 'UPI QR code'], ['showNotes', 'Notes'], ['showTerms', 'Terms'], ['showSignature', 'Signature line']] as const).map(([k, l]) => (
                   <label key={k} style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" style={{ width: 'auto', height: 'auto' }} checked={tpl[k]} onChange={(e) => setT({ [k]: e.target.checked } as Partial<Tpl>)} /> Show {l.toLowerCase()}</label>))}
                 <label htmlFor="ft">Footer line</label><input id="ft" maxLength={200} value={tpl.footerText} onChange={(e) => setT({ footerText: e.target.value })} />

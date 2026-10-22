@@ -676,6 +676,11 @@ ul.notes li { align-items: flex-start; } ul.notes li p { margin: 2px 0 0; white-
 .look .thumb { display: block; position: relative; height: 230px; overflow: hidden; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
 .look .thumb iframe { position: absolute; top: 0; left: 0; width: 820px; height: 1100px; border: 0; transform: scale(.205); transform-origin: top left; pointer-events: none; }
 
+/* keyboard-first line editor */
+.drag-grip{display:inline-block;margin-right:6px;color:var(--muted,#66726d);cursor:grab;user-select:none;letter-spacing:-2px}
+.line-table tr[draggable="true"]:active .drag-grip{cursor:grabbing}
+.save-status{margin:4px 0 8px;font-size:.92em}
+
 /* Printing a report: only the report, on white. */
 @media print {
   nav.side, .mobile-bar, .scrim, [role="tablist"], .toolbar .row, .filters { display: none !important; }
@@ -717,3 +722,10 @@ ul.notes li { align-items: flex-start; } ul.notes li p { margin: 2px 0 0; white-
   34% { transform: translateY(1px) rotate(2deg); }
 }
 @media (prefers-reduced-motion: reduce) { .kora-logo-shape { animation: none !important; } }
+
+/* guided credit and debit note */
+.choice-row{display:grid;gap:10px}
+.choice{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:start;padding:12px;border:1px solid var(--border,#d5dcd9);border-radius:10px;cursor:pointer}
+.choice input{margin-top:4px}
+.choice span.muted{grid-column:2}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}

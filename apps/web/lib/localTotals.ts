@@ -8,6 +8,13 @@ export interface PartyFacts { id: string; name: string; state_code: string; gsti
  * Totals for the editor when the server cannot be reached. It runs the same tax library the server runs, so the
  * numbers match; the server still recomputes everything when the draft syncs.
  */
+/** "-5" or "12.50" as paise. Anything unreadable counts as no adjustment while it is being typed; the server says what is wrong. */
+function adjustmentOf(text: unknown): bigint {
+  const t = String(text ?? '').trim();
+  if (!t) return 0n;
+  try { return t.startsWith('-') ? -parseRupees(t.slice(1)) : parseRupees(t.replace(/^\+/, '')); } catch { return 0n; }
+}
+
 export function localTotals(a: { business: BusinessFacts; party: PartyFacts | null; payload: Record<string, any> }) {
   const { business, party, payload } = a;
   const lines = (payload.lines ?? []) as { name: string; quantity: string; rate: string; discount?: string; taxRateBp: number; cessRateBp?: number; kind?: string; taxInclusive?: boolean }[];
@@ -20,7 +27,7 @@ export function localTotals(a: { business: BusinessFacts; party: PartyFacts | nu
   }));
   const r = computeDocument({
     docType: payload.docType as DocType, registrationType: business.registration_type as never, supplierState: business.state_code, placeOfSupply: place,
-    reverseCharge: !!payload.reverseCharge, tcsBp: payload.tcsBp ?? 0, tdsBp: payload.tdsBp ?? 0, roundTotal: !payload.currency || payload.currency === 'INR',
+    reverseCharge: !!payload.reverseCharge, tcsBp: payload.tcsBp ?? 0, tdsBp: payload.tdsBp ?? 0, roundTotal: (!payload.currency || payload.currency === 'INR') && payload.roundTotal !== false, adjustmentPaise: adjustmentOf(payload.adjustment),
     lines: lines.map((l) => ({ quantityMilli: parseQuantity(String(l.quantity)), ratePaise: parseRupees(String(l.rate)), discountPaise: l.discount ? parseRupees(String(l.discount)) : 0n,
       taxRateBp: l.taxRateBp, cessRateBp: l.cessRateBp ?? 0, taxInclusive: !!l.taxInclusive })),
   });
@@ -28,7 +35,7 @@ export function localTotals(a: { business: BusinessFacts; party: PartyFacts | nu
   return {
     supply: r.supply, placeOfSupply: place, warnings: [] as string[], recommendedDocType: r.recommendedDocType,
     taxable: s(r.taxablePaise), cgst: s(r.cgstPaise), sgst: s(r.sgstPaise), igst: s(r.igstPaise), cess: s(r.cessPaise), tcs: s(r.tcsPaise), tds: s(r.tdsPaise),
-    roundOff: s(r.roundOffPaise), grandTotal: s(r.grandTotalPaise), netReceivable: s(r.netReceivablePaise), lines: r.lines.map((l) => ({ total: s(l.lineTotalPaise) })),
+    adjustment: s(r.adjustmentPaise), roundOff: s(r.roundOffPaise), grandTotal: s(r.grandTotalPaise), netReceivable: s(r.netReceivablePaise), lines: r.lines.map((l) => ({ total: s(l.lineTotalPaise) })),
     display: formatRupees(r.grandTotalPaise),
   };
 }
