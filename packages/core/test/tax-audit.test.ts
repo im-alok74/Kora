@@ -156,3 +156,17 @@ describe('the late fee GST rate must be a real slab', () => {
     expect(await saveLateFeeConfig(db.web, owner, { enabled: true, gstRateBp: 0 })).toMatchObject({ gstRateBp: 0 });
   });
 });
+
+describe('an explicit place of supply is checked the same way as a derived one', () => {
+  const pos = (placeOfSupply: string, docType: DocIn['docType'] = 'tax_invoice', extra: Partial<DocIn> = {}) =>
+    previewTotals(db.web, owner, { docType, partyId: local, docDate: '2026-10-10', placeOfSupply, lines: [goods('100', 1800)], ...extra });
+  it('refuses a code that is not a state or territory, and 96 (other country) on a tax invoice, as exports are not supported yet', async () => {
+    for (const bad of ['00', '25', '28', '99', 'XX', '1', '97x', 'constructor', '__proto__']) expect(await fails(pos(bad))).toBeInstanceOf(ValidationError);
+    expect((await fails(pos('96'))).message).toMatch(/Exports are not supported/);
+  });
+  it('accepts every real state and territory code, and 96 on a quote (which is not a tax document)', async () => {
+    for (const ok of ['29', '07', '38', '26', '97']) expect((await pos(ok)).placeOfSupply).toBe(ok);
+    expect((await pos('96', 'estimate', { currency: 'USD', exchangeRate: '83' })).placeOfSupply).toBe('96');
+    expect((await fails(pos('96', 'estimate'))).message).toMatch(/Exports are not supported/);
+  });
+});

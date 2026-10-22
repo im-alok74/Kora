@@ -98,6 +98,9 @@ export function esc(v: unknown): string {
   return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 }
 const money = (p: unknown) => formatRupees(BigInt(String(p ?? 0)), { symbol: '' }).trim();
+/** Union territories without a legislature charge UTGST in place of SGST (UTGST Act 2017, section 8): Chandigarh, Ladakh, Lakshadweep, Andaman and Nicobar, Dadra and Nagar Haveli and Daman and Diu. */
+const UT_WITHOUT_LEGISLATURE: ReadonlySet<string> = new Set(['04', '38', '31', '35', '26']);
+const stateTaxName = (supplierState: unknown) => (UT_WITHOUT_LEGISLATURE.has(String(supplierState)) ? 'UTGST' : 'SGST');
 const pct = (bp: number) => `${(bp / 100).toString().replace(/\.0+$/, '')}%`;
 const addr = (a: Record<string, any> | null | undefined) =>
   [a?.line1, a?.line2, [a?.city, a?.pincode].filter(Boolean).join(' ')].filter(Boolean).map(esc).join('<br>');
@@ -130,7 +133,7 @@ export function renderDocumentHtml(i: RenderInput): string {
   const rcm = d.reverse_charge === true;
 
   const taxHead = !showTax ? '' : intra
-    ? '<th class="n">CGST</th><th class="n">SGST</th>' : '<th class="n">IGST</th>';
+    ? `<th class="n">CGST</th><th class="n">${stateTaxName(s.state_code)}</th>` : '<th class="n">IGST</th>';
   const rows = lines.map((l, idx) => {
     const taxCells = !showTax ? '' : intra
       ? `<td class="n">${pct(l.tax_rate_bp / 2)}<br>${money(l.cgst_paise)}</td><td class="n">${pct(l.tax_rate_bp / 2)}<br>${money(l.sgst_paise)}</td>`
@@ -148,7 +151,7 @@ export function renderDocumentHtml(i: RenderInput): string {
   const rateText = `${rateMicro / 1_000_000n}.${(rateMicro % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '').padEnd(2, '0')}`;
   const totals: [string, string][] = [[L.taxableValue, money(d.taxable_paise)]];
   if (showTax) {
-    if (BigInt(d.cgst_paise) > 0n || intra) { totals.push(['CGST', money(d.cgst_paise)], ['SGST', money(d.sgst_paise)]); }
+    if (BigInt(d.cgst_paise) > 0n || intra) { totals.push(['CGST', money(d.cgst_paise)], [stateTaxName(s.state_code), money(d.sgst_paise)]); }
     if (BigInt(d.igst_paise) > 0n || !intra) totals.push(['IGST', money(d.igst_paise)]);
     if (BigInt(d.cess_paise) > 0n) totals.push(['Cess', money(d.cess_paise)]);
   }
@@ -346,7 +349,7 @@ ${draft}<div class="c b" style="font-size:14px">${esc(name)}</div>
 ${r ? `<div>${esc(r.name)}${r.gstin ? `<br>GSTIN: ${esc(r.gstin)}` : ''}</div>` : `<div>${esc(L.walkIn)}</div>`}
 <div class="sm">${esc(L.placeOfSupply)}: ${esc(STATE_NAMES[d.place_of_supply] ?? d.place_of_supply)} (${esc(d.place_of_supply)})</div>
 <hr>${rows}<hr>
-${showTax ? `<table><thead><tr><th>GST</th><th class="n">${esc(L.taxable)}</th><th class="n">${intra ? 'CGST + SGST' : 'IGST'}</th></tr></thead><tbody>${taxRows}</tbody></table>` : ''}
+${showTax ? `<table><thead><tr><th>GST</th><th class="n">${esc(L.taxable)}</th><th class="n">${intra ? `CGST + ${stateTaxName(s.state_code)}` : 'IGST'}</th></tr></thead><tbody>${taxRows}</tbody></table>` : ''}
 ${BigInt(d.round_off_paise ?? 0) !== 0n ? `<div class="ln"><span>${esc(L.roundOff)}</span><span>${BigInt(d.round_off_paise) < 0n ? '-' : ''}${money(BigInt(d.round_off_paise) < 0n ? -BigInt(d.round_off_paise) : d.round_off_paise)}</span></div>` : ''}
 <div class="tot"><span>${esc(L.total)}</span><span>${money(d.grand_total_paise)}</span></div>
 ${d.reverse_charge === true ? `<div class="sm">${esc(L.reverseCharge)}</div>` : ''}

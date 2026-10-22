@@ -1,5 +1,5 @@
 import {
-  allowedRatesOn, assertCreditWithinOriginal, checkHsn, computeDocument, CURRENCIES, dueDateFor, formatMoney, isPaymentTerm, isTaxError, parseExchangeRate, parseQuantity, parseRupees, resolvePlaceOfSupply, roundHalfUp,
+  allowedRatesOn, assertCreditWithinOriginal, checkHsn, computeDocument, CURRENCIES, dueDateFor, formatMoney, STATE_NAMES, isPaymentTerm, isTaxError, parseExchangeRate, parseQuantity, parseRupees, resolvePlaceOfSupply, roundHalfUp,
   type DocType, type DocumentResult, type LineInput, type TurnoverBand,
 } from '@kora/tax';
 import type { Sql, Tx } from '@kora/db';
@@ -161,6 +161,11 @@ async function build(tx: Tx, t: TenantSession, input: DocIn): Promise<Built> {
 
   const allServices = input.lines.every((l) => l.kind === 'service');
   let placeOfSupply = input.placeOfSupply ?? '';
+  if (placeOfSupply) {
+    // 01 to 38 and 97 are the states and territories a supply can be made in; 96 is another country, which only a quote in a foreign currency may name.
+    if (!Object.prototype.hasOwnProperty.call(STATE_NAMES, placeOfSupply) || placeOfSupply === '99') throw new ValidationError('Choose a state or union territory for the place of supply.', 'placeOfSupply');
+    if (placeOfSupply === '96' && currency === 'INR') throw new ValidationError('Exports are not supported yet.', 'placeOfSupply');
+  }
   // A quote in another currency is not a tax document, so a customer abroad (place 96) is allowed on it.
   if (!placeOfSupply && currency !== 'INR') placeOfSupply = (party?.state_code as string | undefined) ?? (biz.state_code as string);
   if (!placeOfSupply) {
