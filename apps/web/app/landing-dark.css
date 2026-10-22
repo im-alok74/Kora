@@ -50,3 +50,8 @@
 :root[data-theme="dark"] .kora-home .k-preview-tabs button { color: var(--text-muted); border-bottom-color: var(--border); }
 :root[data-theme="dark"] .kora-home .k-preview-tabs button[aria-selected='true'] { color: var(--accent); border-bottom-color: var(--accent); }
 :root[data-theme="dark"] .kora-home .k-preview-tabs button:hover { color: var(--accent); background: var(--surface-raised); }
+/* The preview stage and the sample screens in it are drawn on pale tints. Keep them a light island inside the dark page: dark text on the tint, not the page's light text. */
+:root[data-theme="dark"] .kora-home .k-preview-stage { --text: #1a1d21; --text-muted: #4a5560; --accent: #106cd9; --accent-ink: #0a438a; --surface: #fff; --surface-raised: #fff; --surface-sunken: #f6f8fb; --border: #e4e8ed; color-scheme: light; color: var(--text); }
+:root[data-theme="dark"] .kora-home .k-preview-stage .k-preview-copy > a, :root[data-theme="dark"] .kora-home .k-preview-stage .k-preview-copy a { color: #0a4fa8; }
+:root[data-theme="dark"] .kora-home .k-preview-stage .k-preview-copy > small { color: #4a5560; }
+:root[data-theme="dark"] .kora-home .k-reassurance > span { color: var(--text-muted); }
