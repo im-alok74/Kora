@@ -17,7 +17,7 @@ test('keyboard shortcuts move around the app, and stay out of the way while typi
   const u = await signedIn(context);
   await makeBusiness(u.userId);
   await page.goto('/app');
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
 
   await page.keyboard.press('?');
   const dialog = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
@@ -35,11 +35,11 @@ test('keyboard shortcuts move around the app, and stay out of the way while typi
   await page.keyboard.press('g');
   await page.keyboard.press('i');
   await expect(page).toHaveURL(/\/app\/invoices$/);
-  await expect(page.getByRole('heading', { name: 'Documents' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Documents', exact: true })).toBeVisible();
   await page.keyboard.press('g');
   await page.keyboard.press('c');
   await expect(page).toHaveURL(/\/app\/customers$/);
-  await expect(page.getByRole('heading', { name: 'Customers' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Customers', exact: true })).toBeVisible();
   await page.keyboard.press('n');
   await expect(page).toHaveURL(/\/app\/invoices\/new$/);
 
