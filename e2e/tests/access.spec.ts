@@ -17,7 +17,7 @@ test('an accountant can read but the app offers no way to write, and the API ref
   const w = await page.request.post('/api/documents', { data: { docType: 'tax_invoice', lines: [{ name: 'x', hsnSac: '998313', quantity: '1', rate: '1', taxRateBp: 0 }] } });
   expect(w.status()).toBe(403);
   await page.goto('/app/settings');
-  await expect(page.getByText('Only the owner can change settings.')).toBeVisible();
+  await expect(page.getByText('Only the owner can change business settings.')).toBeVisible();
 });
 
 test('one business cannot see or touch another business', async ({ page, context }) => {
