@@ -73,7 +73,7 @@ describe('the payload we send', () => {
   it('P5: 150 random issued invoices all build a payload whose totals the portal accepts', async () => {
     const rnd = (n: number) => Math.floor(Math.random() * n);
     const parties = [await mkParty('Inter Buyer'), await createParty(db.web, owner, { kind: 'customer', name: 'Intra Buyer', gstin: gstin('27', 'CCCCC1234D'), billingAddress: { line1: '1 Lane', city: 'Mumbai', pincode: '400001' } })];
-    const rates = [0, 500, 1200, 1800, 2800];
+    const rates = [0, 500, 1800, 4000];   // 12% and 28% ended on 22 September 2025
     let checked = 0;
     for (let i = 0; i < 150; i++) {
       const lines = Array.from({ length: 1 + rnd(5) }, (_, k) => ({

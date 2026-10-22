@@ -26,6 +26,7 @@ export function localTotals(a: { business: BusinessFacts; party: PartyFacts | nu
     shipToState: payload.shipToState ?? party?.shipping_address?.stateCode ?? null, recipientRegisteredState: party?.state_code,
   }));
   const r = computeDocument({
+    supplyDate: /^\d{4}-\d{2}-\d{2}$/.test(payload.docDate ?? '') ? payload.docDate : undefined,
     docType: payload.docType as DocType, registrationType: business.registration_type as never, supplierState: business.state_code, placeOfSupply: place,
     reverseCharge: !!payload.reverseCharge, tcsBp: payload.tcsBp ?? 0, tdsBp: payload.tdsBp ?? 0, roundTotal: (!payload.currency || payload.currency === 'INR') && payload.roundTotal !== false, adjustmentPaise: adjustmentOf(payload.adjustment),
     lines: lines.map((l) => ({ quantityMilli: parseQuantity(String(l.quantity)), ratePaise: parseRupees(String(l.rate)), discountPaise: l.discount ? parseRupees(String(l.discount)) : 0n,

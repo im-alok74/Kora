@@ -1,10 +1,27 @@
 import { TaxError } from './money.js';
 
 /**
- * Slabs, in basis points of a percent (1800 = 18.00%). A starting list only: a practising CA
- * must confirm it before beta. Callers can pass their own list to the compute functions.
+ * Slabs, in basis points of a percent (1800 = 18.00%).
+ *
+ * The slabs depend on the date of supply. Notifications 9/2025-Central Tax (Rate) and 9/2025-Integrated Tax (Rate), dated
+ * 17 September 2025, removed 12% and 28% and added 40% from 22 September 2025. 0%, the special 0.25% and 3% rates, 5% and 18% carry on.
+ * Use allowedRatesOn(date) whenever the date of supply is known.
  */
-export const DEFAULT_ALLOWED_RATE_BP: ReadonlySet<number> = new Set([0, 25, 300, 500, 1200, 1800, 2800, 4000]);
+export const RATE_REFORM_DATE = '2025-09-22';
+const SLABS_BEFORE: ReadonlySet<number> = new Set([0, 25, 300, 500, 1200, 1800, 2800]);
+const SLABS_FROM: ReadonlySet<number> = new Set([0, 25, 300, 500, 1800, 4000]);
+
+/** The slabs a supply made on `date` (YYYY-MM-DD) may carry. */
+export function allowedRatesOn(date: string): ReadonlySet<number> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new TaxError('bad_date', 'Enter the date of supply as YYYY-MM-DD.');
+  return date >= RATE_REFORM_DATE ? SLABS_FROM : SLABS_BEFORE;
+}
+
+/**
+ * Every slab that has existed since the 2017 launch. Used only when the date of supply is not known; a caller that has a date
+ * should pass it so that 12% and 28% are refused after the reform and 40% before it.
+ */
+export const DEFAULT_ALLOWED_RATE_BP: ReadonlySet<number> = new Set([...SLABS_BEFORE, ...SLABS_FROM]);
 
 export type SupplyKind = 'goods' | 'service';
 

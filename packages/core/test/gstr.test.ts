@@ -36,7 +36,7 @@ beforeAll(async () => {
 
   invA = await mk('tax_invoice', regMH, [line('10000', 1800)]);                                   // B2B intra
   await mk('tax_invoice', regKA, [line('5000', 500, '1', '1001'), line('20000', 1800), line('1000', 0, '1', '2201')]); // B2B inter, 3 lines
-  await mk('tax_invoice', null, [line('1000', 1800), line('2000', 1200, '1', '6203')]);           // B2C intra, walk-in
+  await mk('tax_invoice', null, [line('1000', 1800), line('2000', 500, '1', '6203')]);           // B2C intra, walk-in
   invD = await mk('tax_invoice', unregKA, [line('500', 1800)]);                                   // B2C inter small
   await mk('tax_invoice', unregKA, [line('100000', 1800, '3')]);                                  // B2CL
   await mk('tax_invoice', regKA, [line('4000', 1800)], '2026-10-11', { reverseCharge: true });    // reverse charge
@@ -79,7 +79,7 @@ describe('GSTR-1 data', () => {
     expect(j.b2cl[0].inv[0]).toMatchObject({ val: 354000 });
     expect(j.b2cl[0].inv[0].itms[0].itm_det).toEqual({ rt: 18, txval: 300000, iamt: 54000, csamt: 0 });
     const cs = Object.fromEntries(j.b2cs.map((x: any) => [`${x.sply_ty}|${x.pos}|${x.rt}`, x.txval]));
-    expect(cs).toEqual({ 'INTRA|27|18': 1000, 'INTRA|27|12': 2000, 'INTER|29|18': 300 });  // 500 invoice less the 200 credit note
+    expect(cs).toEqual({ 'INTRA|27|18': 1000, 'INTRA|27|5': 2000, 'INTER|29|18': 300 });  // 500 invoice less the 200 credit note
   });
   it('credit and debit notes go to the note sections', async () => {
     const j = (await gstr1(db.web, owner, '2026-10')).json as any;
@@ -130,11 +130,11 @@ describe('GST summary', () => {
     const s = await gstSummary(db.web, owner, '2026-10');
     expect(rs(paise(0) + BigInt(s.outwardTaxable.taxable))).toBe(334300);
     expect(rs(BigInt(s.outwardTaxable.igst))).toBe(57904);
-    expect(rs(BigInt(s.outwardTaxable.cgst))).toBe(750);
-    expect(rs(BigInt(s.outwardTaxable.sgst))).toBe(750);
+    expect(rs(BigInt(s.outwardTaxable.cgst))).toBe(680);
+    expect(rs(BigInt(s.outwardTaxable.sgst))).toBe(680);
     expect(rs(BigInt(s.outwardReverseCharge.taxable))).toBe(4000);
     expect([rs(BigInt(s.nilRated)), rs(BigInt(s.exempt))]).toEqual([1000, 700]);
-    expect(rs(BigInt(s.totalTax))).toBe(59404);
+    expect(rs(BigInt(s.totalTax))).toBe(59264);
     expect(s.interStateToUnregistered.map((x) => [x.pos, rs(BigInt(x.taxable))]).sort()).toEqual([['29', 300300]]);
     expect(s.notes.join(' ')).toMatch(/not include|not included/);
   });
@@ -145,11 +145,11 @@ describe('GSTR-3B data', () => {
     const [sum, b] = await Promise.all([gstSummary(db.web, owner, '2026-10'), gstr3b(db.web, owner, '2026-10')]);
     expect(b.json.ret_period).toBe('102026');
     expect(b.json.gstin).toBe(gstin('27', 'AAPFU0939F'));
-    expect(b.json.sup_details.osup_det).toEqual({ txval: 334300, iamt: 57904, camt: 750, samt: 750, csamt: 0 });
+    expect(b.json.sup_details.osup_det).toEqual({ txval: 334300, iamt: 57904, camt: 680, samt: 680, csamt: 0 });
     expect(b.json.sup_details.osup_nil_exmp.txval).toBe(1700);                 // nil rated 1,000 plus exempt 700
     expect(b.json.sup_details.osup_zero.txval).toBe(0);
     expect(b.json.inter_sup.unreg_details).toEqual([{ pos: '29', txval: 300300, iamt: 54054 }]);
-    expect(rs(BigInt(b.liability.total))).toBe(59404);
+    expect(rs(BigInt(b.liability.total))).toBe(59264);
     expect(b.liability.total).toBe(sum.totalTax);
     expect(b.table31).toHaveLength(5);
     expect(b.table31[2]!.taxable).toBe('170000');                                    // (c) nil rated and exempt, in paise

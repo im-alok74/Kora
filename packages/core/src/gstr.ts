@@ -12,7 +12,13 @@ type Row = Record<string, any>;
  * Section names and field names follow the GSTR-1 JSON schema as I know it. Check the output with the GST
  * offline utility before filing: Kora prepares the data, the owner remains responsible for the return.
  */
-const B2CL_LIMIT = 250_000_00n; // Rs 2.5 lakh, in paise
+/**
+ * Inter-state supplies to unregistered buyers are reported invoice by invoice (B2CL) only when the invoice value is MORE than the limit.
+ * Notification 12/2024-Central Tax (10 July 2024) cut the limit from Rs 2.5 lakh to Rs 1 lakh from 1 August 2024. Both in paise.
+ */
+const B2CL_LIMIT_BEFORE_AUG_2024 = 250_000_00n;
+const B2CL_LIMIT_FROM_AUG_2024 = 100_000_00n;
+export const b2clLimit = (docDate: string): bigint => (docDate.slice(0, 10) >= '2024-08-01' ? B2CL_LIMIT_FROM_AUG_2024 : B2CL_LIMIT_BEFORE_AUG_2024);
 
 const MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
 const ddmmyyyy = (d: string) => { const [y, m, day] = d.slice(0, 10).split('-'); return `${day}-${m}-${y}`; };
@@ -124,14 +130,14 @@ export async function gstr1(sql: Sql, t: TenantSession, period: string) {
     if (isNote) {
       const note = { ntty: d.doc_type === 'credit_note' ? 'C' : 'D', nt_num: d.number, nt_dt: ddmmyyyy(d.doc_date), val: R(BigInt(d.grand_total_paise)), pos: d.place_of_supply, rchrg, inv_typ: 'R', itms: items(taxed, { noCgst: false }) };
       if (registered) { const a = cdnr.get(buyerGstin!) ?? []; a.push(note); cdnr.set(buyerGstin!, a); }
-      else if (inter && BigInt(d.grand_total_paise) > B2CL_LIMIT) cdnur.push({ typ: 'B2CL', ...note, inv_typ: undefined });
+      else if (inter && BigInt(d.grand_total_paise) > b2clLimit(d.doc_date)) cdnur.push({ typ: 'B2CL', ...note, inv_typ: undefined });
       else addB2cs(d, taxed, inter, sign);
       continue;
     }
     if (registered) {
       const inv = { inum: d.number, idt: ddmmyyyy(d.doc_date), val: R(BigInt(d.grand_total_paise)), pos: d.place_of_supply, rchrg, inv_typ: 'R', itms: items(taxed) };
       const a = b2b.get(buyerGstin!) ?? []; a.push(inv); b2b.set(buyerGstin!, a);
-    } else if (inter && BigInt(d.grand_total_paise) > B2CL_LIMIT) {
+    } else if (inter && BigInt(d.grand_total_paise) > b2clLimit(d.doc_date)) {
       const inv = { inum: d.number, idt: ddmmyyyy(d.doc_date), val: R(BigInt(d.grand_total_paise)), itms: items(taxed, { noCgst: true }) };
       const a = b2cl.get(d.place_of_supply) ?? []; a.push(inv); b2cl.set(d.place_of_supply, a);
     } else addB2cs(d, taxed, inter, 1n);
@@ -163,7 +169,7 @@ export async function gstr1(sql: Sql, t: TenantSession, period: string) {
     ...(Object.keys(docDet).length ? { doc_issue: { doc_det: Object.values(docDet) } } : {}),
   };
   // Reconcile from what was actually placed in the sections, not from the same loop that placed it.
-  const paise = (x: unknown) => BigInt(Math.round(Number(x) * 100));
+  const paise = (x: unknown) => BigInt(Number(x).toFixed(2).replace('.', ''));   // the figures are rupees with two decimals; no multiplying floats
   let reportedTaxable = 0n;
   const sumItems = (ls: Row[]) => ls.reduce((n, it) => n + paise(it.itm_det.txval), 0n);
   for (const invs of b2b.values()) for (const inv of invs) reportedTaxable += sumItems(inv.itms);

@@ -41,7 +41,7 @@ for (const p of parties) ids.push(p.id);
 const iso = (d: number) => new Date(Date.now() + d * 86_400_000).toISOString().slice(0, 10);
 const plan: [number, number, string, string, string, number][] = [
   [0, -40, 'Monthly retainer, accounts and GST returns', '998221', '12000', 1800], [1, -25, 'Cabling work, 24 port patch panel', '995463', '4500', 1800],
-  [2, -12, 'Consulting hours', '998313', '8500', 1800], [0, -5, 'Quarterly audit support', '998221', '30000', 1800], [3, -1, 'Printed stationery', '4820', '1250', 1200],
+  [2, -12, 'Consulting hours', '998313', '8500', 1800], [0, -5, 'Quarterly audit support', '998221', '30000', 1800], [3, -1, 'Printed stationery', '4820', '1250', 500],
 ];
 for (const [pi, off, desc, hsn, rate, bp] of plan) {
   const d = await call('POST', '/api/documents', { docType: 'tax_invoice', partyId: ids[pi], dueDate: iso(off + 15), lines: [{ name: desc, hsnSac: hsn, quantity: '1', rate, taxRateBp: bp }] });

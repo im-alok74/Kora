@@ -2,7 +2,7 @@
 import Icon from './Icon';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CURRENCIES, dueDateFor, formatMoney, gstinValid, PAYMENT_TERMS, STATE_NAMES } from '@kora/tax';
-import { api, ApiError, DOC_LABEL, rupees as rupeesInr, TAX_RATES } from '../lib/client';
+import { api, ApiError, DOC_LABEL, rupees as rupeesInr, taxRatesFor } from '../lib/client';
 import { cacheGet, cacheSet, getDraft, isNetworkError, newId, putDraft, removeDraft, type LocalDraft } from '../lib/offline';
 import { localTotals, type BusinessFacts, type PartyFacts } from '../lib/localTotals';
 import { effectiveDiscounts, shippingRateBp } from '../lib/discounts';
@@ -531,7 +531,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
                 <td className="n" data-label="Rate"><input data-line={l.key} data-col="rate" aria-label={`Line ${i + 1} rate`} inputMode="decimal" value={l.rate} onChange={(e) => setLine(l.key, { rate: e.target.value })} /></td>
                 <td className="n" data-label="Discount"><input data-line={l.key} data-col="disc" aria-label={`Line ${i + 1} discount`} placeholder="Rs or %" inputMode="text" value={l.discount} onChange={(e) => setLine(l.key, { discount: e.target.value })} /></td>
                 <td data-label="GST"><select aria-label={`Line ${i + 1} GST rate`} value={l.taxRateBp} onChange={(e) => setLine(l.key, { taxRateBp: Number(e.target.value) })}>
-                  {TAX_RATES.map((r) => <option key={r.bp} value={r.bp}>{r.label}</option>)}</select></td>
+                  {taxRatesFor(docDate, l.taxRateBp).map((r) => <option key={r.bp} value={r.bp}>{r.label}</option>)}</select></td>
                 <td className="n line-amount" data-label="Amount">{idx >= 0 && totals?.lines[idx]?.total ? rupees(totals.lines[idx]!.total) : ''}</td>
                 <td className="line-remove">
                   <button type="button" className="link" aria-label={`Copy line ${i + 1}`} onClick={() => duplicateLine(l.key)}>Copy</button>{' '}

@@ -62,7 +62,7 @@ export async function convertEstimate(sql: Sql, t: TenantSession, documentId: st
       salesperson: d.salesperson as string | null, extra: d.extra as { label: string; value: string }[] | null,
       // The quote's expiry is not an invoice due date; recalculate from the new invoice date.
       paymentTerms: d.payment_terms as string | null,
-      lines: linesToInput(lines, d.currency === 'INR' ? 1_000_000n : BigInt(d.exchange_rate_micro as string)),
+      lines: linesToInput(lines, d.currency === 'INR' ? 1_000_000n : BigInt(d.exchange_rate_micro as string), d.currency as string),
       tcsBp: d.tcs_bp as number, tdsBp: d.tds_bp as number,
     };
     const made = await persist(tx, t, null, input);

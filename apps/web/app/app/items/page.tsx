@@ -2,7 +2,7 @@
 import KoraLoader from '../../../components/KoraLoader';
 import { useCallback, useEffect, useState } from 'react';
 import Icon from '../../../components/Icon';
-import { api, rupees, TAX_RATES } from '../../../lib/client';
+import { api, rupees, taxRatesFor } from '../../../lib/client';
 import { csvText, downloadCsv, rupeesPlain } from '../../../lib/listTools';
 
 type Item = {
@@ -57,7 +57,7 @@ export default function Items() {
           </div>
           <div className="row">
             <div><label htmlFor="iu">Unit</label><input id="iu" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} /></div>
-            <div><label htmlFor="ir">GST rate</label><select id="ir" value={form.defaultRateBp} onChange={(e) => setForm({ ...form, defaultRateBp: Number(e.target.value) })}>{TAX_RATES.map((r) => <option key={r.bp} value={r.bp}>{r.label}</option>)}</select></div>
+            <div><label htmlFor="ir">GST rate</label><select id="ir" value={form.defaultRateBp} onChange={(e) => setForm({ ...form, defaultRateBp: Number(e.target.value) })}>{taxRatesFor(undefined, form.defaultRateBp).map((r) => <option key={r.bp} value={r.bp}>{r.label}</option>)}</select></div>
             <div><label htmlFor="ip">Price (Rs)</label><input id="ip" inputMode="decimal" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></div>
           </div>
           <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" style={{ width: 'auto', height: 'auto' }} checked={form.priceIncludesTax} onChange={(e) => setForm({ ...form, priceIncludesTax: e.target.checked })} /> The price already includes GST (an MRP)</label>

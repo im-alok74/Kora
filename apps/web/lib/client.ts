@@ -1,5 +1,5 @@
 'use client';
-import { formatRupees } from '@kora/tax';
+import { allowedRatesOn, formatRupees } from '@kora/tax';
 
 export class ApiError extends Error {
   constructor(message: string, public status: number, public field?: string) { super(message); }
@@ -23,6 +23,16 @@ export const TAX_RATES: { bp: number; label: string }[] = [
   { bp: 0, label: '0%' }, { bp: 25, label: '0.25%' }, { bp: 300, label: '3%' }, { bp: 500, label: '5%' },
   { bp: 1200, label: '12%' }, { bp: 1800, label: '18%' }, { bp: 2800, label: '28%' }, { bp: 4000, label: '40%' },
 ];
+
+/**
+ * The rates to offer for a supply on `date` (YYYY-MM-DD, today when empty): 12% and 28% ended on 22 September 2025 and 40% began then.
+ * A rate already on a line stays in the list, marked, so an old item or draft never silently shows a different rate.
+ */
+export function taxRatesFor(date?: string, keep?: number): { bp: number; label: string }[] {
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(date ?? '') ? date! : new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+  const on = allowedRatesOn(d);
+  return TAX_RATES.filter((r) => on.has(r.bp) || r.bp === keep).map((r) => (on.has(r.bp) ? r : { ...r, label: `${r.label} (not valid on this date)` }));
+}
 
 export const DOC_LABEL: Record<string, string> = {
   tax_invoice: 'Tax invoice', bill_of_supply: 'Bill of supply', estimate: 'Estimate', proforma: 'Proforma invoice',
