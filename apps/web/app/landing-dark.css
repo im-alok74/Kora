@@ -45,3 +45,8 @@
 :root[data-theme="dark"] .kora-home .k-product-icon, :root[data-theme="dark"] .kora-home .l-brand svg { color: #7db3f2; }
 :root[data-theme="dark"] .k-topbar > a:first-child span, :root[data-theme="dark"] .kora-home .l-legal { color: var(--text-muted); }
 :root[data-theme="dark"] .k-preview-copy > a { color: #7db3f2; }
+
+/* The preview tabs under the hero were drawn with fixed light greys (#62686d on white), which fail contrast on the dark page. */
+:root[data-theme="dark"] .kora-home .k-preview-tabs button { color: var(--text-muted); border-bottom-color: var(--border); }
+:root[data-theme="dark"] .kora-home .k-preview-tabs button[aria-selected='true'] { color: var(--accent); border-bottom-color: var(--accent); }
+:root[data-theme="dark"] .kora-home .k-preview-tabs button:hover { color: var(--accent); background: var(--surface-raised); }
