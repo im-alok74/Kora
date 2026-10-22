@@ -8,12 +8,13 @@ import { localTotals, type BusinessFacts, type PartyFacts } from '../lib/localTo
 import { effectiveDiscounts, shippingRateBp } from '../lib/discounts';
 import { syncDrafts } from '../lib/sync';
 import CustomFieldInputs, { type CustomDef } from './CustomFieldInputs';
+import { HSN_LIST } from '../lib/hsn';
 
 type Line = { key: number; itemId: string | null; name: string; hsnSac: string; quantity: string; rate: string; discount: string; taxRateBp: number; kind: 'goods' | 'service'; taxInclusive: boolean };
 type Party = PartyFacts & { phone: string | null; currency?: string };
 type Item = { id: string; name: string; kind: 'goods' | 'service'; hsn_sac: string | null; default_rate_bp: number; price_paise: string; price_includes_tax?: boolean };
 type Totals = { supply: 'intra' | 'inter'; placeOfSupply: string; warnings: string[]; taxable: string; cgst: string; sgst: string; igst: string; cess: string;
-  tcs: string; tds: string; netReceivable: string; roundOff: string; grandTotal: string; recommendedDocType: string; lines: { total: string }[] };
+  tcs: string; tds: string; netReceivable: string; adjustment?: string; roundOff: string; grandTotal: string; recommendedDocType: string; lines: { total: string }[] };
 
 /** "0.1" -> 10 basis points. Two decimals at most, 0 to 100. Returns null when the text is not a percentage. */
 const pctToBp = (v: string): number | null => {
@@ -48,6 +49,13 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
   const [reverseCharge, setRcm] = useState(false);
   const [currency, setCurrency] = useState('INR');
   const [rate, setRate] = useState('');
+  // A rupee document can also show its total in another currency, for a customer abroad. The tax stays in rupees.
+  // A small plus or minus on the total that is not taxed, and whether the total is rounded to the rupee.
+  const [adjustment, setAdjustment] = useState('');
+  const [adjLabel, setAdjLabel] = useState('');
+  const [roundTotal, setRoundTotal] = useState(true);
+  const [refCur, setRefCur] = useState('');
+  const [refRate, setRefRate] = useState('');
   const [tcsPct, setTcsPct] = useState('');
   const [tdsPct, setTdsPct] = useState('');
   const [reference, setReference] = useState('');
@@ -97,7 +105,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
 
   const fill = (p: Record<string, any>) => {
     setDocType(p.docType); setPartyId(p.partyId ?? ''); setDocDate(p.docDate ?? ''); setDueDate(p.dueDate ?? ''); setNotes(p.notes ?? ''); setTerms(p.terms ?? '');
-    setRcm(!!p.reverseCharge); setOriginal(p.originalDocumentId ?? null); setTcsPct(bpToPct(p.tcsBp)); setTdsPct(bpToPct(p.tdsBp)); setCurrency(p.currency ?? 'INR'); setRate(p.exchangeRate ?? '');
+    setRcm(!!p.reverseCharge); setOriginal(p.originalDocumentId ?? null); setTcsPct(bpToPct(p.tcsBp)); setTdsPct(bpToPct(p.tdsBp)); setCurrency(p.currency ?? 'INR'); setRate(p.exchangeRate ?? ''); setRefCur(p.displayCurrency ?? ''); setRefRate(p.displayRate ?? ''); setAdjustment(p.adjustment ?? ''); setAdjLabel(p.adjustmentLabel ?? ''); setRoundTotal(p.roundTotal !== false);
     setReference(p.reference ?? ''); setSubject(p.subject ?? ''); setPaymentTerms(p.paymentTerms ?? ''); setSalesperson(p.salesperson ?? ''); setExtra(p.extra ?? []); setCustom(p.custom ?? {});
     setLines((p.lines as any[]).map((l) => ({ key: seq++, itemId: l.itemId ?? null, name: l.name, hsnSac: l.hsnSac ?? '', quantity: String(l.quantity), rate: String(l.rate),
       discount: l.discount ?? '', taxRateBp: l.taxRateBp, kind: l.kind ?? 'goods', taxInclusive: !!l.taxInclusive })));
@@ -119,7 +127,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
             const { document: d, lines: ls } = await api(`/api/documents/${draftId}`);
             setClientRef(d.client_ref ?? newId()); setBaseRev(Number(d.rev));
             setDocType(d.doc_type); setPartyId(d.party_id ?? ''); setDocDate(d.doc_date); setDueDate(d.due_date ?? ''); setNotes(d.notes ?? ''); setTerms(d.terms ?? '');
-            setRcm(d.reverse_charge); setOriginal(d.original_document_id); setTcsPct(bpToPct(d.tcs_bp)); setTdsPct(bpToPct(d.tds_bp)); setCurrency(d.currency ?? 'INR'); setRate(d.currency && d.currency !== 'INR' ? microToText(d.exchange_rate_micro) : '');
+            setRcm(d.reverse_charge); setOriginal(d.original_document_id); setTcsPct(bpToPct(d.tcs_bp)); setTdsPct(bpToPct(d.tds_bp)); setCurrency(d.currency ?? 'INR'); setRate(d.currency && d.currency !== 'INR' ? microToText(d.exchange_rate_micro) : ''); setAdjustment(BigInt(d.adjustment_paise ?? 0) !== 0n ? `${BigInt(d.adjustment_paise) < 0n ? '-' : ''}${rs(String(BigInt(d.adjustment_paise) < 0n ? -BigInt(d.adjustment_paise) : BigInt(d.adjustment_paise)))}` : ''); setAdjLabel(d.adjustment_label ?? ''); setRoundTotal(d.round_total !== false); setRefCur(d.display_currency ?? ''); setRefRate(d.display_currency && d.display_rate_micro ? microToText(d.display_rate_micro) : '');
             setReference(d.reference ?? ''); setSubject(d.subject ?? ''); setPaymentTerms(d.payment_terms ?? ''); setSalesperson(d.salesperson ?? ''); setExtra(d.extra ?? []);
             setCustom(Object.fromEntries(((d.custom_values ?? []) as { id: string; value: string }[]).map((v) => [v.id, v.value])));
             setLines(ls.map((l: any) => ({ key: seq++, itemId: l.item_id, name: l.item_name, hsnSac: l.hsn_sac ?? '', quantity: String(l.quantity).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '') || '1',
@@ -154,13 +162,16 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
     extra: extra.filter((x) => x.label.trim() || x.value.trim()),
     custom: Object.fromEntries(Object.entries(custom).filter(([id, v]) => v.trim() && customDefs.some((d) => d.id === id))),
     ...(currency !== 'INR' && quote ? { currency, exchangeRate: rate } : {}),
+    ...(adjustment.trim() ? { adjustment: adjustment.trim(), adjustmentLabel: adjLabel.trim() || undefined } : {}),
+    ...(roundTotal ? {} : { roundTotal: false }),
+    ...(currency === 'INR' && refCur ? { displayCurrency: refCur, displayRate: refRate } : {}),
     lines: (() => {
       const kept = lines.filter((l) => l.name.trim() || l.rate);
       const disc = effectiveDiscounts(kept, billDiscount);
       return kept.map((l, i) => ({ itemId: l.itemId, name: l.name, hsnSac: l.hsnSac || null, quantity: l.quantity || '0',
         rate: l.rate || '0', discount: disc[i] || undefined, taxRateBp: l.taxRateBp, kind: l.kind, taxInclusive: l.taxInclusive || undefined }));
     })(),
-  }), [docType, partyId, docDate, dueDate, notes, terms, reverseCharge, lines, original, tcsPct, tdsPct, currency, rate, quote, reference, subject, paymentTerms, billDiscount, salesperson, extra, custom, customDefs]);
+  }), [docType, partyId, docDate, dueDate, notes, terms, reverseCharge, lines, original, tcsPct, tdsPct, currency, rate, quote, reference, subject, paymentTerms, billDiscount, salesperson, extra, custom, customDefs, refCur, refRate, adjustment, adjLabel, roundTotal]);
 
   // Live totals. The server is the authority; offline, the same tax library runs on this device.
   useEffect(() => {
@@ -289,6 +300,17 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
     api(`/api/documents/${local.conflict.serverId}`).then((d) => setOtherTotal(rupees(d.document.grand_total_paise))).catch(() => {});
   }, [local]);
 
+  // The same total in the other currency, so the person sees both before issuing.
+  const both = (() => {
+    if (!totals) return '';
+    try {
+      const grand = BigInt(totals.grandTotal);
+      if (currency !== 'INR' && rate) { const m = BigInt(Math.round(parseFloat(rate) * 1_000_000)); return m > 0n ? `About ${rupeesInr((grand * m + 500_000n) / 1_000_000n)} at 1 ${currency} = Rs ${rate}` : ''; }
+      if (currency === 'INR' && refCur && refRate) { const m = BigInt(Math.round(parseFloat(refRate) * 1_000_000)); return m > 0n ? `About ${formatMoney((grand * 1_000_000n + m / 2n) / m, refCur)} at 1 ${refCur} = Rs ${refRate}` : ''; }
+    } catch { /* a half-typed rate shows nothing */ }
+    return '';
+  })();
+
   if (!ready) return <p className="muted">{err || 'Loading the draft'}</p>;
 
   const label = DOC_LABEL[docType] ?? 'document';
@@ -339,6 +361,12 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
                   <select id="cur" value={currency} onChange={(e) => setCurrency(e.target.value)}>{CURRENCIES.map((c) => <option key={c} value={c}>{c === 'INR' ? 'INR (rupees)' : c}</option>)}</select></div>
                 {currency !== 'INR' && (
                   <div><label htmlFor="fx">Exchange rate (Rs for 1 {currency})</label><input id="fx" inputMode="decimal" placeholder="83.25" value={rate} onChange={(e) => setRate(e.target.value)} /></div>)}
+              </div>)}
+            {currency === 'INR' && (
+              <div className="row" style={{ marginTop: 8 }}>
+                <div><label htmlFor="rcur">Also show the total in</label>
+                  <select id="rcur" value={refCur} onChange={(e) => setRefCur(e.target.value)}><option value="">Rupees only</option>{CURRENCIES.filter((c) => c !== 'INR').map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
+                {refCur && <div><label htmlFor="rfx">Exchange rate (Rs for 1 {refCur})</label><input id="rfx" inputMode="decimal" placeholder="83.25" value={refRate} onChange={(e) => setRefRate(e.target.value)} /></div>}
               </div>)}
             {quote && currency !== 'INR' && <p className="muted">This is a quote, not a tax invoice. When the customer accepts, it turns into an invoice in rupees at this rate.</p>}
           </div>
@@ -403,7 +431,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
             return (
               <tr key={l.key}>
                 <td className="item-cell" data-label="Description"><input aria-label={`Line ${i + 1} description`} placeholder="Item or service" list="items-list" value={l.name} onChange={(e) => pickName(l.key, e.target.value)} />
-                  <div className="item-sub"><div className="sub-field"><span aria-hidden="true">HSN/SAC</span><input aria-label={`Line ${i + 1} HSN or SAC`} inputMode="numeric" value={l.hsnSac} onChange={(e) => setLine(l.key, { hsnSac: e.target.value })} /></div>
+                  <div className="item-sub"><div className="sub-field"><span aria-hidden="true">HSN/SAC</span><input aria-label={`Line ${i + 1} HSN or SAC`} inputMode="numeric" list="hsn-list" placeholder="Code or word" value={l.hsnSac} onChange={(e) => { const v = e.target.value.trim(); const hit = HSN_LIST.find((h) => h.code === v); setLine(l.key, hit?.bp !== undefined && !l.itemId ? { hsnSac: v, taxRateBp: hit.bp, kind: hit.kind } : { hsnSac: e.target.value }); }} /></div>
                     <label className="incl"><input type="checkbox" aria-label={`Line ${i + 1} price includes GST`} checked={l.taxInclusive} onChange={(e) => setLine(l.key, { taxInclusive: e.target.checked })} /> price has GST in it</label></div></td>
                 <td className="n" data-label="Quantity"><input aria-label={`Line ${i + 1} quantity`} inputMode="decimal" value={l.quantity} onChange={(e) => setLine(l.key, { quantity: e.target.value })} /></td>
                 <td className="n" data-label="Rate"><input aria-label={`Line ${i + 1} rate`} inputMode="decimal" value={l.rate} onChange={(e) => setLine(l.key, { rate: e.target.value })} /></td>
@@ -417,6 +445,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
           })}
         </tbody>
       </table>
+      <datalist id="hsn-list">{HSN_LIST.map((h) => <option key={h.code} value={h.code}>{h.text}</option>)}</datalist>
       <datalist id="items-list">{items.map((i) => <option key={i.id} value={i.name} />)}</datalist>
       <div className="items-foot">
         <button type="button" className="secondary sm" onClick={() => setLines((ls) => [...ls, blankLine()])}><Icon name="plus" size={16} />Add line</button>
@@ -424,6 +453,13 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
         <div className="bill-discount"><label htmlFor="bd">Discount on the whole bill</label>
           <input id="bd" inputMode="text" placeholder="Rs or %, for example 500 or 10%" value={billDiscount} onChange={(e) => setBillDiscount(e.target.value)} />
           <span className="muted">Shared across the lines to the paisa, so the tax stays right on each line.</span></div>
+        <div className="bill-discount"><label htmlFor="adj">Adjustment on the total</label>
+          <div className="row">
+            <input id="adj" inputMode="text" placeholder="For example -5 or 12.50" value={adjustment} onChange={(e) => setAdjustment(e.target.value)} />
+            <input aria-label="Adjustment name" maxLength={40} placeholder="Name, for example Goodwill" value={adjLabel} onChange={(e) => setAdjLabel(e.target.value)} />
+          </div>
+          <span className="muted">Added to or taken off the total after tax. It is not taxed and is printed as its own line.</span>
+          {currency === 'INR' && <label className="incl"><input type="checkbox" checked={roundTotal} onChange={(e) => setRoundTotal(e.target.checked)} /> Round the total to the nearest rupee</label>}</div>
       </div>
       </section>
 
@@ -470,8 +506,10 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
               {totals.supply === 'intra' ? (<><div><span>CGST</span><span>{rupees(totals.cgst)}</span></div><div><span>SGST</span><span>{rupees(totals.sgst)}</span></div></>) : <div><span>IGST</span><span>{rupees(totals.igst)}</span></div>}
               {BigInt(totals.cess) > 0n && <div><span>Cess</span><span>{rupees(totals.cess)}</span></div>}
               {BigInt(totals.tcs) > 0n && <div><span>TCS</span><span data-testid="tcs-amount">{rupees(totals.tcs)}</span></div>}
+              {BigInt(totals.adjustment ?? 0) !== 0n && <div><span>{adjLabel.trim() || 'Adjustment'}</span><span>{BigInt(totals.adjustment ?? 0) < 0n ? '-' : ''}{rupees(String(BigInt(totals.adjustment ?? 0) < 0n ? -BigInt(totals.adjustment ?? 0) : BigInt(totals.adjustment ?? 0)))}</span></div>}
               {BigInt(totals.roundOff) !== 0n && <div><span>Round off</span><span>{BigInt(totals.roundOff) < 0n ? '-' : ''}{rupees(BigInt(totals.roundOff) < 0n ? -BigInt(totals.roundOff) : totals.roundOff)}</span></div>}
               <div className="grand"><span>Total</span><span data-testid="grand-total">{rupees(totals.grandTotal)}</span></div>
+              {both && <div className="muted" data-testid="both-currencies">{both}</div>}
               {BigInt(totals.tds) > 0n && <div className="muted" data-testid="tds-note">Customer deducts {rupees(totals.tds)} as TDS, so they pay <b>{rupees(totals.netReceivable)}</b>. Record the TDS as a payment when it arrives.</div>}
               <div className="muted">Place of supply: {STATE_NAMES[totals.placeOfSupply]} ({totals.supply === 'intra' ? 'within state' : 'other state'})</div>
               {totals.recommendedDocType === 'bill_of_supply' && docType === 'tax_invoice' && <div className="warn">Every line is at 0%. A bill of supply may be the right document.</div>}

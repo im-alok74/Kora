@@ -1,4 +1,4 @@
-import { formatRupees, rupeesInWords, STATE_NAMES } from '@kora/tax';
+import { formatMoney, formatRupees, rupeesInWords, STATE_NAMES } from '@kora/tax';
 import { labelsFor, NOTE_REASON_TEXT, titleFor } from './labels.js';
 
 /** Data the renderer needs. Shapes match the database rows (snake_case, bigints as strings). */
@@ -152,7 +152,18 @@ export function renderDocumentHtml(i: RenderInput): string {
     if (BigInt(d.cess_paise) > 0n) totals.push(['Cess', money(d.cess_paise)]);
   }
   if (BigInt(d.tcs_paise) > 0n) totals.push(['TCS', money(d.tcs_paise)]);
+  if (BigInt(d.adjustment_paise ?? 0) !== 0n) totals.push([esc(d.adjustment_label || 'Adjustment'), (BigInt(d.adjustment_paise) < 0n ? '-' : '') + money(BigInt(d.adjustment_paise) < 0n ? -BigInt(d.adjustment_paise) : d.adjustment_paise)]);
   if (BigInt(d.round_off_paise) !== 0n) totals.push([L.roundOff, (BigInt(d.round_off_paise) < 0n ? '-' : '') + money(BigInt(d.round_off_paise) < 0n ? -BigInt(d.round_off_paise) : d.round_off_paise)]);
+  // Totals in both currencies: a foreign quote also shows its rupee value, and a rupee document may show a reference total in another currency.
+  let bothNote = '';
+  if (foreign) {
+    const inr = (BigInt(String(d.grand_total_paise)) * rateMicro + 500_000n) / 1_000_000n;
+    bothNote = `Equivalent in rupees: ${formatMoney(inr, 'INR')} at 1 ${esc(d.currency)} = Rs ${rateText}.`;
+  } else if (d.display_currency && d.display_rate_micro && BigInt(String(d.display_rate_micro)) > 0n) {
+    const rate = BigInt(String(d.display_rate_micro));
+    const other = (BigInt(String(d.grand_total_paise)) * 1_000_000n + rate / 2n) / rate;
+    bothNote = `Reference total: ${esc(formatMoney(other, String(d.display_currency)))} at 1 ${esc(d.display_currency)} = Rs ${`${rate / 1_000_000n}.${(rate % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '').padEnd(2, '0')}`}. Tax and amounts due are in rupees.`;
+  }
   const totalRows = totals.map(([k, v]) => `<tr><td>${k}</td><td class="n">${v}</td></tr>`).join('');
 
   const optional = (show: boolean, title: string, text: unknown) =>
@@ -250,6 +261,7 @@ ${payRow}${optional(t.showNotes, L.notes, d.notes)}${optional(t.showTerms, L.ter
 <div><div class="totbox"><table class="tot">${totalRows}<tr class="g"><td>${rcm ? L.amountDue : L.total}${foreign ? ` (${esc(d.currency)})` : ''}</td><td class="n">${money(d.grand_total_paise)}</td></tr>
 ${rcm && showTax ? `<tr class="sub"><td colspan="2">Tax shown above is payable by the recipient.</td></tr>` : ''}
 ${foreign ? `<tr class="sub"><td colspan="2">All amounts are in ${esc(d.currency)}. Exchange rate used: 1 ${esc(d.currency)} = Rs ${rateText}. This is not a tax invoice.</td></tr>` : ''}
+${bothNote ? `<tr class="sub"><td colspan="2">${bothNote}</td></tr>` : ''}
 ${tdsRows}</table></div></div></div>
 ${taxSummary}${irnBlock}${t.showSignature ? `<div class="sign">${signature}<div>${esc(L.signatory)}<br>${esc(supplierName)}</div></div>` : ''}
 ${t.footerText ? `<div class="foot">${esc(t.footerText)}</div>` : ''}

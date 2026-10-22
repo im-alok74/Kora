@@ -62,3 +62,15 @@ describe('custom fields on the page', () => {
     expect(h).toContain('Vendor code:</span> V-204');
   });
 });
+
+describe('totals in both currencies', () => {
+  it('shows a reference total on a rupee document, and the rupee value on a foreign quote', () => {
+    const input = sampleInput(supplier, TPL);
+    input.doc = { ...input.doc, display_currency: 'USD', display_rate_micro: '80000000' };
+    expect(renderDocumentHtml(input)).toContain('Reference total: USD 29.50 at 1 USD = Rs 80.00');
+    input.doc = { ...input.doc, display_currency: null, display_rate_micro: null, doc_type: 'estimate', currency: 'USD', exchange_rate_micro: '80000000', grand_total_paise: '23600' };
+    expect(renderDocumentHtml(input)).toContain('Equivalent in rupees: Rs 18,880.00 at 1 USD = Rs 80.00.');
+    input.doc = { ...input.doc, currency: 'INR', exchange_rate_micro: '1000000' };
+    expect(renderDocumentHtml(input)).not.toContain('Equivalent in rupees');
+  });
+});
