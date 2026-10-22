@@ -177,3 +177,85 @@ test('the invoice shows the money story and a part refund reopens part of it', a
   await expect(tl).toContainText('Rs 250.00 of Rs 1,000.00 is still owed.');
   await expect(tl).toContainText('Goods returned');
 });
+
+test('a customer page keeps tags, a credit limit and notes, and duplicates can be merged', async ({ page, context }) => {
+  const u = await signedIn(context);
+  await makeBusiness(u.userId, 'Tidy Co');
+  const a = await (await page.request.post('/api/parties', { data: { kind: 'customer', name: 'Sharma Traders Pvt Ltd', stateCode: '27', phone: '9811111111' } })).json();
+  await page.request.post('/api/parties', { data: { kind: 'customer', name: 'Sharma Traders', stateCode: '27', phone: '9811111111' } });
+  const d = await (await page.request.post('/api/documents', { data: { docType: 'tax_invoice', partyId: a.id, dueDate: ist(10), lines: [{ name: 'Work', hsnSac: '998313', quantity: '1', rate: '1500', taxRateBp: 0, kind: 'service' }] } })).json();
+  await page.request.post(`/api/documents/${d.id}/issue`, { data: {} });
+
+  await page.goto(`/app/customers/${a.id}`);
+  await page.getByRole('tab', { name: 'Notes and limits' }).click();
+  await page.getByLabel('Tags (separate with commas)').fill('wholesale, slow-payer');
+  await page.getByLabel('Credit limit (Rs)').fill('1000');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Saved.')).toBeVisible();
+  await expect(page.getByTestId('over-limit')).toContainText('Over the credit limit by Rs 500.00');
+  await page.getByLabel('Add a note').fill('Pays on the 10th.');
+  await page.getByRole('button', { name: 'Add note' }).click();
+  await expect(page.getByText('Pays on the 10th.')).toBeVisible();
+
+  await page.goto('/app/customers');
+  await page.getByText('Export, import and tidy up').click();
+  const csv = await page.request.get('/api/parties/export?format=csv');
+  expect(csv.headers()['content-type']).toContain('text/csv');
+  expect(await csv.text()).toContain('slow-payer');
+  const xlsx = await page.request.get('/api/parties/export?format=xlsx');
+  expect(xlsx.headers()['content-type']).toContain('spreadsheetml');
+  await page.getByRole('button', { name: 'Find duplicates' }).click();
+  await expect(page.getByText('Same mobile number and same name')).toBeVisible();
+  page.once('dialog', (x) => void x.accept());
+  await page.getByRole('button', { name: 'Keep this one' }).first().click();
+  await expect(page.getByText('Merged.')).toBeVisible();
+  await expect(page.getByText('No duplicates found.')).toBeVisible();
+});
+
+test('expenses: mileage is worked out, and billable expenses become a draft invoice', async ({ page, context }) => {
+  const u = await signedIn(context);
+  await makeBusiness(u.userId, 'Spend Co');
+  const c = await (await page.request.post('/api/parties', { data: { kind: 'customer', name: 'Rebill Buyer', stateCode: '27' } })).json();
+  await page.goto('/app/expenses');
+  await page.getByLabel('Distance (km)').fill('100');
+  await page.getByLabel('Rate per km (Rs)').fill('12');
+  await page.getByLabel('Bill to a customer (optional)').selectOption({ label: 'Rebill Buyer' });
+  await page.getByRole('button', { name: 'Save mileage' }).click();
+  await expect(page.getByText('Mileage saved as an expense.')).toBeVisible();
+  const bill = await (await page.request.get('/api/expenses/billable')).json();
+  expect(bill.expenses).toHaveLength(1);
+  expect(bill.expenses[0].amount_paise).toBe('120000');
+  await page.reload();
+  await page.getByRole('checkbox').first().check();
+  await page.getByRole('button', { name: /Make a draft invoice/ }).click();
+  await expect(page).toHaveURL(/\/app\/invoices\//);
+  await expect(page.getByText('Reimbursement: Mileage')).toBeVisible();
+  void c;
+});
+
+test('reports: sales by month and profit and loss, with Excel and saved views; dashboard shows the week and top customers', async ({ page, context }) => {
+  const u = await signedIn(context);
+  await makeBusiness(u.userId, 'Report Co');
+  const c = await (await page.request.post('/api/parties', { data: { kind: 'customer', name: 'Top Buyer', stateCode: '27' } })).json();
+  const d = await (await page.request.post('/api/documents', { data: { docType: 'tax_invoice', partyId: c.id, dueDate: ist(3), lines: [{ name: 'Design', hsnSac: '998313', quantity: '2', rate: '1000', taxRateBp: 0, kind: 'service' }] } })).json();
+  await page.request.post(`/api/documents/${d.id}/issue`, { data: {} });
+  await page.request.post('/api/expenses', { data: { category: 'Rent', amount: '500' } });
+
+  await page.goto('/app/reports');
+  await page.getByRole('tab', { name: 'Sales by item' }).click();
+  await expect(page.getByRole('table', { name: 'Sales by item' })).toContainText('Design');
+  await page.getByRole('tab', { name: 'Profit and loss' }).click();
+  await expect(page.getByTestId('pnl-net')).toHaveText('Rs 1,500.00');
+  await page.getByLabel('Save this view as').fill('My P&L');
+  await page.getByRole('button', { name: 'Save view' }).click();
+  await page.reload();
+  await page.getByLabel('Saved views').selectOption('My P&L');
+  await expect(page.getByTestId('pnl-net')).toHaveText('Rs 1,500.00');
+  const x = await page.request.get(`/api/reports/months?format=xlsx`);
+  expect(x.headers()['content-type']).toContain('spreadsheetml');
+  expect((await x.body()).subarray(0, 2).toString()).toBe('PK');
+
+  await page.goto('/app');
+  await expect(page.getByTestId('stat-week')).toHaveText('Rs 2,000.00');
+  await expect(page.getByTestId('top-customers')).toContainText('Top Buyer');
+});

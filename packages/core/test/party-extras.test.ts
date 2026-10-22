@@ -136,10 +136,10 @@ describe('export', () => {
 describe('import reads the new columns back', () => {
   it('creates vendors with tags, limit, opening balance and Udyam from the same columns the export writes', async () => {
     const { previewImport, commitImport } = await import('../src/index.js');
-    const csv = ['Name,Type,Tags,Credit limit (Rs),Opening balance (Rs),Opening balance date,Udyam number,MSME size',
-      'Round Trip Vendor,vendor,"steel, local",5000,-250.50,2026-04-01,UDYAM-MH-12-0001234,small',
-      'Bad Type Co,friend,,,,,,',
-      'No Date Co,customer,,,100,,,'].join('\n');
+    const csv = ['Name,State,Type,Tags,Credit limit (Rs),Opening balance (Rs),Opening balance date,Udyam number,MSME size',
+      'Round Trip Vendor,27,vendor,"steel, local",5000,-250.50,2026-04-01,UDYAM-MH-12-0001234,small',
+      'Bad Type Co,27,friend,,,,,,,',
+      'No Date Co,27,customer,,,100,,,'].join('\n');
     const p = await previewImport(db.web, owner, 'customers', csv);
     expect(p.counts).toMatchObject({ ok: 1, error: 2 });
     const msgs = p.rows.filter((r) => r.status === 'error').map((r) => r.message).join(' ');

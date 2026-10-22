@@ -8,6 +8,9 @@ type Dash = {
   business: { name: string }; today: string;
   owed: { outstanding: string; overdue: string; unpaid: number; overdueCount: number };
   thisMonth: { sales: string; collected: string; expenses: string };
+  dueThisWeek: { amount: string; count: number };
+  topCustomers: { name: string; partyId: string | null; total: string }[];
+  toPay: { owed: string; late: string; dueThisWeek: string; bills: number; msmeAttention: number };
   chart: { key: string; label: string; total: string }[];
   attention: { overdue: { id: string; number: string; party_name: string; outstanding_paise: string; days: number }[]; drafts: number; openEstimates: number; acceptedEstimates: number };
   recent: { id: string; number: string | null; doc_type: string; status: string; doc_date: string; currency: string; total_paise: string; payment_status: string; party_name: string; estimate_status: string | null }[];
@@ -86,6 +89,23 @@ export default function Dashboard() {
         <div className="stat"><div className="label">Spent this month</div><div className="value" data-testid="stat-spent">{rupees(d.thisMonth.expenses)}</div><div className="sub"><a href="/app/expenses">See expenses</a></div></div>
       </section>
 
+      <section className="stats" aria-label="Coming up">
+        <div className="stat"><div className="label">Due in the next 7 days</div><div className="value" data-testid="stat-week">{rupees(d.dueThisWeek.amount)}</div><div className="sub">{d.dueThisWeek.count} invoice{d.dueThisWeek.count === 1 ? '' : 's'} falling due</div></div>
+        <div className={`stat${BigInt(d.toPay.late) > 0n ? ' danger' : ''}`}><div className="label">You owe vendors</div><div className="value" data-testid="stat-topay">{rupees(d.toPay.owed)}</div><div className="sub">{BigInt(d.toPay.late) > 0n ? `${rupees(d.toPay.late)} is late. ` : ''}{rupees(d.toPay.dueThisWeek)} due this week</div></div>
+        {d.toPay.msmeAttention > 0 && <div className="stat danger"><div className="label">Small suppliers to pay</div><div className="value" data-testid="stat-msme">{d.toPay.msmeAttention}</div><div className="sub"><a href="/app/vendors">Within 45 days of the bill</a></div></div>}
+      </section>
+
+      {canWrite && (
+        <section className="panel" aria-label="Quick actions">
+          <div className="row" style={{ justifyContent: 'flex-start' }}>
+            <a className="btn" style={{ flex: 'none' }} href="/app/invoices/new">New invoice</a>
+            <a className="btn secondary" style={{ flex: 'none' }} href="/app/invoices?status=issued">Record a payment</a>
+            <a className="btn secondary" style={{ flex: 'none' }} href="/app/expenses">Add an expense</a>
+            <a className="btn secondary" style={{ flex: 'none' }} href="/app/purchases">Record a bill</a>
+            {d.owed.overdueCount > 0 && <a className="btn secondary" style={{ flex: 'none' }} href="/app/invoices?status=overdue">Chase {d.owed.overdueCount} overdue</a>}
+          </div>
+        </section>)}
+
       <div className="dash-grid">
         <div>
           <section className="panel" aria-label="Sales by month">
@@ -98,6 +118,13 @@ export default function Dashboard() {
                   <span>{c.label}</span>
                 </div>))}
             </div>
+          </section>
+
+          <section className="panel" aria-label="Top customers">
+            <div className="panel-head"><h2>Top customers, last 12 months</h2><a href="/app/reports?tab=customers">Reports</a></div>
+            {d.topCustomers.length === 0 ? <p className="muted">Nothing billed yet.</p> : (
+              <ol className="list" data-testid="top-customers">{d.topCustomers.map((c) => (
+                <li key={c.name}><span>{c.partyId ? <a href={`/app/customers/${c.partyId}`}>{c.name}</a> : c.name}</span><b>{rupees(c.total)}</b></li>))}</ol>)}
           </section>
 
           <section className="panel" aria-label="Recent documents">
