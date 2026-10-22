@@ -10,10 +10,10 @@ Branch: night-2. Migration range: 0120 to 0129. Worktree: ../kora-night-2.
 - [x] 4. Automatic reminders: schedules per customer, stop when paid, preview, history (mock messenger)
 - [x] 5. Customer portal: code login, invoices and quotes, bulk pay, statement PDF, quote comment/approve, PO attach
 - [x] 6. Payment links and receipts: partial payments, refunds, payment history, paid-state timeline
-- [ ] 7. Customer and vendor pages: contacts, notes, tags, credit limit, opening balance, merge, import/export
-- [ ] 8. Expenses: categories, receipt upload, billable to invoice, recurring, mileage
-- [ ] 9. Reports: sales by customer/item/month, ageing both ways, GST summary, P&L, ranges, saved views, CSV/Excel, print
-- [ ] 10. Dashboard: owed, due this week, cash in, top customers, one-click actions
+- [x] 7. Customer and vendor pages: contacts, notes, tags, credit limit, opening balance, merge, import/export
+- [x] 8. Expenses: categories, receipt upload, billable to invoice, recurring, mileage
+- [x] 9. Reports: sales by customer/item/month, ageing both ways, GST summary, P&L, ranges, saved views, CSV/Excel, print
+- [x] 10. Dashboard: owed, due this week, cash in, top customers, one-click actions
 - [ ] 11. Polish at 375px and dark mode
 
 ## Log
@@ -49,6 +49,17 @@ Gap list for my area (what Kora has is in brackets):
 - The Bash tool chokes on long commands with apostrophes inside heredocs; write files with the editor tool.
 - Docker Desktop died once under load from four chats; restart it and run `pnpm db:up`.
 
+### 2026-10-22 Tasks 7 to 10
+
+- 7 Parties: 0124 (tags, credit limit, opening balance, merged_into, party_note, party_family()). Notes and limits tab, duplicate finder and merge (movable records move; issued documents are immutable so they stay on the old record and the kept party's statement, overview and portal read them through party_family), export CSV and Excel, import reads the new columns. Opening balances show on the statement and credit status, not yet in the ageing report. A credit limit only warns.
+- 8 Expenses: 0125 (bill_to_party_id, billed_document_id, mileage). Categories suggest what the business already used. Mileage works out the amount. Billable expenses become a DRAFT invoice at 0% GST (ROADMAP 2.7 says a CA must decide the tax treatment of re-billed costs, so the draft is for review and says so on screen).
+- 9 Reports: sales by item, by month, profit and loss (billed less bought less expenses, before GST, a guide and not accounts), who you owe, plus Excel export on every report (new xlsx writer), saved views (this browser only, like documents), print layout.
+- 10 Dashboard: due in 7 days, what you owe vendors, small suppliers to pay, top customers, quick actions.
+- Migrations 0120 to 0125 were applied to the hosted Supabase project and recorded in schema_migration. The hosted database still lacks 0033 to 0036 from kora-phases, so `expense` has no (business_id, id) unique key there and recurring expenses are not live until those are applied.
+
 ### Needs you
 
-(nothing yet)
+- Hosted database: after the kora-phases migrations 0033 to 0036 are applied, nothing of mine needs re-running; mine were applied out of order on purpose because they are independent.
+- A CA to confirm: GST on re-billed expenses (draft invoice defaults to 0%), the TDS section list and deposit dates, the MSME wording about interest and tax deduction.
+- Real messaging (WhatsApp, SMS, email for reminders and portal codes) still uses the mock adapters; live providers need your keys.
+- The portal code sign-in uses OTP_HMAC_SECRET and the mock OTP sender unless OTP_PROVIDER is changed.

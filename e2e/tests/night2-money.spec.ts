@@ -122,7 +122,7 @@ test('a customer signs in to the portal with a code, pays two invoices together,
   await expect(p.getByText('We sent a 6 digit code to')).toBeVisible();
   await p.getByLabel('Code').fill('000000');
   await p.getByRole('button', { name: 'Open my account' }).click();
-  await expect(p.getByRole('alert')).toContainText('not right or has expired');
+  await expect(p.locator('p.error')).toContainText('not right or has expired');
   await p.getByLabel('Code').fill(await recoverPortalCode(row!.id as string));
   await p.getByRole('button', { name: 'Open my account' }).click();
   await expect(p.getByTestId('portal-owing')).toHaveText('Rs 1,500.00');
@@ -229,7 +229,7 @@ test('expenses: mileage is worked out, and billable expenses become a draft invo
   await page.getByRole('checkbox').first().check();
   await page.getByRole('button', { name: /Make a draft invoice/ }).click();
   await expect(page).toHaveURL(/\/app\/invoices\//);
-  await expect(page.getByText('Reimbursement: Mileage')).toBeVisible();
+  await expect(page.getByDisplayValue(/Reimbursement: Mileage/)).toBeVisible();
   void c;
 });
 
@@ -249,7 +249,7 @@ test('reports: sales by month and profit and loss, with Excel and saved views; d
   await page.getByLabel('Save this view as').fill('My P&L');
   await page.getByRole('button', { name: 'Save view' }).click();
   await page.reload();
-  await page.getByLabel('Saved views').selectOption('My P&L');
+  await page.locator('#rv').selectOption('My P&L');
   await expect(page.getByTestId('pnl-net')).toHaveText('Rs 1,500.00');
   const x = await page.request.get(`/api/reports/months?format=xlsx`);
   expect(x.headers()['content-type']).toContain('spreadsheetml');

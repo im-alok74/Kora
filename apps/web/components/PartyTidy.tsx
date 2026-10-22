@@ -13,7 +13,7 @@ export default function PartyTidy({ kind, canMerge, onMerged }: { kind: 'custome
   const merge = async (keepId: string, dropId: string, names: string) => {
     if (!window.confirm(`Merge ${names}? The second record is archived and everything that can move goes to the first. This cannot be undone.`)) return;
     setErr(''); setMsg('');
-    try { await api('/api/parties/merge', { body: { keepId, dropId } }); setMsg('Merged.'); onMerged(); await find(); } catch (e) { setErr((e as Error).message); }
+    try { await api('/api/parties/merge', { body: { keepId, dropId } }); onMerged(); await find(); setMsg('Merged.'); } catch (e) { setErr((e as Error).message); }
   };
   return (
     <details className="panel" style={{ marginBottom: 12 }}>

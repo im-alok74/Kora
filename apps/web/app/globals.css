@@ -682,3 +682,9 @@ ul.notes li { align-items: flex-start; } ul.notes li p { margin: 2px 0 0; white-
   body, main { background: #fff !important; color: #000 !important; }
   .panel { box-shadow: none !important; }
 }
+
+/* Wide tables scroll sideways on a phone instead of being cut off. */
+@media (max-width: 700px) {
+  table.t:not(.cards) { display: block; overflow-x: auto; white-space: nowrap; }
+  .row { flex-wrap: wrap; }
+}
