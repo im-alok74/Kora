@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { MarketingPage } from '../../components/SiteChrome';
 import { HELP_ARTICLES, HELP_CATEGORIES, searchHelp } from '../../lib/help';
 import '../landing.css';
+import '../landing-dark.css';
 import '../site.css';
 
 export const metadata: Metadata = {

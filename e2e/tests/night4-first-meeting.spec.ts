@@ -97,7 +97,7 @@ test.describe('welcome wizard and sample data', () => {
     await expect(page.getByRole('heading', { name: 'Your logo' })).toBeVisible();
     await page.getByRole('button', { name: 'Skip for now' }).click();
     await expect(page.getByRole('heading', { name: 'Invoice look' })).toBeVisible();
-    await page.getByLabel('Modern').check();
+    await page.locator('label.look', { hasText: 'Modern' }).click();
     await page.getByRole('button', { name: 'Save and continue' }).click();
     await expect(page.getByRole('heading', { name: 'First customer' })).toBeVisible();
     await page.getByLabel('Customer name').fill('Verma Stores');
@@ -131,7 +131,7 @@ test.describe('welcome wizard and sample data', () => {
     page.once('dialog', (d) => d.accept());
     await page.getByRole('button', { name: 'Remove sample data' }).click();
     await expect(page.getByText('Sample data.')).toHaveCount(0);
-    await expect(page.getByText('Real Traders').first()).toBeVisible();
+    await expect(page.locator('option', { hasText: 'Real Traders' })).toHaveCount(1);
     // asking again makes a fresh one, and a real business refuses removal
     const refused = await page.request.post('/api/demo/remove', { data: {} });
     expect(refused.status()).toBe(400);

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { MarketingPage } from '../../../components/SiteChrome';
 import { HELP_ARTICLES, bySlug } from '../../../lib/help';
 import '../../landing.css';
+import '../../landing-dark.css';
 import '../../site.css';
 
 export const dynamicParams = false;

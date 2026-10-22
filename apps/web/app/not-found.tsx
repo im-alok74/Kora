@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { MarketingPage } from '../components/SiteChrome';
 import './landing.css';
+import './landing-dark.css';
 import './site.css';
 
 export const metadata: Metadata = { title: 'Page not found', robots: { index: false } };

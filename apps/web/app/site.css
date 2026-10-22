@@ -29,7 +29,7 @@
 .plan ul { list-style: none; margin: 0 0 22px; padding: 0; flex: 1; }
 .plan li { padding: 6px 0 6px 24px; position: relative; font-size: 15px; line-height: 1.5; }
 .plan li::before { content: ""; position: absolute; left: 3px; top: 12px; width: 9px; height: 5px; border-left: 2px solid var(--success); border-bottom: 2px solid var(--success); transform: rotate(-45deg); }
-.table-wrap { overflow-x: auto; border: 1px solid var(--border-strong); border-radius: 12px; margin-top: 14px; }
+.table-wrap { position: relative; overflow-x: auto; border: 1px solid var(--border-strong); border-radius: 12px; margin-top: 14px; }
 .cmp { width: 100%; border-collapse: collapse; min-width: 560px; }
 .cmp th, .cmp td { padding: 12px 14px; text-align: left; font-size: 15px; border-bottom: 1px solid var(--border); }
 .cmp thead th { background: var(--surface); font-weight: 600; }

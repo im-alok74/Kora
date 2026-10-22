@@ -5,6 +5,7 @@ import LandingMotion from '../components/LandingMotion';
 import TemplateCarousel from '../components/TemplateCarousel';
 import { SiteFooter, SiteHeader } from '../components/SiteChrome';
 import './landing.css';
+import './landing-dark.css';
 
 export const metadata: Metadata = { alternates: { canonical: '/' } };
 

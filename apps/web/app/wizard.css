@@ -24,7 +24,7 @@
 .wiz-actions button, .wiz-actions .btn { margin-top: 0; }
 .wiz-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
 .looks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
-.look { border: 2px solid var(--border-strong); border-radius: 10px; padding: 10px; background: var(--surface); cursor: pointer; text-align: center; font-size: 14px; }
+.look { position: relative; border: 2px solid var(--border-strong); border-radius: 10px; padding: 10px; background: var(--surface); cursor: pointer; text-align: center; font-size: 14px; }
 .look input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
 .look:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
 .look:has(input:focus-visible) { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
