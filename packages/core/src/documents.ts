@@ -1,5 +1,5 @@
 import {
-  assertCreditWithinOriginal, checkHsn, computeDocument, CURRENCIES, dueDateFor, isPaymentTerm, isTaxError, parseExchangeRate, parseQuantity, parseRupees, resolvePlaceOfSupply,
+  assertCreditWithinOriginal, checkHsn, computeDocument, CURRENCIES, dueDateFor, isPaymentTerm, isTaxError, parseExchangeRate, parseQuantity, parseRupees, resolvePlaceOfSupply, roundHalfUp,
   type DocType, type DocumentResult, type LineInput, type TurnoverBand,
 } from '@kora/tax';
 import type { Sql, Tx } from '@kora/db';
@@ -8,12 +8,21 @@ import { ConflictError, isDate, str, todayIn, ValidationError } from './validati
 import { scheduleReminders } from './reminders.js';
 import { queueEinvoiceIfRequired } from './einvoice.js';
 import { emitEvent } from './webhooks.js';
+import { copyCustom, resolveCustom } from './customfields.js';
 
 export const DOC_TYPES: readonly DocType[] =
-  ['tax_invoice', 'bill_of_supply', 'estimate', 'proforma', 'delivery_challan', 'credit_note', 'debit_note'];
+  ['tax_invoice', 'bill_of_supply', 'estimate', 'proforma', 'delivery_challan', 'credit_note', 'debit_note', 'sales_order'];
+/** Documents that may be priced in another currency. A tax document is always in rupees. */
+export const FOREIGN_OK: ReadonlySet<string> = new Set(['estimate', 'proforma', 'sales_order']);
 const TAX_DOCS: ReadonlySet<string> = new Set(['tax_invoice', 'credit_note', 'debit_note']);
 const SERIES_PREFIX: Record<DocType, string> = {
-  tax_invoice: 'INV', bill_of_supply: 'BOS', estimate: 'EST', proforma: 'PRO', delivery_challan: 'DC', credit_note: 'CN', debit_note: 'DN',
+  tax_invoice: 'INV', bill_of_supply: 'BOS', estimate: 'EST', proforma: 'PRO', delivery_challan: 'DC', credit_note: 'CN', debit_note: 'DN', sales_order: 'SO',
+};
+
+/** Why a note is raised. Each kind of note offers only the reasons that make sense for it. */
+export const NOTE_REASONS: Record<'credit_note' | 'debit_note', readonly string[]> = {
+  credit_note: ['goods_returned', 'post_sale_discount', 'price_correction', 'service_deficiency', 'tax_rate_correction', 'other'],
+  debit_note: ['additional_charge', 'price_correction', 'quantity_correction', 'tax_rate_correction', 'other'],
 };
 
 export interface LineIn {
@@ -55,6 +64,24 @@ export interface DocIn {
   tcsBp?: number;
   tdsBp?: number;
   originalDocumentId?: string | null;
+  /** Why a credit or debit note was raised, one of NOTE_REASONS, and an optional sentence of detail. */
+  /** A manual plus or minus on the total, in rupees ("-5" or "12.50"), not taxed. Shown as its own line under the label given. */
+  adjustment?: string | null;
+  adjustmentLabel?: string | null;
+  /** Round the total to the nearest whole rupee. On unless set to false. A document in another currency is never rounded. */
+  roundTotal?: boolean;
+  /** A rupee document can also show its total in this currency, at the rate given, as a reference. Never changes the tax. */
+  displayCurrency?: string | null;
+  displayRate?: string | null;
+  /** Answers to the business's custom document fields, by field id. */
+  custom?: Record<string, string> | null;
+  noteReason?: string | null;
+  noteReasonDetail?: string | null;
+  /** A revised quote points at the one it replaces. */
+  previousVersionId?: string | null;
+  version?: number;
+  /** The document this one was made from (a quote turned into an order, an order into an invoice). */
+  sourceDocumentId?: string | null;
   /** Estimates and proforma invoices only. A GST tax document is always in rupees. */
   currency?: string;
   /** Rupees per one unit of the currency, for example "83.25". Required when the currency is not INR. */
@@ -66,6 +93,8 @@ const HSN_ON_SHORT: Record<TurnoverBand, 'reject' | 'warn'> = { under_5cr: 'warn
 const hsnPolicy = (band: TurnoverBand) => ({ minDigits: { under_5cr: 4, over_5cr: 6 }, onShort: HSN_ON_SHORT[band] });
 
 const rs = (p: bigint | string) => { const n = BigInt(p); return `${n / 100n}.${(n % 100n).toString().padStart(2, '0')}`; };
+/** Paise as signed rupee text, "-0.50" or "12.00", the form an adjustment is typed in. */
+const signedRs = (p: bigint) => (p < 0n ? `-${rs(-p)}` : rs(p));
 const milliStr = (m: bigint) => `${m / 1000n}.${(m % 1000n).toString().padStart(3, '0')}`;
 
 /** Trigger and constraint messages are written for people; pass them through as validation errors. */
@@ -99,7 +128,7 @@ async function build(tx: Tx, t: TenantSession, input: DocIn): Promise<Built> {
   if (!(CURRENCIES as readonly string[]).includes(currency)) throw new ValidationError('Choose one of the supported currencies.', 'currency');
   let rateMicro = 1_000_000n;
   if (currency !== 'INR') {
-    if (!['estimate', 'proforma'].includes(input.docType)) throw new ValidationError('A tax invoice is always in rupees. Use an estimate or a proforma invoice to quote in another currency.', 'currency');
+    if (!FOREIGN_OK.has(input.docType)) throw new ValidationError('A tax invoice is always in rupees. Use an estimate, a sales order or a proforma invoice to quote in another currency.', 'currency');
     try { rateMicro = parseExchangeRate(String(input.exchangeRate ?? '')); } catch (e) { throw new ValidationError((e as Error).message, 'exchangeRate'); }
   }
   const docDate = input.docDate ?? todayIn(biz.timezone as string);
@@ -149,12 +178,19 @@ async function build(tx: Tx, t: TenantSession, input: DocIn): Promise<Built> {
     quantityMilli: b.quantityMilli, ratePaise: b.rate, discountPaise: b.discount,
     taxRateBp: b.input.taxRateBp, cessRateBp: b.input.cessRateBp ?? 0, taxInclusive: !!b.input.taxInclusive,
   }));
+  let adjustmentPaise = 0n;
+  if (input.adjustment && String(input.adjustment).trim() !== '') {
+    const raw = String(input.adjustment).trim();
+    const neg = raw.startsWith('-');
+    try { adjustmentPaise = parseRupees(neg ? raw.slice(1) : raw.replace(/^\+/, '')); } catch (e) { throw new ValidationError(`Adjustment: ${(e as Error).message}`, 'adjustment'); }
+    if (neg) adjustmentPaise = -adjustmentPaise;
+  }
   let result: DocumentResult;
   try {
     result = computeDocument({
       docType: input.docType, registrationType: biz.registration_type as never, supplierState: biz.state_code as string,
       placeOfSupply, reverseCharge: input.reverseCharge ?? false, lines: lineInputs, tcsBp: input.tcsBp ?? 0, tdsBp: input.tdsBp ?? 0,
-      roundTotal: currency === 'INR',
+      roundTotal: currency === 'INR' && input.roundTotal !== false, adjustmentPaise,
     });
   } catch (e) { if (isTaxError(e)) throw new ValidationError(e.message); throw e; }
 
@@ -175,6 +211,8 @@ async function creditHeadroom(tx: Tx, originalId: string, excludeId: string | nu
 export async function persist(tx: Tx, t: TenantSession, id: string | null, input: DocIn, clientRef: string | null = null) {
   const b = await build(tx, t, input);
   const isNote = input.docType === 'credit_note' || input.docType === 'debit_note';
+  if (isNote && input.noteReason && !NOTE_REASONS[input.docType as 'credit_note' | 'debit_note'].includes(input.noteReason)) throw new ValidationError('Choose one of the listed reasons for this note.', 'noteReason');
+  if (!isNote && input.noteReason) throw new ValidationError('Only credit and debit notes carry a reason.', 'noteReason');
   if (isNote && !input.originalDocumentId) throw new ValidationError('Choose the invoice this note corrects.', 'originalDocumentId');
   if (!isNote && input.originalDocumentId) throw new ValidationError('Only credit and debit notes point at another invoice.');
   if (isNote) {
@@ -186,6 +224,14 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
   }
   const r = b.result;
   const s = (x: bigint) => x.toString();
+  const customValues = await resolveCustom(tx, 'document', input.custom);
+  let displayCurrency: string | null = null, displayRate: string | null = null;
+  if (input.displayCurrency) {
+    displayCurrency = String(input.displayCurrency).toUpperCase();
+    if (displayCurrency === 'INR' || !(CURRENCIES as readonly string[]).includes(displayCurrency)) throw new ValidationError('Choose a currency other than rupees to show as well.', 'displayCurrency');
+    if (b.currency !== 'INR') throw new ValidationError('This document is already in another currency. Its rupee equivalent is printed automatically.', 'displayCurrency');
+    try { displayRate = parseExchangeRate(String(input.displayRate ?? '')).toString(); } catch (e) { throw new ValidationError((e as Error).message, 'displayRate'); }
+  }
   const fields = {
     doc_type: input.docType, party_id: input.partyId ?? null, place_of_supply: b.placeOfSupply,
     reverse_charge: input.reverseCharge ?? false, doc_date: b.docDate, due_date: input.dueDate ?? null,
@@ -195,6 +241,10 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
     original: input.originalDocumentId ?? null, tcs_bp: input.tcsBp ?? 0, tds_bp: input.tdsBp ?? 0, currency: b.currency, rate: b.rateMicro.toString(),
     reference: str(input.reference, 'Reference', { max: 60 }), subject: str(input.subject, 'Subject', { max: 200 }), payment_terms: input.paymentTerms || null,
     extra: cleanExtra(input.extra), salesperson: str(input.salesperson, 'Salesperson', { max: 80 }),
+    adjustment: s(r.adjustmentPaise), adjustment_label: input.adjustment && r.adjustmentPaise !== 0n ? (str(input.adjustmentLabel, 'Adjustment name', { max: 40 }) ?? 'Adjustment') : null, round_total: input.roundTotal !== false,
+    custom_values: customValues === null ? null : tx.json(customValues as never), display_currency: displayCurrency, display_rate: displayRate,
+    note_reason: input.noteReason ?? null, note_reason_detail: str(input.noteReasonDetail, 'Detail', { max: 300 }),
+    previous_version_id: input.previousVersionId ?? null, version: input.version ?? 1, source_document_id: input.sourceDocumentId ?? null,
   };
   // A preset fills the due date when the person left it empty. An explicit date always wins.
   if (!fields.due_date && fields.payment_terms) fields.due_date = dueDateFor(b.docDate, fields.payment_terms);
@@ -211,16 +261,21 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
              grand_total_paise = ${fields.grand}, notes = ${fields.notes}, terms = ${fields.terms}, original_document_id = ${fields.original},
              tcs_bp = ${fields.tcs_bp}, tds_bp = ${fields.tds_bp}, currency = ${fields.currency}, exchange_rate_micro = ${fields.rate},
              reference = ${fields.reference}, subject = ${fields.subject}, payment_terms = ${fields.payment_terms},
-             extra = ${fields.extra === null ? null : tx.json(fields.extra as any)}, salesperson = ${fields.salesperson}
+             extra = ${fields.extra === null ? null : tx.json(fields.extra as any)}, salesperson = ${fields.salesperson},
+             adjustment_paise = ${fields.adjustment}, adjustment_label = ${fields.adjustment_label}, round_total = ${fields.round_total},
+             custom_values = ${fields.custom_values}, display_currency = ${fields.display_currency}, display_rate_micro = ${fields.display_rate}, note_reason = coalesce(${fields.note_reason}, note_reason), note_reason_detail = coalesce(${fields.note_reason_detail}, note_reason_detail)
              where id = ${id}`;
+    // previous_version_id, version and source_document_id are set once, when the draft is made, and never edited.
   } else {
     const [row] = await tx`
       insert into document (business_id, doc_type, party_id, place_of_supply, reverse_charge, doc_date, due_date, taxable_paise, cgst_paise,
                             sgst_paise, igst_paise, cess_paise, tcs_paise, tds_paise, round_off_paise, grand_total_paise, notes, terms,
-                            original_document_id, created_by, client_ref, tcs_bp, tds_bp, currency, exchange_rate_micro, reference, subject, payment_terms, extra, salesperson)
+                            original_document_id, created_by, client_ref, tcs_bp, tds_bp, currency, exchange_rate_micro, reference, subject, payment_terms, extra, salesperson,
+                            previous_version_id, version, source_document_id, note_reason, note_reason_detail, custom_values, display_currency, display_rate_micro, adjustment_paise, adjustment_label, round_total)
       values (${t.businessId}, ${fields.doc_type}, ${fields.party_id}, ${fields.place_of_supply}, ${fields.reverse_charge}, ${fields.doc_date},
               ${fields.due_date}, ${fields.taxable}, ${fields.cgst}, ${fields.sgst}, ${fields.igst}, ${fields.cess}, ${fields.tcs}, ${fields.tds},
-              ${fields.round_off}, ${fields.grand}, ${fields.notes}, ${fields.terms}, ${fields.original}, ${t.userId}, ${clientRef}, ${fields.tcs_bp}, ${fields.tds_bp}, ${fields.currency}, ${fields.rate}, ${fields.reference}, ${fields.subject}, ${fields.payment_terms}, ${fields.extra === null ? null : tx.json(fields.extra as any)}, ${fields.salesperson})
+              ${fields.round_off}, ${fields.grand}, ${fields.notes}, ${fields.terms}, ${fields.original}, ${t.userId}, ${clientRef}, ${fields.tcs_bp}, ${fields.tds_bp}, ${fields.currency}, ${fields.rate}, ${fields.reference}, ${fields.subject}, ${fields.payment_terms}, ${fields.extra === null ? null : tx.json(fields.extra as any)}, ${fields.salesperson},
+              ${fields.previous_version_id}, ${fields.version}, ${fields.source_document_id}, ${fields.note_reason}, ${fields.note_reason_detail}, ${fields.custom_values}, ${fields.display_currency}, ${fields.display_rate}, ${fields.adjustment}, ${fields.adjustment_label}, ${fields.round_total})
       returning id`;
     docId = row!.id as string;
   }
@@ -281,7 +336,7 @@ export async function previewTotals(sql: Sql, t: TenantSession, input: DocIn) {
     return {
       currency: b.currency, supply: r.supply, placeOfSupply: b.placeOfSupply, warnings: b.warnings, recommendedDocType: r.recommendedDocType,
       taxable: s(r.taxablePaise), cgst: s(r.cgstPaise), sgst: s(r.sgstPaise), igst: s(r.igstPaise), cess: s(r.cessPaise),
-      tcs: s(r.tcsPaise), tds: s(r.tdsPaise), roundOff: s(r.roundOffPaise), grandTotal: s(r.grandTotalPaise), netReceivable: s(r.netReceivablePaise),
+      tcs: s(r.tcsPaise), tds: s(r.tdsPaise), adjustment: s(r.adjustmentPaise), roundOff: s(r.roundOffPaise), grandTotal: s(r.grandTotalPaise), netReceivable: s(r.netReceivablePaise),
       lines: r.lines.map((l) => ({ taxable: s(l.taxablePaise), cgst: s(l.cgstPaise), sgst: s(l.sgstPaise), igst: s(l.igstPaise), cess: s(l.cessPaise), total: s(l.lineTotalPaise) })),
     };
   });
@@ -311,14 +366,39 @@ export async function getDocumentTx(tx: Tx, id: string) {
   let estimate: Record<string, unknown> | null = null;
   if (d.doc_type === 'estimate') {
     const [e] = await tx`select estimate_status(d.status, d.due_date, b.timezone, es.decision, es.converted_to_id) as status,
-                                es.decision, es.decided_at, es.converted_to_id, c.number as converted_number, c.status as converted_status
+                                es.decision, es.decided_at, es.decision_comment, es.decided_by_name, es.decided_via, es.converted_to_id, c.number as converted_number, c.status as converted_status
                            from document d join business b on b.id = d.business_id
                            left join estimate_state es on es.document_id = d.id
                            left join document c on c.id = es.converted_to_id
                           where d.id = ${id}`;
     estimate = e ?? null;
   }
-  return { document: d, lines, deliveries, estimate, writeOff: writeOff ?? null };
+  const versions = await versionChain(tx, d as never);
+  const [source] = d.source_document_id ? await tx`select id, number, doc_type from document where id = ${d.source_document_id}` : [];
+  // What was made from this document: a quote turned into an order, an order into an invoice.
+  const children = await tx`select id, number, doc_type, status from document where source_document_id = ${id} order by created_at`;
+  return { document: d, lines, deliveries, estimate, writeOff: writeOff ?? null, versions, source: source ?? null, children };
+}
+
+/** Every version of a quote, oldest first, when the document has been revised or is a revision. Empty for a document with one version. */
+async function versionChain(tx: Tx, d: { id: string; previous_version_id: string | null }) {
+  let rootId = d.id;
+  let prev = d.previous_version_id;
+  for (let i = 0; prev && i < 100; i++) {
+    rootId = prev;
+    const [p] = await tx`select previous_version_id from document where id = ${prev}`;
+    prev = (p?.previous_version_id as string | null) ?? null;
+  }
+  const chain: { id: string; number: string | null; version: number; status: string }[] = [];
+  let cur: string | null = rootId;
+  for (let i = 0; cur && i < 100; i++) {
+    const [r] = (await tx`select id, number, version, status from document where id = ${cur}`) as Record<string, any>[];
+    if (!r) break;
+    chain.push({ id: r.id as string, number: r.number as string | null, version: Number(r.version), status: r.status as string });
+    const [n] = (await tx`select id from document where previous_version_id = ${cur} order by version limit 1`) as { id: string }[];
+    cur = n?.id ?? null;
+  }
+  return chain.length > 1 ? chain : [];
 }
 
 export async function getDocument(sql: Sql, t: TenantSession, id: string) {
@@ -370,6 +450,12 @@ export async function issueTx(tx: Tx, t: TenantSession, id: string) {
     try {
       await tx`update document set status = 'issued' where id = ${id}`;
     } catch (e) { mapDbError(e); }
+    // Issuing a revised quote withdraws the one it replaces, so only one version is ever open. The old number stays used.
+    const [prevV] = await tx`select p.id from document p join document n on n.previous_version_id = p.id
+                              where n.id = ${id} and p.status = 'issued' and p.doc_type = 'estimate'`;
+    if (prevV) {
+      await tx`update document set status = 'cancelled', cancel_reason = 'Replaced by a newer version of this quote' where id = ${prevV.id}`;
+    }
     // Work that must exist once a document is issued is queued in this same transaction.
     const [issued] = await tx`select id, business_id, doc_type, due_date, einvoice_required from document where id = ${id}`;
     await scheduleReminders(tx, issued as never);
@@ -497,10 +583,12 @@ export async function previewDocumentData(sql: Sql, t: TenantSession, input: Doc
       due_date: input.dueDate || (input.paymentTerms ? dueDateFor(b.docDate, input.paymentTerms) : null),
       place_of_supply: b.placeOfSupply, reverse_charge: input.reverseCharge ?? false, currency: b.currency, exchange_rate_micro: b.rateMicro.toString(),
       taxable_paise: s(r.taxablePaise), cgst_paise: s(r.cgstPaise), sgst_paise: s(r.sgstPaise), igst_paise: s(r.igstPaise), cess_paise: s(r.cessPaise),
-      tcs_paise: s(r.tcsPaise), tds_paise: s(r.tdsPaise), round_off_paise: s(r.roundOffPaise), grand_total_paise: s(r.grandTotalPaise),
+      tcs_paise: s(r.tcsPaise), tds_paise: s(r.tdsPaise), round_off_paise: s(r.roundOffPaise), adjustment_paise: s(r.adjustmentPaise), adjustment_label: r.adjustmentPaise !== 0n ? (str(input.adjustmentLabel, 'Adjustment name', { max: 40 }) ?? 'Adjustment') : null, grand_total_paise: s(r.grandTotalPaise),
       notes: str(input.notes, 'Notes', { max: 2000 }), terms: str(input.terms, 'Terms', { max: 2000 }), reference: str(input.reference, 'Reference', { max: 60 }),
       subject: str(input.subject, 'Subject', { max: 200 }), extra: cleanExtra(input.extra), salesperson: str(input.salesperson, 'Salesperson', { max: 80 }),
-      original_number: original?.number ?? null,
+      original_number: original?.number ?? null, custom_values: await resolveCustom(tx, 'document', input.custom),
+      display_currency: input.displayCurrency ? String(input.displayCurrency).toUpperCase() : null,
+      display_rate_micro: input.displayCurrency && input.displayRate ? (() => { try { return parseExchangeRate(String(input.displayRate)).toString(); } catch { return null; } })() : null,
     };
     const lines = b.lines.map((l, i) => {
       const c = r.lines[i]!;
@@ -523,16 +611,68 @@ export function linesToInput(lines: Record<string, unknown>[], rateMicro: bigint
   }));
 }
 
-/** A draft credit or debit note that copies the original's lines, ready to edit. */
-export async function startNote(sql: Sql, t: TenantSession, originalId: string, kind: 'credit_note' | 'debit_note') {
+export interface NoteLinePick {
+  /** The line's position on the original invoice, counting from 1. */
+  position: number;
+  quantity?: string;
+  rate?: string;
+}
+
+/**
+ * A draft credit or debit note. With no `lines` it copies every line of the invoice, ready to edit. With `lines` it carries only the
+ * lines picked, at the quantity and rate given. A credit can never be for more than was invoiced: more units or a higher rate than the
+ * original is refused here, and the total against the whole invoice is checked again when the note is saved and issued.
+ */
+export async function startNote(sql: Sql, t: TenantSession, originalId: string, kind: 'credit_note' | 'debit_note',
+  opts: { reason?: string | null; detail?: string | null; lines?: NoteLinePick[] } = {}) {
   const src = await inTenant(sql, t, 'document.read', (tx) => getDocumentTx(tx, originalId));
   if (!src || src.document.status !== 'issued') throw new ValidationError('Only an issued invoice can be corrected with a note.');
+  if (!['tax_invoice', 'bill_of_supply'].includes(src.document.doc_type as string)) throw new ValidationError('Credit and debit notes correct an invoice or a bill of supply.');
+  let lines = linesToInput(src.lines);
+  if (opts.lines) {
+    if (opts.lines.length === 0) throw new ValidationError('Pick at least one line.', 'lines');
+    const seen = new Set<number>();
+    lines = opts.lines.map((pick) => {
+      const pos = Number(pick.position);
+      const orig = src.lines.find((l) => Number(l.position) === pos);
+      if (!orig || seen.has(pos)) throw new ValidationError('That line is not on the invoice.', 'lines');
+      seen.add(pos);
+      const base = linesToInput([orig])[0]!;
+      const qty = pick.quantity?.trim() ? pick.quantity.trim() : base.quantity;
+      const rate = pick.rate?.trim() ? pick.rate.trim() : base.rate;
+      let qMilli: bigint, oMilli: bigint, rPaise: bigint, oRate: bigint;
+      try { qMilli = parseQuantity(qty); oMilli = parseQuantity(base.quantity); rPaise = parseRupees(rate); oRate = parseRupees(base.rate); }
+      catch (e) { throw new ValidationError(`${base.name}: ${(e as Error).message}`, 'lines'); }
+      if (kind === 'credit_note' && qMilli > oMilli) throw new ValidationError(`${base.name}: you invoiced ${base.quantity}, so you cannot credit ${qty}.`, 'lines');
+      if (kind === 'credit_note' && rPaise > oRate) throw new ValidationError(`${base.name}: you invoiced at ${base.rate}, so you cannot credit at ${rate}. Use a debit note to charge more.`, 'lines');
+      // The line's discount follows the share of the quantity being credited, so a half return takes back half the discount.
+      const origDisc = parseRupees(base.discount ?? '0');
+      const disc = rPaise === oRate && oMilli > 0n ? roundHalfUp(origDisc * qMilli, oMilli) : 0n;
+      return { ...base, quantity: qty, rate, discount: disc > 0n ? rs(disc) : '' };
+    });
+  }
   const input: DocIn = {
     docType: kind, partyId: src.document.party_id as string | null, originalDocumentId: originalId,
     placeOfSupply: src.document.place_of_supply as string, reverseCharge: src.document.reverse_charge as boolean,
-    lines: linesToInput(src.lines),
+    noteReason: opts.reason ?? null, noteReasonDetail: opts.detail ?? null, lines,
   };
   return saveDraft(sql, t, input);
+}
+
+/** What the guided note screen needs: the invoice's lines, how much has already been credited, and the reasons on offer. */
+export async function noteContext(sql: Sql, t: TenantSession, originalId: string) {
+  return inTenant(sql, t, 'document.read', async (tx) => {
+    const src = await getDocumentTx(tx, originalId);
+    if (!src) throw new ValidationError('Document not found.');
+    const [c] = await tx`select coalesce(sum(taxable_paise), 0)::text as s from document where original_document_id = ${originalId} and doc_type = 'credit_note' and status = 'issued'`;
+    const notes = await tx`select id, number, doc_type, status, grand_total_paise::text as grand_total_paise from document where original_document_id = ${originalId} order by created_at`;
+    return {
+      number: src.document.number as string | null, status: src.document.status as string, docType: src.document.doc_type as string,
+      invoicedTaxablePaise: String(src.document.taxable_paise), creditedTaxablePaise: c!.s as string,
+      lines: src.lines.map((l) => ({ position: Number(l.position), name: l.item_name as string, quantity: String(l.quantity), unit: l.unit as string, ratePaise: String(l.rate_paise), taxRateBp: Number(l.tax_rate_bp) })),
+      notes, reasons: NOTE_REASONS,
+    };
+  });
 }
 
 /**
@@ -547,7 +687,11 @@ export async function duplicateDocument(sql: Sql, t: TenantSession, sourceId: st
   if (d.doc_type === 'credit_note' || d.doc_type === 'debit_note') throw new ValidationError('A note answers one invoice. Start a new note from the invoice instead.');
   const rateMicro = BigInt(String(d.exchange_rate_micro ?? 1_000_000));
   const foreign = !!d.currency && d.currency !== 'INR';
+  const custom = await inTenant(sql, t, 'document.read', (tx) => copyCustom(tx, d.custom_values));
   const input: DocIn = {
+    custom, roundTotal: d.round_total !== false,
+    ...(BigInt(String(d.adjustment_paise ?? 0)) !== 0n ? { adjustment: signedRs(BigInt(String(d.adjustment_paise))), adjustmentLabel: d.adjustment_label as string | null } : {}),
+    ...(d.display_currency ? { displayCurrency: d.display_currency as string, displayRate: `${BigInt(String(d.display_rate_micro)) / 1_000_000n}.${(BigInt(String(d.display_rate_micro)) % 1_000_000n).toString().padStart(6, '0')}` } : {}),
     docType: d.doc_type as DocType, partyId: d.party_id as string | null, placeOfSupply: d.place_of_supply as string, reverseCharge: d.reverse_charge as boolean,
     notes: d.notes as string | null, terms: d.terms as string | null, reference: d.reference as string | null, subject: d.subject as string | null,
     paymentTerms: d.payment_terms as string | null, extra: d.extra as { label: string; value: string }[] | null, salesperson: d.salesperson as string | null, tcsBp: Number(d.tcs_bp ?? 0), tdsBp: Number(d.tds_bp ?? 0),

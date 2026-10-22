@@ -2,11 +2,13 @@ import { SYSTEM_USER, type Sql } from '@kora/db';
 import { getDocumentTx, linesToInput, persist, type DocIn } from './documents.js';
 import { emitEvent } from './webhooks.js';
 import { inTenant, type TenantSession } from './tenancy.js';
-import { ValidationError } from './validation.js';
+import { str, ValidationError } from './validation.js';
 
 /** Accept or decline an issued estimate. The estimate itself stays frozen; the decision is recorded beside it. */
-export async function decideEstimate(sql: Sql, t: TenantSession, documentId: string, decision: 'accepted' | 'declined', via: 'staff' | 'portal' = 'staff') {
+export async function decideEstimate(sql: Sql, t: TenantSession, documentId: string, decision: 'accepted' | 'declined', via: 'staff' | 'portal' = 'staff', answer: { comment?: string | null; name?: string | null } = {}) {
   if (decision !== 'accepted' && decision !== 'declined') throw new ValidationError('Choose accepted or declined.', 'decision');
+  const comment = str(answer.comment ?? null, 'Comment', { max: 500 });
+  const who = str(answer.name ?? null, 'Name', { max: 120 });
   return inTenant(sql, t, 'document.issue', async (tx) => {
     const [d] = await tx`select d.doc_type, d.status, estimate_status(d.status, d.due_date, b.timezone, es.decision, es.converted_to_id) as est
                            from document d join business b on b.id = d.business_id left join estimate_state es on es.document_id = d.id
@@ -17,12 +19,13 @@ export async function decideEstimate(sql: Sql, t: TenantSession, documentId: str
     if (d.est === 'expired') throw new ValidationError('This estimate has expired. Make a new one.');
     // The automatic system actor is not a person, so no user is recorded when the customer answers from their portal.
     const by = t.userId === SYSTEM_USER ? null : t.userId;
-    await tx`insert into estimate_state (business_id, document_id, decision, decided_at, decided_by, decided_via)
-             values (${t.businessId}, ${documentId}, ${decision}, now(), ${by}, ${via})
+    await tx`insert into estimate_state (business_id, document_id, decision, decided_at, decided_by, decided_via, decision_comment, decided_by_name)
+             values (${t.businessId}, ${documentId}, ${decision}, now(), ${by}, ${via}, ${comment}, ${who})
              on conflict (document_id) do update set decision = excluded.decision, decided_at = excluded.decided_at,
-                                                     decided_by = excluded.decided_by, decided_via = excluded.decided_via`;
+                                                     decided_by = excluded.decided_by, decided_via = excluded.decided_via,
+                                                     decision_comment = excluded.decision_comment, decided_by_name = excluded.decided_by_name`;
     const [num] = await tx`select number from document where id = ${documentId}`;
-    await emitEvent(tx, t.businessId, decision === 'accepted' ? 'estimate.accepted' : 'estimate.declined', { id: documentId, number: num!.number, answered_by: via });
+    await emitEvent(tx, t.businessId, decision === 'accepted' ? 'estimate.accepted' : 'estimate.declined', { id: documentId, number: num!.number, answered_by: via, comment, name: who });
     return (await getDocumentTx(tx, documentId))!;
   });
 }

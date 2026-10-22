@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Icon from '../../../components/Icon';
 import { api, rupees, TAX_RATES } from '../../../lib/client';
 
-type Row = { id: string; bill_number: string; bill_date: string; due_date: string | null; status: string; reverse_charge: boolean; itc_status: string; vendor: string; total_paise: string; paid_paise: string; due_paise: string };
+type Row = { msme_state?: 'overdue' | 'soon' | 'ok'; msme_days_left?: number; id: string; bill_number: string; bill_date: string; due_date: string | null; status: string; reverse_charge: boolean; itc_status: string; vendor: string; total_paise: string; paid_paise: string; due_paise: string };
 type Party = { id: string; name: string; kind: string };
 type Line = { description: string; hsnSac: string; quantity: string; rate: string; taxRateBp: number };
 const blank = (): Line => ({ description: '', hsnSac: '', quantity: '1', rate: '', taxRateBp: 1800 });
@@ -92,7 +92,7 @@ export default function Purchases() {
               <td className="c-cust">{b.vendor}</td><td className="c-date">{b.bill_date}</td>
               <td className="n c-total">{rupees(b.total_paise)}</td>
               <td className="n c-type">{b.status === 'cancelled' ? '' : BigInt(b.due_paise) > 0n ? rupees(b.due_paise) : <span className="chip paid">Paid</span>}</td>
-              <td className="c-status">{b.itc_status === 'blocked' ? <span className="chip cancelled">Blocked</span> : <span className="chip issued">Eligible</span>}</td>
+              <td className="c-status">{b.msme_state === 'overdue' && <span className="chip cancelled" title="A micro or small supplier should be paid within 45 days of the bill">MSME overdue</span>}{b.msme_state === 'soon' && <span className="chip due" title="A micro or small supplier should be paid within 45 days of the bill">MSME {b.msme_days_left === 0 ? 'due today' : `${b.msme_days_left} days left`}</span>} {b.itc_status === 'blocked' ? <span className="chip cancelled">Blocked</span> : <span className="chip issued">Eligible</span>}</td>
             </tr>))}</tbody>
         </table>)}
     </>

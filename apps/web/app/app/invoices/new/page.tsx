@@ -1,6 +1,6 @@
 import DocumentEditor from '../../../../components/DocumentEditor';
 
-const TYPES = ['tax_invoice', 'bill_of_supply', 'estimate', 'proforma', 'delivery_challan'];
+const TYPES = ['tax_invoice', 'bill_of_supply', 'estimate', 'proforma', 'delivery_challan', 'sales_order'];
 
 /** /app/invoices/new?type=estimate starts the editor on that kind of document. */
 export default async function NewInvoice({ searchParams }: { searchParams: Promise<{ type?: string }> }) {

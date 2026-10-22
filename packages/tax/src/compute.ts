@@ -2,7 +2,7 @@ import { roundHalfUp, TaxError, type Paise } from './money.js';
 import { DEFAULT_ALLOWED_RATE_BP } from './rules.js';
 
 export type DocType =
-  | 'tax_invoice' | 'bill_of_supply' | 'estimate' | 'proforma' | 'delivery_challan' | 'credit_note' | 'debit_note';
+  | 'tax_invoice' | 'bill_of_supply' | 'estimate' | 'proforma' | 'delivery_challan' | 'credit_note' | 'debit_note' | 'sales_order';
 export type RegistrationType = 'unregistered' | 'regular' | 'composition' | 'sez' | 'isd';
 
 export interface LineInput {
@@ -37,6 +37,8 @@ export interface DocumentInput {
   allowedRateBp?: ReadonlySet<number>;
   /** Round the total to the nearest whole rupee (the default). Documents in other currencies are not rounded. */
   roundTotal?: boolean;
+  /** A manual plus or minus on the total, not taxed, for example a small goodwill reduction. Limited to Rs 10,000 either way. */
+  adjustmentPaise?: Paise;
 }
 
 export interface LineResult {
@@ -50,7 +52,7 @@ export interface DocumentResult {
   supply: 'intra' | 'inter';
   lines: LineResult[];
   taxablePaise: Paise; cgstPaise: Paise; sgstPaise: Paise; igstPaise: Paise; cessPaise: Paise;
-  tcsPaise: Paise; tdsPaise: Paise; roundOffPaise: Paise;
+  tcsPaise: Paise; tdsPaise: Paise; roundOffPaise: Paise; adjustmentPaise: Paise;
   /** Amount due on the document: tax is excluded under reverse charge. */
   grandTotalPaise: Paise;
   /** What the customer is expected to pay after deducting TDS. */
@@ -146,7 +148,10 @@ export function computeDocument(d: DocumentInput): DocumentResult {
   if (tdsBp < 0 || tdsBp > 10000 || !Number.isInteger(tdsBp)) throw neg('negative_amount', 'A TDS rate must be between 0 and 100%.');
   const tds = roundHalfUp(taxable * BigInt(tdsBp), 10000n);
 
-  const before = taxable + charged + tcs;
+  const adjustment = d.adjustmentPaise ?? 0n;
+  if (adjustment < -1_000_000n || adjustment > 1_000_000n) throw neg('negative_amount', 'An adjustment can be at most Rs 10,000 up or down.');
+  const before = taxable + charged + tcs + adjustment;
+  if (before < 0n) throw neg('negative_amount', 'The adjustment is more than the bill, so the total would be below zero.');
   // Round to the nearest rupee, but never turn a small amount into zero: under Rs 1 the total stays exact.
   const roundOff = d.roundTotal === false || before < 100n ? 0n : roundHalfUp(before, 100n) * 100n - before;
   const grand = before + roundOff;
@@ -154,7 +159,7 @@ export function computeDocument(d: DocumentInput): DocumentResult {
   const allZero = lines.every((l) => l.taxRateBp === 0 && l.cessRateBp === 0);
   return {
     supply, lines, taxablePaise: taxable, cgstPaise: cgst, sgstPaise: sgst, igstPaise: igst, cessPaise: cess,
-    tcsPaise: tcs, tdsPaise: tds, roundOffPaise: roundOff, grandTotalPaise: grand, netReceivablePaise: grand - tds,
+    tcsPaise: tcs, tdsPaise: tds, roundOffPaise: roundOff, adjustmentPaise: adjustment, grandTotalPaise: grand, netReceivablePaise: grand - tds,
     recommendedDocType: d.docType === 'tax_invoice' && allZero ? 'bill_of_supply' : d.docType,
   };
 }

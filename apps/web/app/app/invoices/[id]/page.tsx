@@ -1,19 +1,21 @@
 'use client';
+import PaymentTimeline from './payment-timeline';
 import LateFeePanel from '../../../../components/LateFeePanel';
 import EwayPanel from '../../../../components/EwayPanel';
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { formatMoney } from '@kora/tax';
-import { api, DOC_LABEL, rupees } from '../../../../lib/client';
+import { api, DOC_LABEL, NOTE_REASON_TEXT, rupees } from '../../../../lib/client';
 
 type Doc = Record<string, any>;
 const RECEIVABLE = ['tax_invoice', 'bill_of_supply', 'debit_note'];
 const EST_LABEL: Record<string, string> = { draft: 'Draft', open: 'Open', accepted: 'Accepted', declined: 'Declined', expired: 'Expired', invoiced: 'Invoiced', cancelled: 'Cancelled' };
 const EST_CHIP: Record<string, string> = { draft: 'draft', open: 'issued', accepted: 'paid', declined: 'cancelled', expired: 'cancelled', invoiced: 'paid', cancelled: 'cancelled' };
+const CONVERT_TO: Record<string, string[]> = { estimate: ['sales_order', 'proforma', 'delivery_challan'], sales_order: ['proforma', 'delivery_challan', 'invoice'], proforma: ['delivery_challan', 'invoice'], delivery_challan: ['invoice'] };
 const METHODS: [string, string][] = [['cash', 'Cash'], ['upi', 'UPI'], ['bank_transfer', 'Bank transfer'], ['cheque', 'Cheque'], ['card', 'Card'], ['netbanking', 'Net banking'], ['tds', 'TDS deducted by customer'], ['other', 'Other']];
 
 export default function DocumentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [data, setData] = useState<{ document: Doc; lines: Doc[]; deliveries: Doc[]; estimate?: Doc | null; writeOff?: Doc | null } | null>(null);
+  const [data, setData] = useState<{ document: Doc; lines: Doc[]; deliveries: Doc[]; estimate?: Doc | null; writeOff?: Doc | null; versions?: Doc[]; source?: Doc | null; children?: Doc[] } | null>(null);
   const [html, setHtml] = useState('');
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
@@ -41,6 +43,9 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
   const [einv, setEinv] = useState<{ current: Doc | null; history: Doc[] } | null>(null);
   const [fix, setFix] = useState({ gstin: '', name: '', line1: '', city: '', pincode: '' });
   const [cancelE, setCancelE] = useState({ open: false, reason: '2', remark: '' });
+  // Answering a quote on the customer's behalf: which answer is being typed, and the comment that goes with it.
+  const [answer, setAnswer] = useState<'' | 'accept' | 'decline'>('');
+  const [answerText, setAnswerText] = useState({ name: '', comment: '' });
 
   const load = useCallback(async () => {
     const d = await api(`/api/documents/${id}`);
@@ -131,6 +136,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
         <div>
           <h1>{label} {d.number ?? ''}</h1>
           {d.subject && <p className="doc-subject">{d.subject}</p>}
+          {d.note_reason && <p className="doc-subject" data-testid="note-reason">Reason: {NOTE_REASON_TEXT[d.note_reason] ?? d.note_reason}{d.note_reason_detail ? `. ${d.note_reason_detail}` : ''}</p>}
           <div className="meta">
           {est ? <span className={`chip ${EST_CHIP[est.status] ?? 'issued'}`} data-testid="estimate-status">{EST_LABEL[est.status] ?? est.status}</span> : (
           <span className={`chip ${d.status === 'issued' && d.payment_status === 'paid' ? 'paid' : d.status}`}>
@@ -149,10 +155,11 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
           {isDraft && canIssue && <a className="btn secondary" href={`/app/invoices/${id}/edit`}>Edit</a>}
           {isDraft && canIssue && <button disabled={busy} onClick={() => run(async () => { await api(`/api/documents/${id}/issue`, { body: {} }); await load(); setMsg(`${label} issued.`); })}>Issue</button>}
           {isDraft && canIssue && <button className="danger" disabled={busy} onClick={() => run(async () => { await api(`/api/documents/${id}`, { method: 'DELETE' }); window.location.href = '/app/invoices'; })}>Delete draft</button>}
-          {estAnswerable && canIssue && est!.decision !== 'accepted' && <button className="secondary" disabled={busy} onClick={() => run(async () => { await api(`/api/documents/${id}/estimate`, { body: { action: 'accept' } }); await load(); setMsg('Marked as accepted.'); })}>Mark accepted</button>}
-          {estAnswerable && canIssue && est!.decision !== 'declined' && <button className="secondary" disabled={busy} onClick={() => run(async () => { await api(`/api/documents/${id}/estimate`, { body: { action: 'decline' } }); await load(); setMsg('Marked as declined.'); })}>Mark declined</button>}
-          {estAnswerable && canIssue && est!.status !== 'declined' && <button disabled={busy} onClick={() => run(async () => { const r = await api(`/api/documents/${id}/estimate`, { body: { action: 'convert' } }); window.location.href = `/app/invoices/${r.id}/edit`; })}>Convert to invoice</button>}
+          {estAnswerable && canIssue && est!.decision !== 'accepted' && <button className="secondary" disabled={busy} onClick={() => { setAnswer(answer === 'accept' ? '' : 'accept'); }}>Mark accepted</button>}
+          {estAnswerable && canIssue && est!.decision !== 'declined' && <button className="secondary" disabled={busy} onClick={() => { setAnswer(answer === 'decline' ? '' : 'decline'); }}>Mark declined</button>}
+          {estAnswerable && canIssue && est!.status !== 'declined' && <button disabled={busy} onClick={() => run(async () => { const r = await api(`/api/documents/${id}/estimate`, { body: { action: 'convert' } }); window.location.href = `/app/invoices/${r.id}`; })}>Convert to invoice</button>}
           {est?.converted_to_id && <a className="btn secondary" href={`/app/invoices/${est.converted_to_id}`}>View invoice {est.converted_number ?? '(draft)'}</a>}
+          {isIssued && canIssue && est && ['open', 'declined', 'expired'].includes(est.status) && <button className="secondary" disabled={busy} onClick={() => run(async () => { const r = await api(`/api/documents/${id}/estimate`, { body: { action: 'revise' } }); window.location.href = `/app/invoices/${r.id}/edit`; })}>Revise (new version)</button>}
           {canIssue && !['credit_note', 'debit_note'].includes(d.doc_type) && <button className="secondary" disabled={busy} onClick={() => run(async () => { const r = await api(`/api/documents/${id}/duplicate`, { body: {} }); window.location.href = `/app/invoices/${r.id}/edit`; })}>Duplicate</button>}
           <a className="btn secondary" href={`/api/documents/${id}/pdf`} target="_blank" rel="noreferrer">Download PDF</a>
         </div>
@@ -179,6 +186,50 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
         <ol className="timeline" aria-label="Progress">
           {steps.map((st) => <li key={st.name} className={st.done ? 'done' : ''}><span className="dot" aria-hidden="true" /><b>{st.name}</b><span className="muted">{st.note}</span></li>)}
         </ol>
+      )}
+
+      {est && answer && (
+        <form className="panel" aria-label={answer === 'accept' ? 'Record that the customer accepted' : 'Record that the customer declined'} onSubmit={(e) => { e.preventDefault(); void run(async () => {
+          await api(`/api/documents/${id}/estimate`, { body: { action: answer, name: answerText.name || undefined, comment: answerText.comment || undefined } });
+          setAnswer(''); setAnswerText({ name: '', comment: '' }); await load(); setMsg(answer === 'accept' ? 'Marked as accepted.' : 'Marked as declined.');
+        }); }}>
+          <h2>{answer === 'accept' ? 'Customer accepted' : 'Customer declined'}</h2>
+          <div className="row">
+            <div><label htmlFor="an">Who said so (optional)</label><input id="an" maxLength={120} value={answerText.name} onChange={(e) => setAnswerText({ ...answerText, name: e.target.value })} /></div>
+            <div><label htmlFor="ac">Their comment (optional)</label><input id="ac" maxLength={500} value={answerText.comment} onChange={(e) => setAnswerText({ ...answerText, comment: e.target.value })} /></div>
+            <button style={{ flex: 'none' }} disabled={busy}>Save answer</button>
+          </div>
+        </form>
+      )}
+      {est && est.decision && (
+        <p className="muted" role="status" data-testid="quote-answer" style={{ margin: '0 0 12px' }}>
+          <b>{est.decision === 'accepted' ? 'Accepted' : 'Declined'}</b>{est.decided_by_name ? ` by ${est.decided_by_name}` : ''}{est.decided_at ? ` on ${new Date(est.decided_at).toLocaleDateString('en-IN')}` : ''}{est.decided_via === 'portal' ? ' from the shared link' : ''}
+          {est.decision_comment ? <>. They wrote: <i>{est.decision_comment}</i></> : '.'}
+        </p>
+      )}
+      {(data.versions?.length ?? 0) > 1 && (
+        <p className="muted" data-testid="quote-versions" style={{ margin: '0 0 12px' }}>
+          Versions of this quote: {data.versions!.map((v, i) => (
+            <span key={v.id}>{i > 0 ? ', ' : ''}{v.id === id ? <b>v{v.version} {v.number ?? '(draft)'}</b> : <a href={`/app/invoices/${v.id}`}>v{v.version} {v.number ?? '(draft)'}</a>}{v.status === 'cancelled' ? ' (replaced)' : ''}</span>))}
+        </p>
+      )}
+      {(data.source || (data.children?.length ?? 0) > 0) && (
+        <p className="muted" data-testid="doc-chain" style={{ margin: '0 0 12px' }}>
+          {data.source && <>Made from <a href={`/app/invoices/${data.source.id}`}>{DOC_LABEL[data.source.doc_type]} {data.source.number}</a>. </>}
+          {(data.children?.length ?? 0) > 0 && <>Made from this: {data.children!.map((c, i) => <span key={c.id}>{i > 0 ? ', ' : ''}<a href={`/app/invoices/${c.id}`}>{DOC_LABEL[c.doc_type]} {c.number ?? '(draft)'}</a></span>)}.</>}
+        </p>
+      )}
+      {isIssued && canIssue && CONVERT_TO[d.doc_type] && (
+        <div className="panel" aria-label="Next document">
+          <h2>Next step</h2>
+          <p className="muted">Make the next document from this one. The customer, lines and notes are copied into a draft you can check before issuing.</p>
+          <div className="row" style={{ justifyContent: 'flex-start' }}>
+            {CONVERT_TO[d.doc_type]!.filter((t) => !(d.doc_type === 'estimate' && t === 'invoice')).map((t) => (
+              <button key={t} className="secondary" style={{ flex: 'none' }} disabled={busy} onClick={() => run(async () => {
+                const r = await api(`/api/documents/${id}/convert`, { body: { target: t } }); window.location.href = `/app/invoices/${r.id}`;
+              })}>Make a {t === 'invoice' ? 'tax invoice' : (DOC_LABEL[t] ?? t).toLowerCase()}</button>))}
+          </div>
+        </div>
       )}
 
       <div className="doc-layout">
@@ -254,6 +305,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
       {isIssued && receivable && (
         <div className="panel">
           <h2>Payments</h2>
+          <PaymentTimeline documentId={id} refreshKey={payments} canRefund={role === 'owner' || role === 'accountant'} onChange={() => { void load(); }} />
           {payments.length > 0 && (
             <table className="t" style={{ marginBottom: 12 }}>
               <thead><tr><th>Date</th><th>Method</th><th className="n">Applied</th><th>Note</th><th /></tr></thead>
@@ -388,9 +440,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
           <p className="muted">An issued invoice cannot be edited. Raise a note against it instead.</p>
           <div className="row" style={{ justifyContent: 'flex-start' }}>
             {(['credit_note', 'debit_note'] as const).map((k) => (
-              <button key={k} className="secondary" style={{ flex: 'none' }} disabled={busy} onClick={() => run(async () => {
-                const r = await api(`/api/documents/${id}/note`, { body: { kind: k } }); window.location.href = `/app/invoices/${r.id}/edit`;
-              })}>Start a {(DOC_LABEL[k] ?? k).toLowerCase()}</button>))}
+              <a key={k} className="btn secondary" href={`/app/invoices/${id}/note?kind=${k}`}>Raise a {(DOC_LABEL[k] ?? k).toLowerCase()}</a>))}
             {role === 'owner' && <button className="danger" style={{ flex: 'none' }} onClick={() => setCancelling((v) => !v)}>Cancel this invoice</button>}
           </div>
           {cancelling && (

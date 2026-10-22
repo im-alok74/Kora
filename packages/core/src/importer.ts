@@ -3,7 +3,8 @@ import type { Sql } from '@kora/db';
 import { createItem, validateItem, type ItemInput } from './items.js';
 import { createParty, validateParty, type PartyInput } from './parties.js';
 import { inTenant, type TenantSession } from './tenancy.js';
-import { isValidationError, ValidationError } from './validation.js';
+import { isDate, isValidationError, ValidationError } from './validation.js';
+import { cleanTags, setPartyExtras, type PartyExtrasInput } from './party-extras.js';
 import { readXlsx, rowsToCsv } from './xlsx.js';
 import { parseTallyLedgers } from './tallyimport.js';
 
@@ -51,6 +52,9 @@ const ALIASES: Record<ImportKind, Record<string, string[]>> = {
     address: ['address', 'address line 1', 'line 1', 'street', 'billing address', 'billing street', 'billing address line 1', 'address line1'],
     city: ['city', 'town', 'billing city'],
     pincode: ['pincode', 'pin code', 'pin', 'zip', 'postal code', 'billing code', 'billing zip', 'billing pin code', 'billing pincode'], currency: ['currency', 'usual quote currency', 'currency code'],
+    type: ['type', 'party type', 'contact type', 'customer or vendor'], tags: ['tags', 'tag', 'labels'],
+    creditlimit: ['credit limit', 'credit limit rs', 'credit limit inr'], opening: ['opening balance', 'opening balance rs', 'opening balance inr', 'opening'], openingon: ['opening balance date', 'opening balance on', 'opening date'],
+    udyam: ['udyam number', 'udyam', 'udyam registration number', 'udyam no'], msme: ['msme size', 'msme class', 'enterprise size'],
   },
   items: {
     name: ['name', 'item', 'item name', 'description', 'product', 'product name'], kind: ['type', 'kind', 'item type', 'goods or service', 'product type'],
@@ -98,18 +102,28 @@ export interface ImportPreview {
   counts: { total: number; ok: number; duplicate: number; error: number }; rows: ImportRow[];
 }
 
-type Built = { party?: PartyInput; item?: ItemInput };
+type Built = { party?: PartyInput; item?: ItemInput; extras?: PartyExtrasInput };
 
 function build(kind: ImportKind, map: Record<string, number>, cells: string[]): Built {
   const get = (f: string) => { const i = map[f]; return i === undefined ? '' : unprotect((cells[i] ?? '').trim()); };
   if (kind === 'customers') {
     const gstin = get('gstin').toUpperCase();
+    const typeText = get('type').toLowerCase();
+    const partyKind = !typeText || typeText.startsWith('cust') ? 'customer' : typeText.startsWith('vend') || typeText.startsWith('supp') ? 'vendor' : typeText === 'both' ? 'both' : null;
+    if (!partyKind) throw new ValidationError(`Type "${get('type')}" should be customer, vendor or both.`, 'type');
+    const msme = get('msme').toLowerCase();
     const input: PartyInput = {
-      kind: 'customer', name: get('name'), gstin: gstin || null, stateCode: resolveState(get('state')) ?? null, phone: get('phone') || null, email: get('email') || null,
+      kind: partyKind, udyamNumber: get('udyam').toUpperCase() || null, msmeClass: (msme || null) as PartyInput['msmeClass'], name: get('name'), gstin: gstin || null, stateCode: resolveState(get('state')) ?? null, phone: get('phone') || null, email: get('email') || null,
       billingAddress: { line1: get('address') || undefined, city: get('city') || undefined, pincode: get('pincode') || undefined }, currency: get('currency') || undefined,
     };
     validateParty(input);
-    return { party: input };
+    const extras: PartyExtrasInput = {};
+    if (get('tags')) extras.tags = cleanTags(get('tags').split(/[,;]/));
+    if (get('creditlimit')) extras.creditLimit = get('creditlimit').replace(/,/g, '');
+    if (get('opening')) { extras.openingBalance = get('opening').replace(/,/g, ''); extras.openingBalanceOn = get('openingon') || null; }
+    if (extras.openingBalance && (!extras.openingBalanceOn || !isDate(extras.openingBalanceOn))) throw new ValidationError('An opening balance needs its date as YYYY-MM-DD.', 'openingon');
+    if (extras.creditLimit && !/^\d+(\.\d{1,2})?$/.test(extras.creditLimit)) throw new ValidationError(`"${get('creditlimit')}" is not an amount in rupees.`, 'creditlimit');
+    return { party: input, extras };
   }
   const gst = get('gst').replace(/%$/, '').trim();
   let rateBp = 1800;
@@ -199,7 +213,10 @@ export async function commitImport(sql: Sql, t: TenantSession, kind: ImportKind,
   for (const r of rows) {
     if (r.status !== 'ok') continue;
     try {
-      if (kind === 'customers') await createParty(sql, t, r.built.party!); else await createItem(sql, t, r.built.item!);
+      if (kind === 'customers') {
+        const id = await createParty(sql, t, r.built.party!);
+        if (r.built.extras && Object.keys(r.built.extras).length) await setPartyExtras(sql, t, id, r.built.extras);
+      } else await createItem(sql, t, r.built.item!);
       created++;
     } catch (e) {
       if (!isValidationError(e)) throw e;

@@ -20,10 +20,14 @@ test('an estimate is accepted, then turned into an invoice once', async ({ page,
   await expect(page.getByTestId('estimate-status')).toHaveText('Open');
   await expect(page.getByText(/valid until/)).toBeVisible();
   await page.getByRole('button', { name: 'Mark accepted' }).click();
+  await page.getByRole('button', { name: 'Save answer' }).click();
   await expect(page.getByText('Marked as accepted.')).toBeVisible();
   await expect(page.getByTestId('estimate-status')).toHaveText('Accepted');
 
   await page.getByRole('button', { name: 'Convert to invoice' }).click();
+  await expect(page.getByRole('heading', { name: /Tax invoice/ })).toBeVisible();
+  await expect(page.getByText(/Made from/)).toBeVisible();
+  await page.getByRole('link', { name: 'Edit' }).click();
   await expect(page.getByRole('heading', { name: 'Edit draft' })).toBeVisible();
   await expect(page.getByLabel('Line 1 description')).toHaveValue('Website');
   await expect(page.getByTestId('grand-total')).toHaveText('Rs 5,900.00');

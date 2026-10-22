@@ -19,7 +19,7 @@ test('numbers run in sequence and the issued invoice cannot be edited', async ({
   await owner(context);
   await issueOne(page);
   await expect(page.getByRole('heading', { name: /INV\/\d\d-\d\d\/0001/ })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Edit' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Edit', exact: true })).toHaveCount(0);
   await page.goto('/app/invoices/new');
   await fillInvoice(page, { rate: '500' });
   await page.getByRole('button', { name: 'Issue tax invoice' }).click();
@@ -92,15 +92,21 @@ test('ten invoices issued at the same moment get numbers 1 to 10 with none missi
 test('a credit note corrects an issued invoice, and a second full credit is refused', async ({ page, context }) => {
   await owner(context);
   await issueOne(page, { rate: '1000' });
-  await page.getByRole('button', { name: 'Start a credit note' }).click();
-  await expect(page.getByRole('heading', { name: 'Edit draft' })).toBeVisible();
-  await page.getByLabel('Line 1 rate').fill('400');
-  await expect(page.getByTestId('grand-total')).toHaveText('Rs 472.00');
-  await page.getByRole('button', { name: 'Issue credit note' }).click();
+  await page.getByRole('link', { name: 'Raise a credit note' }).click();
+  await page.getByLabel('Reason', { exact: true }).selectOption('price_correction');
+  await page.getByLabel(/^Use line 1/).check();
+  await page.getByLabel('Rate for line 1').fill('400');
+  await page.getByRole('button', { name: 'Make the credit note draft' }).click();
+  await expect(page.getByRole('heading', { name: /Credit note/ })).toBeVisible();
+  await expect(page.getByTestId('note-reason')).toContainText('Price was wrong');
+  await page.getByRole('button', { name: 'Issue', exact: true }).click();
   await expect(page.getByRole('heading', { name: /Credit note CN\/\d\d-\d\d\/0001/ })).toBeVisible();
   await page.goto('/app/invoices');
   await page.getByRole('link', { name: /INV\// }).click();
-  await page.getByRole('button', { name: 'Start a credit note' }).click();
+  await page.getByRole('link', { name: 'Raise a credit note' }).click();
+  await page.getByLabel('Reason', { exact: true }).selectOption('goods_returned');
+  await page.getByRole('button', { name: 'Pick every line' }).click();
+  await page.getByRole('button', { name: 'Make the credit note draft' }).click();
   await expect(page.locator('p[role="alert"]')).toContainText('more than what is left');
 });
 

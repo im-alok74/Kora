@@ -1,5 +1,5 @@
-import { formatRupees, rupeesInWords, STATE_NAMES } from '@kora/tax';
-import { labelsFor, titleFor } from './labels.js';
+import { formatMoney, formatRupees, rupeesInWords, STATE_NAMES } from '@kora/tax';
+import { labelsFor, NOTE_REASON_TEXT, titleFor } from './labels.js';
 
 /** Data the renderer needs. Shapes match the database rows (snake_case, bigints as strings). */
 export interface RenderInput {
@@ -16,7 +16,7 @@ export interface RenderInput {
 
 const TITLES: Record<string, string> = {
   tax_invoice: 'Tax Invoice', bill_of_supply: 'Bill of Supply', estimate: 'Estimate', proforma: 'Proforma Invoice',
-  delivery_challan: 'Delivery Challan', credit_note: 'Credit Note', debit_note: 'Debit Note',
+  delivery_challan: 'Delivery Challan', credit_note: 'Credit Note', debit_note: 'Debit Note', sales_order: 'Sales Order',
 };
 
 /** The two extra looks. They only restyle the same blocks, so every statutory field is still printed. */
@@ -34,7 +34,65 @@ const LAYOUT_CSS = (accent: string) => `
 .lay-minimal table.items th{background:transparent;border-top:1px solid #1b2321;border-bottom:1px solid #1b2321;color:#1b2321}
 .lay-minimal .tot tr.g td{background:transparent;color:#1b2321;border-top:2px solid #1b2321;border-bottom:2px solid #1b2321}
 .lay-minimal .paidtag{border-color:#1b2321;color:#1b2321}
+.lay-bold:before{display:none}
+.lay-bold .hd{background:#1b2321;color:#fff;margin:-28px -28px 18px;padding:24px 28px}
+.lay-bold .hd .brand,.lay-bold .hd .brand .nm,.lay-bold .subj{color:#fff}
+.lay-bold h1{color:#fff;text-transform:uppercase;letter-spacing:.06em;display:inline-block;border-bottom:4px solid ${accent};padding-bottom:4px}
+.lay-bold .paidtag{border-color:#fff;color:#fff}
+.lay-bold table.items th{background:#1b2321;color:#fff;border:0}
+.lay-elegant:before{height:1px;border-radius:0}
+.lay-elegant .hd{flex-direction:column;align-items:center;text-align:center;border-bottom:1px solid ${accent};padding-bottom:14px}
+.lay-elegant .hd{gap:6px;padding-bottom:8px}.lay-elegant .brand{line-height:1.4}.lay-elegant .meta4{margin:10px 0}.lay-elegant .parties{margin-bottom:10px}.lay-elegant table.items td{padding:7px 8px}.lay-elegant h1{font-size:22px}
+.lay-elegant .doc{text-align:center}.lay-elegant .subj{margin-left:auto;margin-right:auto}
+.lay-elegant h1,.lay-elegant .brand .nm{font-family:Georgia,"Times New Roman","Noto Serif Devanagari","Noto Serif Gujarati",serif;font-weight:400;letter-spacing:.14em;text-transform:uppercase}
+.lay-elegant .meta4{border:0;border-top:1px solid #d8dedb;border-bottom:1px solid #d8dedb;border-radius:0;background:transparent}
+.lay-elegant .card{border:0;border-left:2px solid ${accent};border-radius:0;padding-left:12px}
+.lay-elegant table.items th{background:transparent;border-top:1px solid ${accent};border-bottom:1px solid ${accent};color:${accent}}
+.lay-elegant .tot tr.g td{background:transparent;color:${accent};border-top:1px solid ${accent};border-bottom:1px solid ${accent}}
+.lay-elegant .totbox,.lay-elegant .payrow>div,.lay-elegant .irn{border-radius:0}
+.lay-ledger:before{display:none}
+.lay-ledger h1{color:#1b2321;text-transform:uppercase;letter-spacing:.05em;font-size:24px}
+.lay-ledger table.items{border:1px solid #1b2321}
+.lay-ledger table.items th,.lay-ledger table.items td{border:1px solid #9aa5a0}
+.lay-ledger table.items th{background:#eef2f0;color:#1b2321}
+.lay-ledger table.items tbody tr:nth-child(even) td{background:#f8faf9}
+.lay-ledger .card,.lay-ledger .totbox,.lay-ledger .meta4,.lay-ledger .payrow>div,.lay-ledger .irn{border-radius:0;border-color:#1b2321;background:#fff}
+.lay-ledger .tot tr.g td{background:#1b2321}
+.lay-ledger table.hsn th,.lay-ledger table.hsn td{border:1px solid #9aa5a0}
+.lay-corporate:before{display:none}
+.lay-corporate{border-left:10px solid ${accent};padding-left:24px!important}
+.lay-corporate .hd{border-bottom:2px solid ${accent};padding-bottom:12px}
+.lay-corporate .meta4{border:0;border-bottom:1px solid #d8dedb;border-radius:0;background:transparent}
+.lay-corporate .card{border:0;background:color-mix(in srgb,${accent} 6%,#fff)}
+.lay-corporate table.items th{background:${accent};color:#fff;border:0}
+.lay-corporate .totbox{border:2px solid ${accent}}
+.lay-soft{background:color-mix(in srgb,${accent} 4%,#fff);border-radius:18px}
+.lay-soft:before{height:10px;border-radius:6px}
+.lay-soft h1{background:${accent};color:#fff;display:inline-block;padding:6px 18px;border-radius:999px;font-size:20px}
+.lay-soft .card,.lay-soft .meta4,.lay-soft .totbox,.lay-soft .payrow>div,.lay-soft .irn{background:#fff;border:0;border-radius:16px;box-shadow:0 1px 0 rgba(0,0,0,.08)}
+.lay-soft table.items th{background:transparent;border:0;color:${accent}}
+.lay-soft table.items td{border-bottom:1px dashed #cfd7d3}
+.lay-duo:before{display:none}
+.lay-duo .hd{display:grid;grid-template-columns:1.2fr 1fr;gap:0;align-items:stretch;margin:-28px -28px 18px}
+.lay-duo .brand{padding:24px 28px;background:color-mix(in srgb,${accent} 10%,#fff)}
+.lay-duo .doc{padding:24px 28px;background:${accent};color:#fff}
+.lay-duo h1,.lay-duo .subj,.lay-duo .doc .paidtag{color:#fff;border-color:#fff}
+.lay-duo table.items th{background:color-mix(in srgb,${accent} 12%,#fff)}
+@media(max-width:640px){.lay-duo .hd{grid-template-columns:1fr}}
 `;
+
+/** Every look that restyles the main layout, besides the classic one. The thermal receipt has its own renderer. */
+export const STYLED_LAYOUTS = ['modern', 'minimal', 'bold', 'elegant', 'ledger', 'corporate', 'soft', 'duo'] as const;
+
+/** System font stacks only, so the PDF looks the same on any server and nothing is fetched from the internet. */
+const FONT_STACKS: Record<string, string> = {
+  sans: 'Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Devanagari","Noto Sans Gujarati",sans-serif',
+  serif: 'Georgia,"Source Serif 4","Noto Serif Devanagari","Noto Serif Gujarati",serif',
+  round: '"Trebuchet MS","Segoe UI",system-ui,"Noto Sans Devanagari","Noto Sans Gujarati",sans-serif',
+  mono: '"Courier New",ui-monospace,monospace,"Noto Sans Devanagari","Noto Sans Gujarati"',
+};
+const LOGO_HEIGHT: Record<string, number> = { small: 38, medium: 58, large: 84 };
+
 
 export function esc(v: unknown): string {
   return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -59,8 +117,9 @@ export function renderDocumentHtml(i: RenderInput): string {
   const L = labelsFor(t.language);
   const narrative = t.layout === 'narrative';
   const compact = t.layout === 'compact';
-  const lay = t.layout === 'modern' || t.layout === 'minimal' ? t.layout : 'classic';
-  const serif = t.font === 'serif';
+  const lay = (STYLED_LAYOUTS as readonly string[]).includes(t.layout) ? t.layout : 'classic';
+  const fontStack = FONT_STACKS[t.font] ?? FONT_STACKS.sans!;
+  const logoH = LOGO_HEIGHT[t.logoSize] ?? 58;
   const accent = accentColour(t);
   const intra = s.state_code === d.place_of_supply;
   const showTax = d.doc_type !== 'bill_of_supply';
@@ -94,7 +153,18 @@ export function renderDocumentHtml(i: RenderInput): string {
     if (BigInt(d.cess_paise) > 0n) totals.push(['Cess', money(d.cess_paise)]);
   }
   if (BigInt(d.tcs_paise) > 0n) totals.push(['TCS', money(d.tcs_paise)]);
+  if (BigInt(d.adjustment_paise ?? 0) !== 0n) totals.push([esc(d.adjustment_label || 'Adjustment'), (BigInt(d.adjustment_paise) < 0n ? '-' : '') + money(BigInt(d.adjustment_paise) < 0n ? -BigInt(d.adjustment_paise) : d.adjustment_paise)]);
   if (BigInt(d.round_off_paise) !== 0n) totals.push([L.roundOff, (BigInt(d.round_off_paise) < 0n ? '-' : '') + money(BigInt(d.round_off_paise) < 0n ? -BigInt(d.round_off_paise) : d.round_off_paise)]);
+  // Totals in both currencies: a foreign quote also shows its rupee value, and a rupee document may show a reference total in another currency.
+  let bothNote = '';
+  if (foreign) {
+    const inr = (BigInt(String(d.grand_total_paise)) * rateMicro + 500_000n) / 1_000_000n;
+    bothNote = `Equivalent in rupees: ${formatMoney(inr, 'INR')} at 1 ${esc(d.currency)} = Rs ${rateText}.`;
+  } else if (d.display_currency && d.display_rate_micro && BigInt(String(d.display_rate_micro)) > 0n) {
+    const rate = BigInt(String(d.display_rate_micro));
+    const other = (BigInt(String(d.grand_total_paise)) * 1_000_000n + rate / 2n) / rate;
+    bothNote = `Reference total: ${esc(formatMoney(other, String(d.display_currency)))} at 1 ${esc(d.display_currency)} = Rs ${`${rate / 1_000_000n}.${(rate % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '').padEnd(2, '0')}`}. Tax and amounts due are in rupees.`;
+  }
   const totalRows = totals.map(([k, v]) => `<tr><td>${k}</td><td class="n">${v}</td></tr>`).join('');
 
   const optional = (show: boolean, title: string, text: unknown) =>
@@ -106,13 +176,17 @@ export function renderDocumentHtml(i: RenderInput): string {
     ? `<div class="irn"><div><b>IRN</b> ${esc(i.irn.irn)}<br><b>Ack no</b> ${esc(i.irn.ackNo)} &nbsp; <b>Ack date</b> ${esc(i.irn.ackDate)}</div>${i.irn.qrDataUrl && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(i.irn.qrDataUrl) ? `<img src="${i.irn.qrDataUrl}" alt="e-invoice QR">` : ''}</div>` : '';
   const upiBlock = i.upi && t.showUpiQr !== false && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(i.upi.qrDataUrl)
     ? `<div class="upi"><img src="${i.upi.qrDataUrl}" alt="UPI QR code"><div><b>${esc(L.scanToPay)} ${esc(i.upi.amountText)}</b><br>UPI: ${esc(i.upi.vpa)}</div></div>` : '';
+  const signature = t.signatureDataUrl && /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(t.signatureDataUrl) ? `<img src="${t.signatureDataUrl}" alt="">` : '';
   const logo = t.logoDataUrl && /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(t.logoDataUrl) ? `<img class="logo" src="${t.logoDataUrl}" alt="">` : '';
 
   const supplierName = s.trade_name || s.legal_name;
   const cell = (k: string, v: string) => `<div><span class="k">${esc(k)}</span><b>${v}</b></div>`;
   const metaCells = [cell(L.no, esc(d.number ?? 'Draft')), cell(L.date, esc(d.doc_date)), d.due_date ? cell(L.due, esc(d.due_date)) : '',
-    d.original_number ? cell(L.against, esc(d.original_number)) : '', d.reference ? cell(L.reference, esc(d.reference)) : '', d.salesperson ? cell(L.salesperson, esc(d.salesperson)) : '', cell(L.placeOfSupply, place)].join('');
-  const extraCells = Array.isArray(d.extra) ? d.extra.map((x: { label: string; value: string }) => cell(String(x.label ?? ''), esc(x.value))).join('') : '';
+    d.original_number ? cell(L.against, esc(d.original_number)) : '', d.note_reason ? cell(L.reason, esc([NOTE_REASON_TEXT[d.note_reason] ?? d.note_reason, d.note_reason_detail].filter(Boolean).join(': '))) : '', d.reference ? cell(L.reference, esc(d.reference)) : '', d.salesperson ? cell(L.salesperson, esc(d.salesperson)) : '', cell(L.placeOfSupply, place)].join('');
+  // Details the business added to this document, and the custom fields it defined for documents that are set to print.
+  const printable = (v: unknown) => (Array.isArray(v) ? (v as { label?: string; value?: string; pdf?: boolean }[]).filter((x) => x && x.pdf !== false && x.label && x.value) : []);
+  const extraCells = [...(Array.isArray(d.extra) ? d.extra : []), ...printable(d.custom_values)].map((x: { label: string; value: string }) => cell(String(x.label ?? ''), esc(x.value))).join('');
+  const buyerCustom = printable(r?.custom_values).map((x) => `<br><span class="k" style="display:inline">${esc(x.label)}:</span> ${esc(x.value)}`).join('');
   const ship = r?.shipping_address && Object.keys(r.shipping_address).length ? addr(r.shipping_address) : '';
 
   // The tax by HSN or SAC and rate: the summary a buyer and an auditor look for first.
@@ -134,12 +208,12 @@ export function renderDocumentHtml(i: RenderInput): string {
 <title>${esc(title)} ${esc(d.number ?? '')}</title><style>
 @page { size: ${t.paper === 'A5' ? 'A5' : 'A4'}; margin: 12mm; }
 *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-body{margin:0;background:#fff;color:#1b2321;font:${compact ? 11 : 12.5}px/1.5 ${serif ? 'Georgia,"Source Serif 4","Noto Serif Devanagari","Noto Serif Gujarati",serif' : 'Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Devanagari","Noto Sans Gujarati",sans-serif'};font-variant-numeric:tabular-nums}
+body{margin:0;background:#fff;color:#1b2321;font:${compact ? 11 : 12.5}px/1.5 ${fontStack};font-variant-numeric:tabular-nums}
 .page{position:relative;max-width:820px;margin:0 auto;padding:${compact ? 12 : 28}px}
 .page:before{content:"";display:block;height:6px;border-radius:3px;background:${accent};margin-bottom:${compact ? 10 : 20}px}
 .hd{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
 .brand{color:#4a5651;line-height:1.55}.brand .nm{display:block;font-size:1.5em;font-weight:700;color:#1b2321;line-height:1.25}
-.logo{max-height:58px;max-width:170px;display:block;margin-bottom:8px}
+.logo{max-height:${logoH}px;max-width:${Math.round(logoH * 3)}px;display:block;margin-bottom:8px}
 .doc{text-align:right}.paidtag{display:inline-block;margin-top:8px;padding:2px 14px;border:2px solid #1b6b40;color:#1b6b40;border-radius:6px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;transform:rotate(-3deg)}.subj{margin-top:6px;color:#4a5651;max-width:320px;margin-left:auto;font-size:1.02em}
 h1{font-size:${compact ? 20 : 28}px;margin:0;color:${accent};font-weight:700;letter-spacing:-.01em;line-height:1.1}
 .meta4{display:flex;flex-wrap:wrap;margin:${compact ? 12 : 20}px 0 14px;border:1px solid #e1e7e4;border-radius:10px;overflow:hidden;background:color-mix(in srgb,${accent} 5%,#fff)}
@@ -160,7 +234,7 @@ table.tot{width:100%;border-collapse:collapse}.tot td{padding:6px 14px;color:#4a
 .tot tr.sub td{font-size:.92em;color:#66726d}
 .words{font-weight:600;color:#33403b;margin-bottom:8px}
 .rcm{margin:8px 0;font-weight:600;color:#8a4b00}
-.payrow{display:flex;flex-direction:column;gap:10px;margin-top:10px}.payrow>div{flex:1;margin:0;border:1px solid #e1e7e4;border-radius:10px;padding:10px 14px}
+.payrow{display:flex;flex-direction:row;flex-wrap:wrap;gap:10px;margin-top:10px}.payrow>div{flex:1;margin:0;border:1px solid #e1e7e4;border-radius:10px;padding:10px 14px}
 .upi{display:flex;gap:12px;align-items:center}.upi img{width:92px;height:92px}
 .note{margin-top:10px;color:#33403b}
 table.hsn{width:100%;border-collapse:collapse;margin-top:18px;font-size:.88em}
@@ -168,6 +242,7 @@ table.hsn th{text-align:left;padding:6px 8px;color:#66726d;font-weight:600;font-
 table.hsn th.n{text-align:right}
 table.hsn td{padding:5px 8px;border-bottom:1px solid #edf0ee}
 .irn{display:flex;justify-content:space-between;gap:12px;border:1px solid #e1e7e4;border-radius:10px;padding:10px 14px;margin-top:14px;word-break:break-all}.irn img{width:92px;height:92px}
+.sign img{display:block;margin:0 0 4px auto;max-height:56px;max-width:180px}
 .sign{margin-top:30px;text-align:right}.sign div{display:inline-block;border-top:1px solid #8a948f;padding-top:5px;min-width:200px;text-align:center;color:#33403b}
 .foot{margin-top:18px;padding-top:10px;border-top:1px solid #e1e7e4;color:#66726d;text-align:center;font-size:.9em}
 .mark{position:absolute;top:38%;left:14%;font-size:92px;font-weight:800;color:rgba(168,39,39,.11);transform:rotate(-20deg);pointer-events:none}
@@ -203,12 +278,13 @@ ${compact ? '.meta4{margin:14px 0}.parties{margin-bottom:14px}.page:before{margi
 thead{display:table-header-group}tfoot{display:table-footer-group}
 @media print{.page{max-width:none;padding:0}.hd,.meta4,.parties,.totbox,.sign,.irn{break-inside:avoid}.bottom{display:flex}.bottom>div:first-child{break-inside:auto}.note,.upi{break-inside:avoid}table.items{display:table;width:100%;font-size:${t.paper === 'A5' ? '.8em' : '.97em'}}table.items td:nth-child(2){min-width:0}.n{white-space:normal}.mark{position:fixed}}
 @media screen and (max-width:640px){.brand,.doc{max-width:100%}.doc{text-align:left}.bottom>div{width:100%}.meta4{margin-block:18px}.lay-modern .hd .brand{max-width:100%}}
+@media print{.lay-bold .hd,.lay-duo .hd{margin:0 0 18px}.lay-corporate{padding-left:18px!important}}
 </style></head><body><div class="page lay-${lay}">${draftMark}
 <div class="hd"><div class="brand">${logo}<span class="nm">${esc(supplierName)}</span>${supplierName !== s.legal_name ? `${esc(s.legal_name)}<br>` : ''}${addr(s.address)}${s.phone ? `<br>Ph: ${esc(s.phone)}` : ''}${s.email ? `<br>${esc(s.email)}` : ''}
 ${s.gstin ? `<br><b>GSTIN:</b> ${esc(s.gstin)}` : ''}</div>
 <div class="doc"><h1>${esc(title)}</h1>${d.status === 'issued' && d.payment_status === 'paid' && d.doc_type !== 'estimate' ? `<div class="paidtag">${esc(L.paid)}</div>` : ''}${d.subject ? `<div class="subj">${esc(d.subject)}</div>` : ''}</div></div>
 <div class="meta4">${metaCells}</div>${extraCells ? `<div class="meta4 extra">${extraCells}</div>` : ''}
-<div class="parties"><div class="card"><span class="lbl">${esc(L.billTo)}</span>${r ? `<b class="who">${esc(r.name)}</b><br>${addr(r.billing_address)}${r.gstin ? `<br><b>GSTIN:</b> ${esc(r.gstin)}` : ''}${r.phone ? `<br>Ph: ${esc(r.phone)}` : ''}` : esc(L.walkIn)}</div>
+<div class="parties"><div class="card"><span class="lbl">${esc(L.billTo)}</span>${r ? `<b class="who">${esc(r.name)}</b><br>${addr(r.billing_address)}${r.gstin ? `<br><b>GSTIN:</b> ${esc(r.gstin)}` : ''}${r.phone ? `<br>Ph: ${esc(r.phone)}` : ''}${buyerCustom}` : esc(L.walkIn)}</div>
 ${ship ? `<div class="card"><span class="lbl">${esc(L.shipTo)}</span>${ship}</div>` : ''}</div>
 <table class="items"><thead>${narrative ? `<tr><th>#</th><th>Particulars of professional services</th><th>SAC</th><th class="n">Fee</th>${taxHead}</tr>` : `<tr><th>#</th><th>${esc(L.description)}</th><th>HSN/SAC</th><th class="n">${esc(L.qty)}</th><th class="n">${esc(L.rate)}</th><th class="n">${esc(L.discount)}</th><th class="n">${esc(L.taxable)}</th>${taxHead}</tr>`}</thead><tbody>${rows}</tbody></table>
 <div class="bottom"><div>${t.showAmountInWords && !foreign ? `<div class="words">${esc(rupeesInWords(BigInt(d.grand_total_paise)))}</div>` : ''}
@@ -217,8 +293,9 @@ ${payRow}${optional(t.showNotes, L.notes, d.notes)}${optional(t.showTerms, L.ter
 <div><div class="totbox"><table class="tot">${totalRows}<tr class="g"><td>${rcm ? L.amountDue : L.total}${foreign ? ` (${esc(d.currency)})` : ''}</td><td class="n">${money(d.grand_total_paise)}</td></tr>
 ${rcm && showTax ? `<tr class="sub"><td colspan="2">Tax shown above is payable by the recipient.</td></tr>` : ''}
 ${foreign ? `<tr class="sub"><td colspan="2">All amounts are in ${esc(d.currency)}. Exchange rate used: 1 ${esc(d.currency)} = Rs ${rateText}. This is not a tax invoice.</td></tr>` : ''}
+${bothNote ? `<tr class="sub"><td colspan="2">${bothNote}</td></tr>` : ''}
 ${tdsRows}</table></div></div></div>
-${taxSummary}${irnBlock}${t.showSignature ? `<div class="sign"><div>${esc(L.signatory)}<br>${esc(supplierName)}</div></div>` : ''}
+${taxSummary}${irnBlock}${t.showSignature ? `<div class="sign">${signature}<div>${esc(L.signatory)}<br>${esc(supplierName)}</div></div>` : ''}
 ${t.footerText ? `<div class="foot">${esc(t.footerText)}</div>` : ''}
 </div></body></html>`;
 }
