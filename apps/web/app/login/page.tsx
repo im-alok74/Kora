@@ -63,7 +63,7 @@ export default function Login() {
   const switchTo = (m: Mode) => { setMode(m); setStep('id'); setErr(''); setIdErr(''); setCode(''); };
   const strength = passwordStrength(password, [identifier, name]);
 
-  if (!ready) return <main className="auth"><p className="muted">Loading</p></main>;
+  if (!ready) return <main className="auth"><p className="muted" role="status">Loading your account…</p></main>;
 
   const idField = (
     <>
@@ -81,9 +81,13 @@ export default function Login() {
       <div className="auth-main">
       <div className="auth-box">
       <div className="auth-brand"><a href="/" aria-label="Kora home"><span className="brand-mark" aria-hidden="true">k</span>kora</a></div>
+      <div className="auth-mode" aria-label="Account access">
+        <button type="button" aria-pressed={mode !== 'signup'} onClick={() => switchTo('signin')}>Sign in</button>
+        <button type="button" aria-pressed={mode === 'signup'} onClick={() => switchTo('signup')}>Create account</button>
+      </div>
       <h1>{mode === 'signup' ? 'Create your Kora account' : 'Sign in to Kora'}</h1>
-      <p className="lead">{mode === 'code' ? 'We send a six-digit code to your mobile number or email.' : mode === 'signup' ? (demo ? 'Make an account and we will open a labelled demo business with sample data.' : 'Use your email or mobile number and choose a password. Nothing to confirm.') : 'Use your email or mobile number and your password.'}</p>
-      <div className="auth-form">
+      <p className="lead">{mode === 'code' ? 'Receive a sign-in code by email or text message.' : mode === 'signup' ? (demo ? 'Create an account to explore a labelled demo business with sample data.' : 'Create an account to manage your invoices and payments.') : 'Access your invoices, customers, and payments.'}</p>
+      <div className="auth-form" key={`${mode}-${step}`} aria-busy={busy}>
         {step === 'mfa' ? (
           <form onSubmit={(e) => { e.preventDefault(); void run(async () => { await api('/api/auth/mfa', { body: { mfaToken, code } }); remember('kora-last-identifier', identifier.trim()); await enter(); }); }}>
             <label htmlFor="mfa">Code from your authenticator app, or a recovery code</label>
@@ -97,7 +101,7 @@ export default function Login() {
             <label htmlFor="pw">Password</label>
             <input id="pw" type={show ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             {pwToggle}
-            <button disabled={busy}>Sign in</button>
+            <button disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
           </form>
         ) : mode === 'signup' ? (
           <form noValidate onSubmit={(e) => {
@@ -118,7 +122,7 @@ export default function Login() {
             <div className="pw-meter" data-score={strength.score} aria-hidden="true"><i /><i /><i /><i /></div>
             <p id="pw-note" className="pw-note" role="status">{password ? <><b>{strength.label}.</b> {strength.tip}</> : 'Use at least 8 characters. A few random words work well.'}</p>
             {pwToggle}
-            <button disabled={busy}>Create account</button>
+            <button disabled={busy}>{busy ? 'Creating account…' : 'Create account'}</button>
           </form>
         ) : step === 'id' ? (
           <form noValidate onSubmit={(e) => { e.preventDefault(); if (!checkId()) return; void run(async () => { await api('/api/auth/request', { body: { identifier } }); setStep('code'); }); }}>
@@ -155,9 +159,11 @@ export default function Login() {
           <div className="pa-qr"><span className="l-qr" /></div>
           <div className="l-badge wa"><Icon name="chat" size={15} />Sent on WhatsApp</div>
         </div>
-        <h2>Invoices that get paid</h2>
-        <p>Tax worked out for you, a UPI QR on every invoice, and payments that match themselves.</p>
-        <a className="pill" href="/#how">See how it works</a>
+        <p className="auth-sample-label">Illustrative invoice</p>
+        <h2>Your business, in one place</h2>
+        <p>Create GST invoices, keep track of customer balances, and prepare reports for your CA.</p>
+        <ul className="auth-benefits"><li><Icon name="invoice" size={18} />Professional invoice templates</li><li><Icon name="rupee" size={18} />Payment and expense tracking</li><li><Icon name="chart" size={18} />Reports ready when you need them</li></ul>
+        <a className="auth-product-link" href="/#product-preview">Explore Kora <Icon name="arrow" size={16} /></a>
       </aside>
       </div>
     </main>

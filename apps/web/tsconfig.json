@@ -22,8 +22,7 @@
     ".next-e2e/types/**/*.ts",
     ".next-vtest/types/**/*.ts",
     ".next/types/**/*.ts",
-    "next-env.d.ts",
-    ".next/kora-motion/types/**/*.ts"
+    "next-env.d.ts"
   ],
   "exclude": [
     "node_modules"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, useEffect, useRef, useState, type ReactNode } from 'react';
 import Icon from './Icon';
 
 export default function TemplateCarousel({ children }: { children: ReactNode }) {
@@ -75,7 +75,9 @@ export default function TemplateCarousel({ children }: { children: ReactNode }) 
     <div className="k-template-viewport" ref={viewport}>
       <div className="k-template-track" ref={track}>
         <div className="l-tpl">{children}</div>
-        {canAnimate ? <div className="l-tpl" aria-hidden="true" inert>{children}</div> : null}
+        {canAnimate ? <div className="l-tpl" aria-hidden="true">{Children.map(children, child =>
+          isValidElement<{ tabIndex?: number }>(child) ? cloneElement(child, { tabIndex: -1 }) : child
+        )}</div> : null}
       </div>
     </div>
   </div>;
