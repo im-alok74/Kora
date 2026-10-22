@@ -1,4 +1,6 @@
 'use client';
+import KoraLogo from '../../components/KoraLogo';
+
 import { useEffect, useRef, useState } from 'react';
 import { gstinValid, STATE_NAMES } from '@kora/tax';
 import { api } from '../../lib/client';
@@ -48,7 +50,7 @@ function SetupForm() {
   return (
     <div className="setup-bg">
     <main className="setup">
-      <a className="auth-brand-link" href="/" aria-label="Kora home"><span className="brand-mark" aria-hidden="true">k</span>kora</a>
+      <a className="auth-brand-link" href="/" aria-label="Kora home"><KoraLogo /></a>
       <p className="wiz-progress" role="img" aria-label="Step 1 of 5"><span className="on" /><span /><span /><span /><span /></p>
       <h1>Set up your <span className="hl">business</span></h1>
       <p className="muted">Step 1 of 5. This is printed on every invoice. Next you can add your logo, a customer and your first invoice, and skip anything you like.</p>

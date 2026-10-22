@@ -1,4 +1,5 @@
 'use client';
+import KoraLoader from '../../../components/KoraLoader';
 import { useCallback, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Icon from '../../../components/Icon';
@@ -80,7 +81,7 @@ export default function Matters() {
       </div>
       <div className="filters"><div style={{ flex: 1 }}><label htmlFor="mq">Search</label><input id="mq" type="search" placeholder="Title, file number or client" value={q} onChange={(e) => setQ(e.target.value)} /></div></div>
 
-      {rows === null && !err && <p className="muted" role="status">Loading</p>}
+      {rows === null && !err && <KoraLoader />}
       {rows && rows.length === 0 && (
         <div className="panel empty"><Icon name="documents" size={34} style={{ color: 'var(--text-faint)' }} /><h3>{isProject ? 'No projects here.' : 'No matters here.'}</h3><p>{tab === 'open' ? 'Create a matter to start recording time and expenses against a client.' : 'Closed matters appear here.'}</p></div>)}
       {rows && rows.length > 0 && (

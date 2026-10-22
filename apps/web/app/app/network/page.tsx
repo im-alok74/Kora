@@ -1,4 +1,5 @@
 'use client';
+import KoraLoader from '../../../components/KoraLoader';
 import { useCallback, useEffect, useState } from 'react';
 import Icon from '../../../components/Icon';
 import { api, rupees, TAX_RATES } from '../../../lib/client';
@@ -56,7 +57,7 @@ export default function Network() {
       {msg && <p className="ok" role="status">{msg}</p>}
 
       {tab === 'received' && (<>
-        {received === null && !err && <p className="muted" role="status">Loading</p>}
+        {received === null && !err && <KoraLoader />}
         {received && received.length === 0 && <div className="panel empty"><Icon name="inbox" size={34} style={{ color: 'var(--text-faint)' }} /><h3>No invoices yet.</h3><p>When a business on Kora issues an invoice to your GSTIN, it appears here. Accept it and it becomes a purchase bill with its input credit.</p></div>}
         {received && received.length > 0 && (
           <table className="t cards" aria-label="Invoices received">
@@ -88,7 +89,7 @@ export default function Network() {
           <button type="button" aria-pressed={side === 'received'} onClick={() => setSide('received')}>Orders I received</button>
           <button type="button" aria-pressed={side === 'sent'} onClick={() => setSide('sent')}>Orders I sent</button>
         </div>
-        {orders === null && !err && <p className="muted" role="status">Loading</p>}
+        {orders === null && !err && <KoraLoader />}
         {orders && orders.length === 0 && <div className="panel empty"><Icon name="cart" size={34} style={{ color: 'var(--text-faint)' }} /><h3>No orders here.</h3><p>{side === 'sent' ? 'Find a supplier in the Directory and send them an order.' : 'Orders from other businesses show up here once you list your business.'}</p></div>}
         {orders && orders.length > 0 && (
           <table className="t cards" aria-label="Orders list">
@@ -116,7 +117,7 @@ export default function Network() {
 
       {tab === 'directory' && (<>
         <div className="filters"><div style={{ flex: 1 }}><label htmlFor="dq">Search suppliers</label><input id="dq" type="search" placeholder="Name, product, city or category" value={q} onChange={(e) => setQ(e.target.value)} /></div></div>
-        {dir === null && !err && <p className="muted" role="status">Loading</p>}
+        {dir === null && !err && <KoraLoader />}
         {dir && dir.length === 0 && <div className="panel empty"><Icon name="team" size={34} style={{ color: 'var(--text-faint)' }} /><h3>No businesses found.</h3><p>Businesses appear here when they choose to be listed.</p></div>}
         {dir && dir.length > 0 && <div className="l-grid" style={{ marginTop: 6 }}>{dir.map((b) => (
           <article key={b.business_id} className="l-card" aria-label={b.name}>

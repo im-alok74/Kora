@@ -22,7 +22,8 @@
     ".next-e2e/types/**/*.ts",
     ".next-vtest/types/**/*.ts",
     ".next/types/**/*.ts",
-    "next-env.d.ts"
+    "next-env.d.ts",
+    ".next-local-preview/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

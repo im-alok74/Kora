@@ -1,4 +1,5 @@
 'use client';
+import KoraLoader from '../../components/KoraLoader';
 import { useEffect, useState } from 'react';
 import { formatMoney } from '@kora/tax';
 import Icon from '../../components/Icon';
@@ -40,7 +41,7 @@ export default function Dashboard() {
     api('/api/business').then((b) => setRole(b.role));
   }, []);
   if (err) return <p className="error" role="alert">{err}</p>;
-  if (!d) return <p className="muted">Loading</p>;
+  if (!d) return <KoraLoader />;
 
   const canWrite = role === 'owner' || role === 'staff';
   const max = d.chart.reduce((m, c) => (BigInt(c.total) > m ? BigInt(c.total) : m), 1n);

@@ -1,4 +1,6 @@
 'use client';
+import KoraLogo from '../../components/KoraLogo';
+
 import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import Icon, { type IconName } from '../../components/Icon';
@@ -32,12 +34,12 @@ export default function SideNav({ role, multi = false, children }: { role: strin
   return (
     <>
       <div className="mobile-bar">
-        <a className="brand" href="/app" aria-label="Kora home"><span className="brand-mark" aria-hidden="true">k</span>kora</a>
+        <a className="brand" href="/app" aria-label="Kora home"><KoraLogo /></a>
         <button type="button" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="main-nav" onClick={() => setOpen(!open)}><Icon name={open ? 'close' : 'menu'} /></button>
       </div>
       <div className="scrim" data-open={open} onClick={() => setOpen(false)} aria-hidden="true" />
       <nav className="side" id="main-nav" aria-label="Main" data-open={open}>
-        <a className="brand" href="/app" aria-label="Kora home"><span className="brand-mark" aria-hidden="true">k</span>kora</a>
+        <a className="brand" href="/app" aria-label="Kora home"><KoraLogo /></a>
         {groups.map((g) => {
           const items = g.items.filter((i) => i.show !== false);
           return (

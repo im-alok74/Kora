@@ -12,7 +12,7 @@
 :is(.shell, .auth, .setup-bg) .brand-mark { background: var(--accent); box-shadow: none; border-radius: 5px; }
 .shell .nav-group { text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 12px; margin-top: 22px; }
 .shell .side a.nav { padding: 9px 12px; font-size: 13px; font-weight: 400; transition: background-color .18s ease, color .18s ease; }
-.shell .side a.nav[aria-current='page'] { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.shell .side a.nav[aria-current='page'] { color: var(--accent-ink); background: var(--accent-soft); font-weight: 600; }
 .shell .side a.nav[aria-current='page']::before { content: none; }
 .shell .side .who { margin-top: 28px; }
 .shell .toolbar { padding-bottom: 22px; margin-bottom: 24px; border-bottom: 1px solid var(--border); gap: 18px; }
@@ -84,3 +84,10 @@
 @media (max-width: 860px) { .auth .auth-shell { grid-template-columns: 1fr; min-height: 0; max-width: 520px; }.auth .auth-promo { display: none; } }
 @media (max-width: 760px) { .shell { display: block; }.shell .content { padding: 20px 16px 40px; }.shell .side { padding-top: 18px; }.shell .toolbar { gap: 14px; }.shell h1 { font-size: 25px; }.shell :is(.panel,.card,.sumcard) { padding: 18px; }.shell .stat { padding: 18px 14px; }.shell .stat .value { font-size: 22px; }.shell .chart { gap: 12px; }.auth { padding: 20px 14px; }.auth .auth-main { padding: 28px 24px; }.template-dialog-foot { flex-direction: column; align-items: stretch; }.template-dialog-head { padding: 14px; } }
 @media (prefers-reduced-motion: reduce) { :is(.shell, .auth, .setup-bg) *, .template-dialog[open] { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+.settings-appearance { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 24px; flex-wrap: wrap; }
+.settings-appearance h2 { margin: 0 0 8px; }.settings-appearance p { margin: 0; font-size: 13px; }
+.settings-appearance .site-theme-toggle { display: inline-flex; align-items: center; gap: 8px; margin: 0; white-space: nowrap; }
+.template-document-type { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 20px 0 12px; }
+.template-document-type button { margin: 0; background: var(--surface-raised); color: var(--text); border: 1px solid var(--border-strong); }
+.template-document-type button[aria-pressed='true'] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.template-document-type .muted { font-size: 12px; margin-left: 6px; }

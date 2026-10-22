@@ -1,4 +1,5 @@
 'use client';
+import KoraLoader from '../../../components/KoraLoader';
 import { useEffect, useState } from 'react';
 import { formatMoney } from '@kora/tax';
 import Icon from '../../../components/Icon';
@@ -163,7 +164,7 @@ export default function Documents() {
         </div>
       )}
       {err && <p className="error" role="alert">{err}</p>}
-      {rows === null && !err && <p className="muted" role="status">Loading</p>}
+      {rows === null && !err && <KoraLoader />}
       {rows && rows.length === 0 && !offline && (
         <div className="panel empty">
           <Icon name="documents" size={34} style={{ color: 'var(--text-faint)' }} />

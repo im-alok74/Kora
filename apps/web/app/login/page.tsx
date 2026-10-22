@@ -1,4 +1,7 @@
 'use client';
+import KoraLogo from '../../components/KoraLogo';
+
+import KoraLoader from '../../components/KoraLoader';
 // Sign in with a password (no address check), create an account, or use an emailed or texted code.
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/client';
@@ -63,7 +66,7 @@ export default function Login() {
   const switchTo = (m: Mode) => { setMode(m); setStep('id'); setErr(''); setIdErr(''); setCode(''); };
   const strength = passwordStrength(password, [identifier, name]);
 
-  if (!ready) return <main className="auth"><p className="muted" role="status">Loading your account…</p></main>;
+  if (!ready) return <KoraLoader fullPage label="Opening your account" />;
 
   const idField = (
     <>
@@ -80,7 +83,7 @@ export default function Login() {
       <div className="auth-shell">
       <div className="auth-main">
       <div className="auth-box">
-      <div className="auth-brand"><a href="/" aria-label="Kora home"><span className="brand-mark" aria-hidden="true">k</span>kora</a></div>
+      <div className="auth-brand"><a href="/" aria-label="Kora home"><KoraLogo /></a></div>
       <div className="auth-mode" aria-label="Account access">
         <button type="button" aria-pressed={mode !== 'signup'} onClick={() => switchTo('signin')}>Sign in</button>
         <button type="button" aria-pressed={mode === 'signup'} onClick={() => switchTo('signup')}>Create account</button>
