@@ -17,7 +17,7 @@ test('an accountant can read but the app offers no way to write, and the API ref
   const w = await page.request.post('/api/documents', { data: { docType: 'tax_invoice', lines: [{ name: 'x', hsnSac: '998313', quantity: '1', rate: '1', taxRateBp: 0 }] } });
   expect(w.status()).toBe(403);
   await page.goto('/app/settings');
-  await expect(page.getByText('Only the owner can change settings.')).toBeVisible();
+  await expect(page.getByText('Only the owner can change business settings.')).toBeVisible();
 });
 
 test('one business cannot see or touch another business', async ({ page, context }) => {
@@ -62,10 +62,12 @@ test('pages have no serious accessibility violations', async ({ page, context })
   }
   const anon = await page.context().browser()!.newContext();
   const p = await anon.newPage();
+  await p.emulateMedia({ reducedMotion: 'reduce' }); // entrance animations fade text in; axe must see the settled colours
   await p.goto('/');
   await p.getByRole('heading').first().waitFor();
   const res = await new AxeBuilder({ page: p }).withTags(['wcag2a', 'wcag2aa']).analyze();
-  expect(res.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+  const bad = res.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+  expect(bad.map((v) => `/: ${v.id} ${v.nodes.map((n) => n.target.join(' ') + ' ' + (n.any[0]?.message ?? '')).join(' | ')}`)).toEqual([]);
   await anon.close();
 });
 

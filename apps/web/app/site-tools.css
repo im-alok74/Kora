@@ -1,0 +1,28 @@
+/* The Tools menu in the header and the tools strip above the footer. Theme tokens with light fallbacks, so dark mode follows. */
+.kora-home .k-menu { position: relative; display: inline-flex; align-items: center; }
+.kora-home .k-menu > a { display: inline-flex; align-items: center; gap: 5px; }
+.kora-home .k-menu > a svg { transform: rotate(90deg); transition: transform .15s; }
+.kora-home .k-menu:hover > a svg, .kora-home .k-menu:focus-within > a svg { transform: rotate(-90deg); }
+.kora-home .k-menu-pop { display: none; position: absolute; top: 100%; left: -24px; z-index: 80; width: 310px; margin-top: 12px; padding: 10px; flex-direction: column; gap: 2px; background: var(--surface-raised, #fff); border: 1px solid var(--border, #e4e8ed); border-radius: 14px; box-shadow: 0 18px 44px rgba(20, 30, 40, .16); }
+.kora-home .k-menu-pop::before { content: ''; position: absolute; left: 0; right: 0; top: -14px; height: 14px; }
+.kora-home .k-menu:hover .k-menu-pop, .kora-home .k-menu:focus-within .k-menu-pop { display: flex; }
+.kora-home .k-menu-pop a { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: var(--text, #1b2835); font-size: 14px; text-decoration: none; }
+.kora-home .k-menu-pop a:hover { background: var(--surface, #f2f6fb); color: var(--accent, #106cd9); }
+.kora-home .k-menu-pop .k-menu-all { margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--border, #e4e8ed); border-radius: 0 0 8px 8px; color: var(--accent, #106cd9); font-weight: 600; }
+.kora-home .k-menu-pop .k-menu-all svg { margin-left: -4px; }
+.k-menu-ico { display: inline-grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 8px; background: var(--tint-sky, #c5def2); color: #212326; }
+
+.kora-home .k-toolstrip { background: var(--surface, #f6f7f8); border-top: 1px solid var(--border, #e6e9ed); padding: 68px 0 72px; }
+.kora-home .k-toolstrip h2 { text-align: center; margin: 0 0 8px; font-size: clamp(26px, 3.2vw, 36px); line-height: 1.15; font-weight: 700; letter-spacing: -1px; color: var(--text, #161819); }
+.kora-home .k-toolstrip h2 span { color: var(--accent, #106cd9); }
+.kora-home .k-toolstrip p { text-align: center; margin: 0 0 34px; color: var(--text-muted, #62686d); font-size: 16px; }
+.k-toolstrip-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.kora-home .k-toolstrip-grid a { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid var(--border, #e6e9ed); border-radius: 14px; background: var(--surface-raised, #fff); color: var(--text, #161819); font-size: 15px; font-weight: 500; text-decoration: none; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.kora-home .k-toolstrip-grid a:hover { border-color: var(--accent, #106cd9); color: var(--accent, #106cd9); box-shadow: 0 8px 22px rgba(20, 30, 40, .08); transform: translateY(-1px); }
+.k-toolstrip-grid .k-menu-ico { width: 40px; height: 40px; border-radius: 10px; }
+.k-toolstrip-grid a:nth-child(4n+1) .k-menu-ico { background: var(--tint-pink, #fac8c9); }
+.k-toolstrip-grid a:nth-child(4n+2) .k-menu-ico { background: var(--tint-mint, #e0eee4); }
+.k-toolstrip-grid a:nth-child(4n+3) .k-menu-ico { background: var(--tint-sky, #c5def2); }
+.k-toolstrip-grid a:nth-child(4n) .k-menu-ico { background: var(--tint-sun, #fce1a8); }
+@media (max-width: 1000px) { .k-toolstrip-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .k-toolstrip-grid { grid-template-columns: 1fr; } .kora-home .k-toolstrip { padding: 52px 0 56px; } }

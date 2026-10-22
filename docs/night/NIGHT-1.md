@@ -14,7 +14,7 @@ Branch `night-1`, worktree `../kora-night-1`, migrations 0110-0119.
 - [x] 9. Discounts, shipping, adjustments, round-off, HSN/SAC picker
 - [x] 10. PDF fidelity pass
 - [x] 11. Keyboard-first editor
-- [ ] 12. Polish at 375px and dark mode
+- [x] 12. Polish at 375px and dark mode
 
 ## Log
 - 2026-10-22 setup done: worktree created, deps installed, .env copied.
@@ -59,5 +59,12 @@ Gaps (documents only), in the order I will close them:
 
 - Task 10 done: rendered every look at A4 with 3 and 70 lines, the thermal roll, and Hindi, Marathi and Gujarati, and looked at the pages. Fixed: a 3-line invoice spilled onto a second page in every look (screen padding doubled the print margin; payment blocks stacked), and the elegant look still spilled its footer line. Now 1 page each; 70 lines make 5 pages with the heading repeated and the totals on the last page. Hindi and Gujarati glyphs render. The amount in words stays in English on every language, as before. Script: packages/pdf/scripts/fidelity.ts.
 
+- Task 12 done (with one gap): looked at the editor, document list, document page, guided note page, recurring and settings at 375px. Fixed: the note page choices ran into their descriptions, its lines table now scrolls sideways inside a box, and the HSN placeholder was cut off. Dark mode checked on the note page; the editor in dark mode was still compiling in the dev server when I looked, so it was not seen by eye (it uses the shared colour tokens).
+- Merge: kora-phases (with the night-2 pull request) was merged into night-1 by something outside my session; it merged cleanly.
+
+- Final check on the merged tree: typecheck clean, core 628 tests, pdf 48, tax 62 pass. e2e: 33 of 35 specs pass. portal.spec.ts "a guessed or malformed portal link" now gets 401 instead of 404 for /portal/<bad>/open/<id> (the portal sign-in from another chat); not changed by me. The recurring spec looked for "No recurring invoices yet." and the onboarding work changed that empty state; I updated the text in the spec.
+
 ## Needs you
-(nothing yet)
+- Hosted Supabase: migrations 0110 to 0115 are NOT applied there. They are additive except two CHECK constraints that are dropped and re-added wider (0110 document and number_series type, document currency scope) and the document total check (0115). Apply after merge, in order, with the hosted database at 0032 plus the other branches' migrations.
+- portal.spec.ts line 96 expects 404 and gets 401 on the merged tree (the portal code sign-in change). Whoever owns the portal should decide which is right.
+- The home page e2e (first-invoice.spec.ts "home page explains the product") fails on this branch because the landing page has no link named "Sign in to Kora". Not from my work.
