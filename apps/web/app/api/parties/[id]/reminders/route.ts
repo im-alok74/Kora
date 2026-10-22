@@ -7,10 +7,11 @@ export const GET = tenantRoute(async ({ t, sql, params }) => {
   const [schedule, history, preview] = await Promise.all([getCustomerReminder(sql, t, params.id!), reminderHistory(sql, t, { partyId: params.id!, limit: 50 }), previewReminder(sql, t, { partyId: params.id! })]);
   return { ...schedule, history, preview };
 });
-/** Body: { enabled, channel, offsets } to use their own schedule, or null to follow the business's. */
+/** Body: { enabled, channel, offsets } to use their own schedule, or { inherit: true } to follow the business schedule. */
 export const PUT = tenantRoute(async ({ t, sql, req, params }) => {
   if (!isUuid(params.id!)) return json({ error: 'Customer not found.' }, 404);
-  return saveCustomerReminder(sql, t, params.id!, await req.json());
+  const b = await req.json();
+  return saveCustomerReminder(sql, t, params.id!, b && b.inherit === true ? null : b);
 });
 /** Body: { enabled, channel, offsets } to preview a schedule before saving it. */
 export const POST = tenantRoute(async ({ t, sql, req, params }) => {

@@ -1,5 +1,7 @@
+import { createHmac } from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { makeBusiness, signedIn } from '../helpers';
+import { db, makeBusiness, signedIn } from '../helpers';
+import { SECRET } from '../playwright.config';
 
 const ist = (offsetDays: number) => new Date(Date.now() + 5.5 * 3600e3 + offsetDays * 86_400_000).toISOString().slice(0, 10);
 const oneLine = [{ description: 'Goods', quantity: '1', rate: '1000', taxRateBp: 1800 }];
@@ -85,4 +87,72 @@ test('a customer gets their own reminder schedule, with a preview and the plan f
   await page.reload();
   await page.getByRole('tab', { name: 'Reminders' }).click();
   await expect(page.getByText('No reminders are waiting.')).toBeVisible();
+});
+
+async function recoverPortalCode(linkId: string): Promise<string> {
+  const [c] = await db`select code_hash from portal_code where portal_link_id = ${linkId} and consumed_at is null order by created_at desc limit 1`;
+  const want = Buffer.from(c!.code_hash);
+  for (let i = 0; i < 1_000_000; i++) {
+    const code = String(i).padStart(6, '0');
+    if (createHmac('sha256', SECRET).update(`portal:${linkId}:${code}`).digest().equals(want)) return code;
+  }
+  throw new Error('code not found');
+}
+
+test('a customer signs in to the portal with a code, pays two invoices together, comments, attaches a PO and gets a statement PDF', async ({ page, context, browser }) => {
+  const u = await signedIn(context);
+  await makeBusiness(u.userId, 'Portal Co');
+  const c = await (await page.request.post('/api/parties', { data: { kind: 'customer', name: 'Asha Stores', stateCode: '27', email: 'asha@stores.test' } })).json();
+  const mk = async (docType: string, rate: string) => {
+    const d = await (await page.request.post('/api/documents', { data: { docType, partyId: c.id, dueDate: ist(10), lines: [{ name: 'Work', hsnSac: '998313', quantity: '1', rate, taxRateBp: 0, kind: 'service' }] } })).json();
+    await page.request.post(`/api/documents/${d.id}/issue`, { data: {} });
+    return d.id as string;
+  };
+  await mk('tax_invoice', '1000'); await mk('tax_invoice', '500'); await mk('estimate', '5000');
+  const link = await (await page.request.post(`/api/parties/${c.id}/portal`, { data: {} })).json();
+  expect((await page.request.put(`/api/parties/${c.id}/portal/settings`, { data: { codeLogin: true } })).ok()).toBe(true);
+  const [row] = await db`select id from portal_link where party_id = ${c.id} and revoked_at is null`;
+
+  // the customer arrives with no account of ours, only the link
+  const cust = await browser.newContext();
+  const p = await cust.newPage();
+  await p.goto(`/portal/${link.token}`);
+  await expect(p.getByRole('heading', { name: 'Open your account' })).toBeVisible();
+  await p.getByRole('button', { name: /Email a code to as\*\*@stores.test/ }).click();
+  await expect(p.getByText('We sent a 6 digit code to')).toBeVisible();
+  await p.getByLabel('Code').fill('000000');
+  await p.getByRole('button', { name: 'Open my account' }).click();
+  await expect(p.getByRole('alert')).toContainText('not right or has expired');
+  await p.getByLabel('Code').fill(await recoverPortalCode(row!.id as string));
+  await p.getByRole('button', { name: 'Open my account' }).click();
+  await expect(p.getByTestId('portal-owing')).toHaveText('Rs 1,500.00');
+
+  // two invoices together
+  const boxes = p.getByRole('checkbox', { name: /to pay together/ });
+  await boxes.nth(0).check(); await boxes.nth(1).check();
+  await expect(p.getByText('2 invoices chosen, Rs 1,500.00 in all.')).toBeVisible();
+  await p.getByRole('button', { name: 'Pay Rs 1,500.00 together' }).click();
+  await expect(p).toHaveURL(/mock-gateway/);
+
+  // a comment and a purchase order on the estimate
+  await p.goto(`/portal/${link.token}`);
+  await p.getByText(/^Estimate /).first().click();
+  await p.getByLabel(/Write a comment on/).fill('Please confirm the delivery date.');
+  await p.getByRole('button', { name: 'Send comment' }).click();
+  await expect(p.getByText('Your comment has been sent.')).toBeVisible();
+  await p.getByLabel(/Attach your purchase order/).setInputFiles({ name: 'PO-1.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 purchase order') });
+  await expect(p.getByText('Your purchase order has been attached.')).toBeVisible();
+  const pdf = await p.request.get(`/api/portal/${link.token}/statement?format=pdf`);
+  expect(pdf.headers()['content-type']).toContain('application/pdf');
+
+  // a stranger with the link but no session sees nothing
+  const stranger = await browser.newContext();
+  expect((await stranger.request.get(`/api/portal/${link.token}`)).status()).toBe(401);
+  await cust.close(); await stranger.close();
+
+  // the business sees what the customer wrote and sent
+  await page.goto(`/app/customers/${c.id}`);
+  await page.getByRole('tab', { name: 'Portal' }).click();
+  await expect(page.getByText('Please confirm the delivery date.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'PO-1.pdf' })).toBeVisible();
 });

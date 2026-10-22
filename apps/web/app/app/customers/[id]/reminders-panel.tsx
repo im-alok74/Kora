@@ -65,7 +65,7 @@ export default function RemindersPanel({ partyId, canWrite }: { partyId: string;
             <div className="row" style={{ justifyContent: 'flex-start' }}>
               <button style={{ flex: 'none' }}>Save schedule</button>
               <button type="button" className="secondary" style={{ flex: 'none' }} onClick={() => void run(async () => { setPreview(await api(`/api/parties/${partyId}/reminders`, { body: config() })); })}>Preview this schedule</button>
-              <button type="button" className="link" style={{ flex: 'none' }} onClick={() => void run(async () => { await api(`/api/parties/${partyId}/reminders`, { method: 'PUT', body: null }); await load(); setMsg('This customer now follows your business schedule.'); })}>Go back to the business schedule</button>
+              <button type="button" className="link" style={{ flex: 'none' }} onClick={() => void run(async () => { await api(`/api/parties/${partyId}/reminders`, { method: 'PUT', body: { inherit: true } }); await load(); setMsg('This customer now follows your business schedule.'); })}>Go back to the business schedule</button>
             </div>
           </form>)}
         {msg && <p className="ok" role="status">{msg}</p>}

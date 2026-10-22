@@ -19,6 +19,8 @@ export * from './reminders-customer.js';
 export * from './estimates.js';
 export * from './recurring.js';
 export * from './portal.js';
+export * from './portal-login.js';
+export * from './portal-extra.js';
 export * from './expenses.js';
 export * from './latefee.js';
 export * from './files.js';

@@ -28,8 +28,10 @@ export async function createPortalLink(sql: Sql, t: TenantSession, partyId: stri
   await inTenant(sql, t, 'document.issue', async (tx) => {
     const [p] = await tx`select id from party where id = ${partyId}`;
     if (!p) throw new ValidationError('Customer not found.');
+    // A new link keeps the choice about asking for a code, so replacing a link never quietly turns the extra step off.
+    const [prev] = await tx`select code_login from portal_link where party_id = ${partyId} order by created_at desc limit 1`;
     await tx`update portal_link set revoked_at = now() where party_id = ${partyId} and revoked_at is null`;
-    await tx`insert into portal_link (business_id, party_id, token_hash, created_by) values (${t.businessId}, ${partyId}, ${hash}, ${t.userId})`;
+    await tx`insert into portal_link (business_id, party_id, token_hash, created_by, code_login) values (${t.businessId}, ${partyId}, ${hash}, ${t.userId}, ${!!prev?.code_login})`;
   });
   return { token };
 }
@@ -40,7 +42,7 @@ export async function revokePortalLink(sql: Sql, t: TenantSession, partyId: stri
 
 export async function portalStatus(sql: Sql, t: TenantSession, partyId: string) {
   const rows = await inTenant(sql, t, 'document.read', (tx) =>
-    tx`select created_at, view_count, first_viewed_at, last_viewed_at from portal_link where party_id = ${partyId} and revoked_at is null`);
+    tx`select created_at, view_count, first_viewed_at, last_viewed_at, code_login from portal_link where party_id = ${partyId} and revoked_at is null`);
   return rows[0] ? { active: true as const, ...rows[0] } : { active: false as const };
 }
 
