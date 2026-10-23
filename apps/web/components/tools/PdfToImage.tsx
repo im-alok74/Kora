@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { baseName, downloadBlob, LIMITS, makeZip, nextFrame, readBytes } from '../../lib/browserFiles';
-import { parsePageList, PdfProblem } from '../../lib/pdfOps';
+import { parsePageList, PdfProblem } from '../../lib/pdfPages';
 import { openPdf, pageToBlob, PdfOpenError } from '../../lib/pdfRender';
 import { formatBytes } from '../../lib/sizeTarget';
 import { FileDrop, PRIVATE_NOTE, Status } from './ToolBits';
@@ -64,7 +64,7 @@ export default function PdfToImage() {
     try {
       for (let i = 0; i < list.length; i++) {
         if (stop.current) break;
-        setBusy(`Drawing page ${list[i]} (${i + 1} of ${list.length})`);
+        if (i % 5 === 0) setBusy(`Drawing page ${list[i]} (${i + 1} of ${list.length})`);   // screen readers hear every fifth page, not every one
         await nextFrame();
         const r = await pageToBlob(doc.current, list[i]!, { scale, type: format, quality: 0.9 });
         reducedAny ||= r.reduced;
