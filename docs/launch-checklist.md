@@ -8,7 +8,7 @@ Written on 23 October 2026 from the repository only. Nobody looked at Vercel, Su
 
 | # | Item | Status | Evidence |
 |---|---|---|---|
-| 1 | Background work only runs once a day. Sending an invoice, e-invoice registration and webhooks wait for the next pass | **Not done** | `apps/web/vercel.json` has one cron, `30 4 * * *` (10:00 IST). Nothing runs jobs inside a web request (`runTick` is called only from `apps/web/app/api/cron/tick/route.ts`). See section 11 |
+| 1 | Background work only runs once a day. Sending an invoice, e-invoice registration and webhooks wait for the next pass | **Not done** | `apps/web/vercel.json` has one cron, `30 4 * * *` (10:00 IST). Nothing runs jobs inside a web request (`runTick` is called only from `apps/web/app/api/cron/tick/route.ts`). The worker service is the chosen fix, see section 11 |
 | 2 | Legal pages still carry placeholder text | **Not done** | `support@kora.example` in `apps/web/app/terms/page.tsx` and `refunds/page.tsx`, `privacy@kora.example` in `privacy/page.tsx`, "[number of days to be decided]" twice in `refunds/page.tsx`. Pricing says "Placeholder price" in `pricing/page.tsx` |
 | 3 | Real sign-in codes (SMS and email) | **Unknown** | Code is ready (`packages/adapters/src/live.ts`). Needs `OTP_PROVIDER=live` and provider keys in Vercel. Production refuses the mock sender unless `KORA_ALLOW_MOCKS=1` |
 | 4 | Real WhatsApp, SMS and email for invoices | **Unknown** | Code is ready. Needs `MESSENGER=live`, an approved WhatsApp template and an approved SMS template |
@@ -241,21 +241,24 @@ Money is not auto-reconciled for QR scans that go straight to a bank account. Th
 
 Until a partner is chosen, keep `einvoice_enabled` off for real businesses. If it is on and the partner address is wrong, invoices show as failed and the owner can press Resubmit later.
 
-## 11. Background work: the worker or a frequent scheduler
+## 11. Background work: the worker (chosen path)
 
-Status: **Not done**. This is the item most likely to surprise a first customer.
+Decision (owner, 23 October 2026): run the worker as a second service built from the `Dockerfile`. Status: **Not done** until the service is deployed and a test invoice is delivered within minutes. This is the item most likely to surprise a first customer.
 
-What runs in the background: sending an invoice or reminder (`delivery.send`), statements (`statement.send`), e-invoice registration (`einvoice.register`) and webhook delivery (`webhook.deliver`). Web requests only put a job in the queue (in the same transaction as the change). Nothing runs it until a worker or `GET /api/cron/tick` does.
+What runs in the background: sending an invoice or reminder (`delivery.send`), statements (`statement.send`), e-invoice registration (`einvoice.register`) and webhook delivery (`webhook.deliver`), plus due reminders and recurring invoices. Web requests only put a job in the queue. Today `apps/web/vercel.json` calls `/api/cron/tick` once a day at 10:00 IST, so without a worker a WhatsApp send can wait until the next morning.
 
-Today `apps/web/vercel.json` calls the tick once a day at 10:00 IST. So a WhatsApp send can wait until the next morning. Pick one:
+Steps:
 
-| Option | Cost | Notes |
-|---|---|---|
-| Run the worker (`pnpm --filter @kora/worker start`) as a second service from the `Dockerfile` on Fly.io, Render, Railway or similar. Run two for availability | A small always-on container | Best answer. Needs the same environment as the web app |
-| Call `/api/cron/tick` every minute or two from an external scheduler with `Authorization: Bearer <CRON_SECRET>` | Free to cheap | Overlapping calls and a running worker are safe (jobs use `SKIP LOCKED`) |
-| Vercel Pro cron (up to once a minute) | Paid Vercel plan | Change `schedule` in `apps/web/vercel.json` |
+1. Pick a container host that can run an always-on service from a Dockerfile (Fly.io, Render, Railway or similar). The web app stays on Vercel.
+2. Build from the repository `Dockerfile`. The image default is the web command, so set the service command to `pnpm --filter @kora/worker start`.
+3. Give it the same environment names as the web app (section 2): `DATABASE_URL` (the `kora_web` role), `GSP_URL`, `APP_URL`, `MESSENGER=live` with the `WHATSAPP_*`, `MSG91_SMS_TEMPLATE_ID`, `RESEND_API_KEY` and `EMAIL_FROM` names, `BLOB_S3_*`, `SENTRY_DSN`. Do not set `KORA_ALLOW_MOCKS`. For the worker, `DATABASE_URL` may use the session pooler (port 5432) or the transaction pooler (6543).
+4. Set `WORKER_HEALTH_PORT` (for example `8081`) and point the host's health check at `/healthz`. The image's own `HEALTHCHECK` already uses it when set. It answers 503 when the loop has stalled for a minute.
+5. Run two instances for availability. Jobs use `SKIP LOCKED`, so they never double-run work.
+6. Keep the daily Vercel cron as a safety net. It is harmless alongside a worker.
+7. Test: issue an invoice in a test business, press Send to your own number, and check Send history shows delivered within a couple of minutes. Check `GET /api/admin/jobs` shows nothing waiting.
+8. Decide who watches `/api/admin/jobs` and the worker health check (section 5).
 
-Also decide who watches `/api/admin/jobs`.
+Alternatives that were considered and not chosen: calling `/api/cron/tick` every minute or two from an external scheduler, or per-minute cron on a paid Vercel plan.
 
 ## 12. Legal pages
 
