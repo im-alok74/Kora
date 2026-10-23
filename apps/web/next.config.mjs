@@ -5,11 +5,15 @@ try { process.loadEnvFile?.(new URL('../../.env', import.meta.url)); } catch { /
 // The public invoice route (/i/) sets its own, much stricter policy, so it is left out here.
 const APP_CSP = { key: 'Content-Security-Policy', value: "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'" };
 
+// The two scanner tools open the camera, so they alone may use it (on this origin only). Every other route keeps it shut.
+const CAMERA_PAGES = '/tools/:tool(barcode-scanner|qr-code-scanner)';
+const PERMISSIONS_POLICY = (camera) => ({ key: 'Permissions-Policy', value: `camera=${camera}, microphone=(), geolocation=(), payment=()` });
+
 const SECURITY_HEADERS = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
+  PERMISSIONS_POLICY('()'),
   ...(process.env.NODE_ENV === 'production' ? [{ key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' }] : []),
 ];
 
@@ -31,6 +35,8 @@ export default {
     return [
       { source: '/:path*', headers: SECURITY_HEADERS },
       { source: '/((?!i/).*)', headers: [APP_CSP] },
+      // Listed last: when two rules set the same header on one path, the later one wins.
+      { source: CAMERA_PAGES, headers: [PERMISSIONS_POLICY('(self)')] },
     ];
   },
   // Workspace packages import their own files as './x.js' (the ESM convention); map that to the .ts source.
