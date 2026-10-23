@@ -39,7 +39,7 @@ One library computes everything, in integer paise, with these rules:
 
 ### Data export, import and integrations
 - A full backup, an Excel workbook and a Tally file are available to the owner and the accountant. Each one is recorded (who, what, how many rows). Staff cannot take the business's data out.
-- Imports add customers and items only. Every row is checked as if it had been typed in, rows that already exist are skipped, and nothing is changed or deleted. An import cannot create or alter an invoice.
+- Imports of customers and items add new records only. Every row is checked as if it had been typed in, rows that already exist are skipped, and nothing is changed or deleted. Old invoices are imported only as **drafts**: the old invoice number is kept as a reference, the draft gets a Kora number when the owner issues it, and importing the same file twice does not repeat the drafts. An import can never create or alter an issued document.
 - API keys act as staff (write) or accountant (read) and can never cancel, change settings or manage people. Issued documents stay immutable through the API; corrections are still credit and debit notes. Whatever totals a caller sends are ignored: Kora always works them out.
 - Webhooks carry identifiers and amounts, signed with the endpoint's secret. They are sent only to public addresses.
 - The Tally file follows Tally's import format as understood, and has not been tried against a live Tally. An accountant should check it in a test company.
@@ -66,9 +66,19 @@ One library computes everything, in integer paise, with these rules:
 ### Returns data
 - **GSTR-1 JSON** for a month: B2B, B2CL, B2CS, credit and debit notes (registered and unregistered), nil and exempt supplies, HSN summary, and the document series summary. Kora proves that the sections add up to the sales ledger to the paisa and warns if they do not.
 - **GST summary** laid out like GSTR-3B table 3.1 (outward supplies), net of credit notes, with reverse-charge, nil-rated and exempt supplies shown apart.
-- **GSTR-3B data**: tables 3.1 and 3.2 from the invoices, as screen tables and as a JSON file in the shape of the offline tool. Input tax credit (table 4), inward supplies (5) and interest and late fee (5.1) are left empty because Kora has no purchases. The file layout has not been checked against the current offline utility, and a CA must check it before it is used.
+- **GSTR-3B data**: tables 3.1 and 3.2 from the invoices, and table 4 (input tax credit) from the purchase bills the owner has recorded, as screen tables and as a JSON file in the shape of the offline tool. Inward supplies exempt or nil-rated (5) and interest and late fee (5.1) are left empty. The file layout has not been checked against the current offline utility, and a CA must check it before it is used.
 - **TCS and TDS** are entered as percentages on an invoice. TCS is added to the total (on taxable value plus tax). TDS is not part of the total: it is shown as what the customer will deduct, and recorded as a payment of method TDS when it arrives, so the invoice closes. Whether TCS or TDS applies, and at what rate, is the owner's decision; Kora does not suggest rates.
 - Both are **data to prepare a return**. Aggregate turnover is left at 0 in the GSTR-1 file for the owner to enter.
+
+### Purchases and input tax credit
+- The owner (or accountant) records purchase bills with the vendor's GSTIN and tax. Each bill is marked eligible or blocked, and a blocked bill must say why (for example food and beverages, or personal use). Kora does not decide eligibility.
+- A GSTR-2B file can be loaded and matched against the bills: matched, different in amount, only in 2B, or only in the books. An eligible bill that the supplier has not filed is shown as at risk.
+- Payables ageing and MSME payment dates are tracked. Expenses (see above) are separate and do not feed input credit.
+- The matching rules and the eligible and blocked categories are for the CA to confirm.
+
+### E-way bills
+- For an issued tax invoice, bill of supply or delivery challan with goods, Kora builds the e-way bill JSON, checks the portal's content rules in plain words, and sends it through the GST partner. Until a partner is connected, the JSON can be downloaded and uploaded on the portal by hand.
+- Cancellation is offered within 24 hours of making the bill. The payload field names and rules follow the public e-way bill API as understood and **have not been checked against the live portal or a partner sandbox**.
 
 ### Records
 - Every change to records is written to an append-only audit log with who made it and when. The application role cannot update or delete it.
@@ -77,8 +87,8 @@ One library computes everything, in integer paise, with these rules:
 ## What Kora does not do
 
 - **It does not file returns.** GSTR-1, GSTR-3B and annual returns are filed by the owner or their CA on the GST portal.
-- **No purchases or input tax credit.** Kora v1 records sales only, so the GST summary excludes ITC and inward supplies, and nothing is reconciled against GSTR-2B.
-- **No e-way bills.** Planned for v1.5.
+- **No input tax credit decisions.** Purchases, eligible and blocked status, GSTR-2B matching and the 3B table 4 figures are record keeping for the CA. The "GST summary" report (outward supplies only) still prints a note that purchases are not included.
+- **No live e-way bill or e-invoice connection.** Both run against the local mock partner until a real GST partner is connected.
 - **No exports, SEZ supplies or deemed exports.** Place of supply 96 is refused with a message.
 - **No reverse-charge e-invoices.** An invoice marked as reverse charge cannot be registered as an e-invoice yet; Kora says so rather than guessing.
 - **E-invoice is B2B only.** Sales to unregistered buyers are not sent to the portal, and sales to composition dealers are not treated differently.
@@ -95,6 +105,8 @@ One library computes everything, in integer paise, with these rules:
 5a. The GSTR-3B JSON field names and which table outward supplies with reverse charge belong in.
 6. The partner's error codes. Kora's plain-words messages are keyed to the mock partner's codes and must be mapped to the real partner's list.
 7. Whether reverse-charge outward supplies need an e-invoice and how.
+8. The e-way bill JSON (field names, the Rs 50,000 limit, transport modes, the 24-hour cancellation rule) against the live portal.
+9. Purchases: which bills are eligible or blocked for input credit, how GSTR-2B lines should match bills, and the table 4 layout of GSTR-3B.
 
 ## Data protection
 
@@ -103,7 +115,7 @@ Kora stores customers' names, GSTINs, addresses, phone numbers and emails on beh
 ## Security controls that support compliance
 
 - Tenant isolation is enforced by row-level security, and a removed member's access ends at the database, not only in the app.
-- Sign-in is by one-time code with rate limits, single-use codes, and HMAC-hashed storage. No passwords exist to leak. The portal password of a taxpayer is never requested or stored.
+- Sign-in is by one-time code with rate limits, single-use codes, and HMAC-hashed storage. A person may also set a password, which is stored only as a salted scrypt hash, and turn on an authenticator app with recovery codes. The GST portal password of a taxpayer is never requested or stored.
 - Webhooks are verified by signature on the raw body and are idempotent by event id.
 - The public invoice link holds only a hash of its token, can be revoked, and returns nothing but the one document.
 - The portal link works the same way for one customer. Every portal action checks that the document belongs to that customer before reading or changing it, and the portal pages are marked not to be indexed by search engines.

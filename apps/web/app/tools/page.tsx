@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   title: 'Free business tools',
   description: 'Free tools for Indian businesses: GST calculator, invoice, quotation, proforma and purchase order makers, receipt maker, QR and barcode tools, and a logo maker.',
   alternates: { canonical: '/tools' },
+  openGraph: { type: 'website', title: 'Free business tools | Kora', description: 'Free GST calculator, invoice, quotation, proforma, purchase order and receipt makers, QR and barcode tools and a logo maker.', url: '/tools' },
 };
 
 const TINTS = ['pink', 'mint', 'sky', 'sun'];

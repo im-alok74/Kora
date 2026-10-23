@@ -20,7 +20,7 @@ All of them show the same Kora web app, so there is one product, one login and o
 
 ## Pointing the apps at your own address
 
-The address the apps open is set in two places, and both default to the Vercel address:
+The address the apps open is set in two places. Both are currently `https://kora-git-main-platter2.vercel.app/login`, which is the Vercel alias for the latest deployment of the `main` branch, not the site's public address (`https://kora-invoice.vercel.app` is the default public address in `apps/web/lib/site.ts`). Use the final domain before anyone installs an app:
 - `apps/desktop/src/app-config.json` (`url`), or the `KORA_URL` environment variable when running the desktop app.
 - `apps/mobile/capacitor.config.json` (`server.url`).
 

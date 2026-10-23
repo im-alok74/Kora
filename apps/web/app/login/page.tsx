@@ -84,9 +84,9 @@ export default function Login() {
       <div className="auth-main">
       <div className="auth-box">
       <div className="auth-brand"><a href="/" aria-label="Kora home"><KoraLogo /></a></div>
-      <div className="auth-mode" aria-label="Account access">
-        <button type="button" aria-pressed={mode !== 'signup'} onClick={() => switchTo('signin')}>Sign in</button>
-        <button type="button" aria-pressed={mode === 'signup'} onClick={() => switchTo('signup')}>Create account</button>
+      <div className="auth-mode" role="tablist" aria-label="Account access" onKeyDown={(e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); switchTo(mode === 'signup' ? 'signin' : 'signup'); } }}>
+        <button type="button" role="tab" aria-selected={mode !== 'signup'} tabIndex={mode !== 'signup' ? 0 : -1} onClick={() => switchTo('signin')}>Sign in</button>
+        <button type="button" role="tab" aria-selected={mode === 'signup'} tabIndex={mode === 'signup' ? 0 : -1} onClick={() => switchTo('signup')}>Create account</button>
       </div>
       <h1>{mode === 'signup' ? 'Create your Kora account' : 'Sign in to Kora'}</h1>
       <p className="lead">{mode === 'code' ? 'Receive a sign-in code by email or text message.' : mode === 'signup' ? (demo ? 'Create an account to explore a labelled demo business with sample data.' : 'Create an account to manage your invoices and payments.') : 'Access your invoices, customers, and payments.'}</p>
@@ -102,8 +102,7 @@ export default function Login() {
           <form noValidate onSubmit={(e) => { e.preventDefault(); if (!checkId()) return; void run(async () => after(await api('/api/auth/password', { body: { identifier, password } }), 'signin')); }}>
             {idField}
             <label htmlFor="pw">Password</label>
-            <input id="pw" type={show ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            {pwToggle}
+            <div className="pw-field"><input id="pw" type={show ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />{pwToggle}</div>
             <button disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
           </form>
         ) : mode === 'signup' ? (
@@ -121,10 +120,9 @@ export default function Login() {
             </select>
             {idField}
             <label htmlFor="pw">Password (at least 8 characters)</label>
-            <input id="pw" type={show ? 'text' : 'password'} autoComplete="new-password" minLength={8} maxLength={128} value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby="pw-note" required />
+            <div className="pw-field"><input id="pw" type={show ? 'text' : 'password'} autoComplete="new-password" minLength={8} maxLength={128} value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby="pw-note" required />{pwToggle}</div>
             <div className="pw-meter" data-score={strength.score} aria-hidden="true"><i /><i /><i /><i /></div>
             <p id="pw-note" className="pw-note" role="status">{password ? <><b>{strength.label}.</b> {strength.tip}</> : 'Use at least 8 characters. A few random words work well.'}</p>
-            {pwToggle}
             <button disabled={busy}>{busy ? 'Creating account…' : 'Create account'}</button>
           </form>
         ) : step === 'id' ? (

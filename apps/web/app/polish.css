@@ -1,0 +1,30 @@
+/* Overnight polish for the shared public chrome. Selectors carry .landing so they win whatever the import order. */
+
+/* Footer: brand plus three link columns on one row, the legal line underneath. */
+.landing.kora-home .l-footer .l-wrap { grid-template-columns: 1.6fr 1fr 1fr 1fr; }
+.landing.kora-home .l-footer .l-wrap > .l-legal { grid-column: 1 / -1; }
+@media (max-width: 480px) { .landing.kora-home .l-footer .l-wrap { grid-template-columns: 1fr 1fr; } }
+
+/* Header: the full menu needs about 980px, so tablets get the compact menu instead of a squeezed, wrapping one. */
+@media (max-width: 980px) {
+  .landing.kora-home .l-bar { min-height: 70px; }
+  .landing.kora-home .l-bar > nav { display: none; }
+  .landing .k-mobile-menu { display: block; position: relative; }
+  .landing .k-mobile-menu > summary { display: flex; padding: 10px; list-style: none; color: var(--text); cursor: pointer; }
+  .landing .k-mobile-menu > summary::-webkit-details-marker { display: none; }
+  .landing.kora-home .k-mobile-menu nav { display: flex; position: absolute; right: 0; top: 50px; z-index: 90; flex-direction: column; align-items: stretch; gap: 0; padding: 12px; background: var(--surface-raised, #fff); border: 1px solid var(--border-strong, #e2e7ed); box-shadow: 0 12px 30px rgb(36 54 77 / 10%); border-radius: 9px; width: 240px; }
+  .landing.kora-home .k-mobile-menu nav a:not(.btn) { display: block; padding: 11px 14px; font-size: 15px; }
+}
+
+/* Dark mode: the landing preview tabs were drawn with light-only colours and failed contrast. */
+:root[data-theme="dark"] .landing.kora-home .k-preview-tabs button { color: var(--text-muted); background: transparent; border-color: var(--border-strong); }
+:root[data-theme="dark"] .landing.kora-home .k-preview-tabs button:hover { color: var(--text); background: var(--surface-raised); }
+:root[data-theme="dark"] .landing.kora-home .k-preview-tabs button[aria-selected='true'] { color: var(--accent); border-color: var(--accent); background: transparent; }
+/* The preview stage keeps its light panel in dark mode, so its copy keeps dark ink. */
+:root[data-theme="dark"] .landing.kora-home .k-preview-copy h3 { color: #171b20; }
+:root[data-theme="dark"] .landing.kora-home .k-preview-copy p, :root[data-theme="dark"] .landing.kora-home .k-preview-copy > small { color: #44515d; }
+:root[data-theme="dark"] .landing.kora-home .k-preview-copy > a, :root[data-theme="dark"] .landing.kora-home .k-preview-copy a { color: #0a4fa8; }
+/* The product preview is a light "screen" inside the page, so its text keeps dark ink in dark mode too. */
+:root[data-theme="dark"] .landing.kora-home .k-app-preview { color: #253244; }
+:root[data-theme="dark"] .landing.kora-home .k-app-preview :is(p, span, b, small, strong, h4, td, th, div, li):not([class*='studio'], [class*='chip'], [class*='badge'], [class*='tag']) { color: #3a4856; }
+:root[data-theme="dark"] .landing.kora-home .k-reassurance span { color: var(--text-muted); }
