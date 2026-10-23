@@ -1,5 +1,7 @@
 # Local Postgres. Roles mirror production: the owner runs migrations (BYPASSRLS, not superuser),
 # the web role is subject to row-level security.
+# One project name for every checkout and git worktree, so they share one database container instead of fighting over port 54329.
+name: kora
 services:
   db:
     image: postgres:16
