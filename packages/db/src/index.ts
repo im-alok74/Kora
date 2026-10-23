@@ -50,7 +50,7 @@ export async function withTenant<T>(sql: Sql, ctx: TenantContext, fn: (tx: Tx) =
 
 export const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
-/** Applies pending SQL files in name order, each in its own transaction, under an advisory lock. */
+/** Applies all pending SQL files in name order in one transaction, under an advisory lock. */
 export async function runMigrations(sql: Sql, dir = MIGRATIONS_DIR): Promise<string[]> {
   const applied: string[] = [];
   await sql.begin(async (tx) => {

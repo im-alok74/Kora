@@ -139,3 +139,5 @@ The longer version, with a diagram of an invoice from draft to paid, is in [docs
 ## Licence and clean-room note
 
 Kora reproduces what invoicing apps do, not how they look or sound. No code, templates, copy, icons or brand from any competitor is used; `replica/brand.json` lists the names the sweep checks for.
+
+For the end-to-end design, reliability gaps, operating model and prioritized implementation gates, read [the system design](docs/system-design.md).

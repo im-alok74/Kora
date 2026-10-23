@@ -5,8 +5,8 @@ import { processDueRecurring } from './recurring.js';
 
 /**
  * One pass of the background work, for hosts that cannot keep a worker process running: queue due reminders and recurring
- * invoices, then run ready jobs until none are left or the time budget is used. Every step is safe to run twice, so an
- * overlapping call, or the long-running worker running at the same time, does no harm.
+ * invoices, then run ready jobs until none are left or the time budget is used. The budget is checked between batches;
+ * an in-progress handler can exceed it. Claims coordinate concurrent runners, but external side effects remain at least once.
  */
 export async function runTick(sql: Sql, handlers: Handlers, o: { worker?: string; budgetMs?: number } = {}) {
   const started = Date.now();

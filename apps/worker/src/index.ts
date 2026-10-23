@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 
 /**
  * Background worker: sends queued messages, registers e-invoices, and queues due reminders and recurring invoices.
- * It only polls and runs jobs; every job is safe to run twice, so a crash or a second worker does no harm.
+ * Claims coordinate workers. External side effects remain at least once: a crash after provider acceptance can repeat a send.
  */
 const log = (event: string, data: Record<string, unknown> = {}) => console.log(JSON.stringify({ t: new Date().toISOString(), event, ...data }));
 
