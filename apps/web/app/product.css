@@ -49,7 +49,7 @@
 .auth .auth-main { padding: 48px 64px; }.auth .auth-brand { margin-bottom: 30px; }
 .auth .auth-mode { display: flex; gap: 28px; border-bottom: 1px solid var(--border); margin-bottom: 30px; }
 .auth .auth-box .auth-mode button { width: auto; margin: 0; padding: 0 0 12px; height: auto; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--text-muted); font-size: 14px; }
-.auth .auth-box .auth-mode button[aria-pressed='true'] { color: var(--accent); border-bottom-color: var(--accent); }
+.auth .auth-box .auth-mode button[aria-selected='true'] { color: var(--accent); border-bottom-color: var(--accent); }
 .auth .auth-box h1 { font-size: 28px; line-height: 1.3; margin-bottom: 10px; }.auth .lead { font-size: 14px; line-height: 1.7; }
 .auth .auth-box :is(input, select) { height: 46px; font-size: 16px; background: var(--surface-raised); border-radius: 5px; }
 .auth .auth-box label { font-size: 13px; }.auth .auth-form button:not(.link) { height: 46px; font-size: 14px; }

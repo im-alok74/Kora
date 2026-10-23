@@ -3,6 +3,7 @@ import Icon from './Icon';
 import SiteThemeToggle from './SiteThemeToggle';
 import { TOOLS, toolIcon } from '../lib/tools';
 import '../app/site-tools.css';
+import '../app/polish.css';
 
 /** The top bar and footer shared by the landing page, pricing, help and the legal pages. */
 export function SiteHeader() {

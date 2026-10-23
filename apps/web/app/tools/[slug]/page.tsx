@@ -7,6 +7,7 @@ import LogoMaker from '../../../components/tools/LogoMaker';
 import { Band, Cards, Cross, Faq, MoreTools, Steps, ToolHero, ToolsShell } from '../../../components/tools/ToolShell';
 import { TOOLS, toolBySlug } from '../../../lib/tools';
 import { GST_SLABS, toolPageInfo } from '../../../lib/toolPages';
+import { SITE_URL } from '../../../lib/site';
 import '../../landing.css';
 import '../../landing-dark.css';
 import '../../site.css';
@@ -17,7 +18,9 @@ export const generateStaticParams = () => TOOLS.map((t) => ({ slug: t.slug }));
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const t = toolBySlug((await params).slug);
-  return t ? { title: `${t.title}: free`, description: t.summary, alternates: { canonical: `/tools/${t.slug}` } } : {};
+  if (!t) return {};
+  const title = `Free ${t.title}, no signup`;
+  return { title, description: t.summary, alternates: { canonical: `/tools/${t.slug}` }, openGraph: { type: 'website', title: `${title} | Kora`, description: t.summary, url: `/tools/${t.slug}` }, twitter: { card: 'summary_large_image', title: `${title} | Kora`, description: t.summary } };
 }
 
 const DOCS: Record<string, DocKind> = { 'invoice-generator': 'invoice', 'quotation-maker': 'quotation', 'proforma-invoice-generator': 'proforma', 'purchase-order-generator': 'purchase-order', 'receipt-maker': 'receipt' };
@@ -64,8 +67,15 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
   const t = toolBySlug((await params).slug);
   if (!t) notFound();
   const info = toolPageInfo(t);
+  const url = `${SITE_URL}/tools/${t.slug}`;
+  const ld = [
+    { '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: t.title, description: t.summary, url, applicationCategory: 'BusinessApplication', operatingSystem: 'Any (web browser)', inLanguage: 'en-IN', isAccessibleForFree: true, offers: { '@type': 'Offer', price: '0', priceCurrency: 'INR' }, publisher: { '@type': 'Organization', name: 'Kora', url: SITE_URL } },
+    { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: info.faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) },
+    { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [['Home', SITE_URL], ['Free tools', `${SITE_URL}/tools`], [t.title, url]].map(([name, item], i) => ({ '@type': 'ListItem', position: i + 1, name, item })) },
+  ];
   return (
     <ToolsShell>
+      {ld.map((d, i) => <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(d).replace(/</g, '\\u003c') }} />)}
       <ToolHero
         crumbs={[['Home', '/'], ['Free tools', '/tools'], [t.title, '']]}
         badge={info.badge} title={t.title} highlight={info.highlight} lead={info.lead}

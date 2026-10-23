@@ -1,4 +1,6 @@
-# Zoho Invoice feature parity — inventory and gap analysis
+# Zoho Invoice feature parity: inventory and gap analysis
+
+> Snapshot note: this inventory was written during the overnight build. Several gaps listed below have since been built (contact persons and addresses in migration 0033, write-off in 0034, recurring expenses in 0035, price lists in 0036). Read it as history, and check the code before trusting a row.
 
 **Source:** Zoho Invoice API v3 reference (`zoho.com/in/invoice/api/v3/`), scraped 2026-10-21.
 271 documented operations across 21 functional modules. The API reference is used rather than
@@ -65,31 +67,31 @@ offline invoicing, audit log, data export/erasure.
 
 Ordered by how much a paying Indian SMB would miss them.
 
-### Tier 1 — real holes in a billing product
+### Tier 1: real holes in a billing product
 
 | # | Gap | Zoho ops | Why it matters | Touches |
 |---|---|---|---|---|
-| G1 | **Contact persons** — a customer has one `phone`/`email`. No multiple named contacts, no primary flag. | 7 | Any company customer has AP + procurement + a signatory. Invoices go to the wrong inbox. | DB, BE, FE |
-| G2 | **Multiple addresses per contact** — `party` has exactly one `billing_address` + one `shipping_address`. | 4 | Multi-branch customers; ship-to differs per order. | DB, BE, FE |
-| G3 | ~~Customer statement of account~~ — **CORRECTION: already existed** in `packages/core/src/registers.ts` (`customerStatement`), wired to `/api/reports/statement` and the portal. My first pass grepped `parties.ts` and `reports.ts` and missed it. Real gaps found while there: refunds were absent from the running balance, and there was no way to email a statement. Both fixed. | 2 | — | done |
-| G4 | **Write-off invoice / cancel write-off** — no way to write off a bad debt. | 2 | Today the only exit is `cancelled`, which is wrong accounting. | DB, BE, FE |
-| G5 | **Void vs cancel** — `status` is only `draft/issued/cancelled`; no void, no re-open a voided doc. | 3 | Zoho distinguishes void (number burnt, kept) from delete. Kora conflates. | DB, BE |
-| G6 | **Recurring expenses** — `recurring_profile` drives invoices only. | 10 | Rent, SaaS subscriptions, retainers paid out. | DB, BE, FE |
-| G7 | **Price lists** — no entity at all. Per-customer/volume pricing is manual. | 6 | Standard for wholesale and tiered B2B. | DB, BE, FE |
+| G1 | **Contact persons**: a customer has one `phone`/`email`. No multiple named contacts, no primary flag. | 7 | Any company customer has AP + procurement + a signatory. Invoices go to the wrong inbox. | DB, BE, FE |
+| G2 | **Multiple addresses per contact**: `party` has exactly one `billing_address` + one `shipping_address`. | 4 | Multi-branch customers; ship-to differs per order. | DB, BE, FE |
+| G3 | ~~Customer statement of account~~, **CORRECTION: already existed** in `packages/core/src/registers.ts` (`customerStatement`), wired to `/api/reports/statement` and the portal. My first pass grepped `parties.ts` and `reports.ts` and missed it. Real gaps found while there: refunds were absent from the running balance, and there was no way to email a statement. Both fixed. | 2 |, | done |
+| G4 | **Write-off invoice / cancel write-off**: no way to write off a bad debt. | 2 | Today the only exit is `cancelled`, which is wrong accounting. | DB, BE, FE |
+| G5 | **Void vs cancel**: `status` is only `draft/issued/cancelled`; no void, no re-open a voided doc. | 3 | Zoho distinguishes void (number burnt, kept) from delete. Kora conflates. | DB, BE |
+| G6 | **Recurring expenses**: `recurring_profile` drives invoices only. | 10 | Rent, SaaS subscriptions, retainers paid out. | DB, BE, FE |
+| G7 | **Price lists**: no entity at all. Per-customer/volume pricing is manual. | 6 | Standard for wholesale and tiered B2B. | DB, BE, FE |
 
-### Tier 2 — expected in a mature product
+### Tier 2: expected in a mature product
 
 | # | Gap | Zoho ops | Notes | Touches |
 |---|---|---|---|---|
 | G8 | **Retainer invoices** as a first-class doc type. Advances exist for matters/projects (`client_fund_entry`) but you cannot issue and email a standalone retainer invoice against a customer balance. | 21 | Partial coverage, not parity. | DB, BE, FE |
-| G9 | **Expense categories as an entity** — `expense.category` is free text (`expenses.ts:9` says so). No CRUD, no active/inactive. | 8 | Breaks expense reporting consistency. | DB, BE, FE |
-| G10 | **Tax groups, tax authorities, tax exemptions** — `tax_rate` is a flat global table (`rate_bp`, `label`, `active`), not per-business. | 18 | Kora hardcodes GST slabs. Fine for GST, blocks exemption handling. | DB, BE |
-| G11 | **Exchange rate management** — documents store `exchange_rate_micro` but there is no rate table, history, or CRUD. | 11 | Rates are entered per-invoice by hand. | DB, BE, FE |
-| G12 | **Timer (start/stop)** — `matter_entry.minutes` is logged after the fact; no running timer. | 3 | Table-stakes for hourly billing. | DB, BE, FE |
-| G13 | **Project tasks, per-project user assignment/invite, clone project** — `matter` has no task breakdown or member list. | 9 | Projects are currently a flat bucket of entries. | DB, BE, FE |
+| G9 | **Expense categories as an entity**: `expense.category` is free text (`expenses.ts:9` says so). No CRUD, no active/inactive. | 8 | Breaks expense reporting consistency. | DB, BE, FE |
+| G10 | **Tax groups, tax authorities, tax exemptions**: `tax_rate` is a flat global table (`rate_bp`, `label`, `active`), not per-business. | 18 | Kora hardcodes GST slabs. Fine for GST, blocks exemption handling. | DB, BE |
+| G11 | **Exchange rate management**: documents store `exchange_rate_micro` but there is no rate table, history, or CRUD. | 11 | Rates are entered per-invoice by hand. | DB, BE, FE |
+| G12 | **Timer (start/stop)**: `matter_entry.minutes` is logged after the fact; no running timer. | 3 | Table-stakes for hourly billing. | DB, BE, FE |
+| G13 | **Project tasks, per-project user assignment/invite, clone project**: `matter` has no task breakdown or member list. | 9 | Projects are currently a flat bucket of entries. | DB, BE, FE |
 | G14 | **Bulk export / bulk print / bulk email** of invoices and estimates. | 6 | Month-end workflow. | BE, FE |
 
-### Tier 3 — nice to have
+### Tier 3: nice to have
 
 | # | Gap | Zoho ops | Notes |
 |---|---|---|---|
@@ -104,15 +106,15 @@ Ordered by how much a paying Indian SMB would miss them.
 
 Each row is one shippable slice: migration + core module + API route + page.
 
-1. **G1 + G2 contacts** — one migration (`contact_person`, `party_address`), one core module, extend the customer page. Unblocks G3.
-2. **G3 statements** — read-only; pure reporting on existing `document`/`payment`.
-3. **G4 + G5 invoice lifecycle** — one migration adding `written_off`/`void` to the status check plus `write_off_paise`; touches `documents.ts` and the invoice page.
-4. **G9 expense categories** then **G6 recurring expenses** — G6 depends on G9.
-5. **G7 price lists** — new entity + hook into the invoice line pricing path.
-6. **G11 exchange rates** — new table + a resolver in `documents.ts`.
-7. **G12 + G13 projects/time** — extends the existing `matter` engine.
-8. **G14 bulk operations** — needs the PDF path to be batchable first.
-9. **G8 retainer invoices** — largest; defer until the lifecycle work (G4/G5) lands.
+1. **G1 + G2 contacts**: one migration (`contact_person`, `party_address`), one core module, extend the customer page. Unblocks G3.
+2. **G3 statements**: read-only; pure reporting on existing `document`/`payment`.
+3. **G4 + G5 invoice lifecycle**: one migration adding `written_off`/`void` to the status check plus `write_off_paise`; touches `documents.ts` and the invoice page.
+4. **G9 expense categories** then **G6 recurring expenses**: G6 depends on G9.
+5. **G7 price lists**: new entity + hook into the invoice line pricing path.
+6. **G11 exchange rates**: new table + a resolver in `documents.ts`.
+7. **G12 + G13 projects/time**: extends the existing `matter` engine.
+8. **G14 bulk operations**: needs the PDF path to be batchable first.
+9. **G8 retainer invoices**: largest; defer until the lifecycle work (G4/G5) lands.
 
 Tier 3 is not recommended for this product.
 
