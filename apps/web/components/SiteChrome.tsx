@@ -12,7 +12,6 @@ export function SiteHeader() {
   return (
     <>
       <a className="k-skip" href="#main-content">Skip to content</a>
-      <div className="k-topbar"><a href="/" aria-label="Kora home">kora<span>Business, beautifully simple.</span></a><div className="site-header-actions"><SiteThemeToggle /><a href="/login">Sign in <span aria-hidden="true">↗</span></a></div></div>
       <header className="l-header">
         <div className="l-wrap l-bar">
           <a className="l-brand" href="/" aria-label="Kora Invoice home"><KoraLogo /></a>
@@ -26,8 +25,10 @@ export function SiteHeader() {
               </div>
             </div>
             <a href={help[0]}>{help[1]}</a>
+            <a href="/login">Sign in</a>
             <a className="btn" href="/login?signup=1">Get started <Icon name="arrow" size={15} /></a>
           </nav>
+          <div className="k-header-tools"><SiteThemeToggle /></div>
           <details className="k-mobile-menu"><summary aria-label="Navigation menu"><Icon name="menu" size={24} /></summary>
             <nav aria-label="Mobile navigation">
               {links.map(([h, t]) => <a key={h} href={h}>{t}</a>)}

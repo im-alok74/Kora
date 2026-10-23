@@ -61,7 +61,7 @@
 .auth .auth-promo p { font-size: 14px; line-height: 1.8; color: var(--text-muted); }
 .auth .auth-promo .auth-sample-label { font-size: 10px; align-self: center; margin: 12px 0 20px; }
 .auth-benefits { list-style: none; margin: 0 0 26px; padding: 0; }.auth-benefits li { display: flex; align-items: center; gap: 11px; padding: 8px 0; font-size: 13px; }.auth-benefits svg { color: var(--accent); }
-.auth-product-link { display: inline-flex; gap: 10px; align-items: center; text-decoration: none; font-size: 13px; }
+.auth-product-link { color: var(--accent-ink); display: inline-flex; gap: 10px; align-items: center; text-decoration: none; font-size: 13px; }
 .setup-bg .setup h1 { font-weight: 400; }.setup-bg .setup .hl { background: none; color: var(--text); }.setup-bg .card { box-shadow: none; }
 .template-option { min-width: 0; display: flex; flex-direction: column; }
 .shell .gallery { grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 20px; }

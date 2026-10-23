@@ -14,7 +14,7 @@ test('a new user signs up, issues an invoice and sends it on WhatsApp in under 6
   await expect(page.getByLabel(/Six-digit code/)).toBeVisible();   // the server has stored the code by now
   const code = await recoverOtp(`+91${phone}`);
   await page.getByLabel(/Six-digit code/).fill(code); step();
-  await page.getByRole('button', { name: 'Sign in' }).click(); step();
+  await page.locator('form').getByRole('button', { name: 'Sign in' }).click(); step();
 
   await expect(page.getByRole('heading', { name: 'Set up your business' })).toBeVisible();
   await page.getByLabel('Legal name of the business').fill('Sharma Traders'); step();
@@ -52,7 +52,7 @@ test('login rejects a wrong code and shows the message', async ({ page }) => {
   await page.getByLabel('Mobile number or email').fill(phone);
   await page.getByRole('button', { name: 'Send code' }).click();
   await page.getByLabel(/Six-digit code/).fill('000000');
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.locator('form').getByRole('button', { name: 'Sign in' }).click();
   await expect(page.locator('p[role="alert"]')).toContainText('not right or has expired');
 });
 

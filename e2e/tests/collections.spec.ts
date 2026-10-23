@@ -59,7 +59,7 @@ test('the customer pays through the payment link and the invoice closes itself',
   await customer.close();
   await page.reload();
   await expect(page.getByText('Fully paid.')).toBeVisible();
-  await expect(page.getByText('upi via mock')).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'upi via mock' })).toBeVisible();
 });
 
 test('webhooks: a signed event is applied once, a repeat is harmless, a forged one is refused', async ({ page, context, request }) => {

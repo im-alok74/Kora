@@ -14,7 +14,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 test('expenses are recorded with a receipt, filtered, edited, exported and deleted', async ({ page, context }) => {
   await owner(context);
   await page.goto('/app/expenses');
-  await expect(page.getByText('No expenses in this period.')).toBeVisible();
+  await expect(page.getByText('No expenses in this period')).toBeVisible();
 
   await page.getByRole('button', { name: 'Add an expense' }).click();
   await page.getByLabel('Vendor').fill('City Cabs');
@@ -27,7 +27,7 @@ test('expenses are recorded with a receipt, filtered, edited, exported and delet
   await expect(page.getByText('Expense saved.')).toBeVisible();
   await expect(page.getByTestId('expense-total')).toHaveText('Rs 1,180.00');
   await expect(page.getByTestId('expense-gst')).toHaveText('Rs 180.00');
-  const row = page.getByRole('row', { name: /City Cabs/ });
+  const row = page.getByRole('table').filter({ hasText: 'Paid by' }).getByRole('row', { name: /City Cabs/ });
   await expect(row).toContainText('UPI');
 
   const receipt = await page.request.get(await row.getByRole('link', { name: 'Receipt' }).evaluate((a) => (a as HTMLAnchorElement).href));
@@ -46,7 +46,7 @@ test('expenses are recorded with a receipt, filtered, edited, exported and delet
   await expect(page.getByTestId('expense-total')).toHaveText('Rs 20,000.00');
   await page.locator('#ec').selectOption('');
 
-  await page.getByRole('row', { name: /Landlord/ }).getByRole('button', { name: 'Edit' }).click();
+  await page.getByRole('table').filter({ hasText: 'Paid by' }).getByRole('row', { name: /Landlord/ }).getByRole('button', { name: 'Edit' }).click();
   await page.getByLabel('Amount paid (Rs, with GST)').fill('22000');
   await page.getByRole('button', { name: 'Save expense' }).click();
   await expect(page.getByTestId('expense-total')).toHaveText('Rs 23,180.00');
@@ -56,7 +56,7 @@ test('expenses are recorded with a receipt, filtered, edited, exported and delet
   expect(await csv.text()).toContain('City Cabs');
 
   page.on('dialog', (d) => void d.accept());
-  await page.getByRole('row', { name: /Landlord/ }).getByRole('button', { name: 'Delete' }).click();
+  await page.getByRole('table').filter({ hasText: 'Paid by' }).getByRole('row', { name: /Landlord/ }).getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByTestId('expense-total')).toHaveText('Rs 1,180.00');
 
   // a file that only claims to be a picture is refused

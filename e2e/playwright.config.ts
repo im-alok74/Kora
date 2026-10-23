@@ -20,7 +20,8 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: [['list']],
-  use: { baseURL: `http://localhost:${PORT}`, trace: 'retain-on-failure', screenshot: 'only-on-failure' },
+  // Reduced motion: entrance animations fade text in, and axe scans taken mid-fade intermittently reported contrast failures on pages that are fine once settled.
+  use: { baseURL: `http://localhost:${PORT}`, reducedMotion: 'reduce', trace: 'retain-on-failure', screenshot: 'only-on-failure' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
