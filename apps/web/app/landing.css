@@ -208,3 +208,18 @@
 .k-invoice-dialog iframe { width: 100%; height: 72svh; min-height: 200px; border: 0; background: white; }
 .k-invoice-dialog a { display: inline-flex; align-items: center; gap: 8px; color: #1268d3; }
 @media (max-width: 800px) { .kora-home .k-template-carousel[data-background] .tpl-thumb { height: 335px; }.kora-home .k-template-carousel[data-background] .tpl-thumb iframe { transform: scale(.28); } .k-template-background { flex-basis: 100%; margin-bottom: 4px; } }
+/* Device section: a clear route to install, with browser access always available. */
+.landing .k-device-section { display: grid; grid-template-columns: 1.2fr 1fr; gap: 56px; align-items: center; padding: 48px; margin: 48px 0; background: var(--surface); border: 1px solid var(--border); border-radius: 24px; }
+.landing .k-device-section h2 { text-align: left; font-size: clamp(30px, 3vw, 44px); }
+.landing .k-device-section .l-sub { text-align: left; margin: 16px 0 24px; }
+.landing .k-device-eyebrow { color: var(--accent-ink); font-size: 12px; font-weight: 700; letter-spacing: .12em; margin: 0 0 14px; }
+.landing .k-device-browser { display: inline-block; margin: 16px; color: var(--accent-ink); text-decoration: underline; }
+.landing .k-device-options { display: grid; gap: 14px; }
+.landing .k-device-options > a { display: flex; align-items: center; gap: 18px; padding: 24px; background: var(--bg); border: 1px solid var(--border); border-radius: 14px; color: var(--text); text-decoration: none; transition: border-color .2s; }
+.landing .k-device-options > a:hover { border-color: var(--accent); }
+.landing .k-device-options > a:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+.landing .k-device-options span { flex: 1; }
+.landing .k-device-options b, .landing .k-device-options small { display: block; }
+.landing .k-device-options small, .landing .k-device-options p { color: var(--text-muted); font-size: 13px; }
+.landing .k-device-options p { margin: 0; }
+@media (max-width: 760px) { .landing .k-device-section { grid-template-columns: 1fr; padding: 28px 20px; gap: 28px; } }

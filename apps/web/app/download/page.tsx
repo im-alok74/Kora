@@ -21,7 +21,7 @@ const CARDS: { os: Platform | 'ios'; name: string; line: string; how: string[] }
 
 function Action({ file, os }: { file?: DownloadFile; os: string }) {
   if (os === 'ios') return <p className="muted dl-note">Use the steps below.</p>;
-  if (!file) return <span className="dl-soon" role="note">File not published yet. Use the install button above in the meantime.</span>;
+  if (!file) return <span className="dl-soon" role="note">Installer not published yet. <a href="#dl-quick">Use browser installation</a>.</span>;
   return <a className="btn" href={file.url} download>Download <span aria-hidden="true">·</span> {file.sizeMb} MB<span className="sr-only"> {file.name}</span></a>;
 }
 
@@ -34,8 +34,9 @@ export default async function DownloadPage() {
 
       <section className="dl-install" aria-labelledby="dl-quick">
         <h2 id="dl-quick">The quickest way: install from your browser</h2>
-        <p>Nothing to download. Your browser puts Kora on your desktop or home screen, and it opens in its own window like any other app.</p>
+        <p>No separate installer needed. Your browser puts Kora on your desktop or home screen, and it opens in its own window.</p>
         <InstallApp />
+        <p className="dl-browser-link">Prefer to get started straight away? <a href="/app">Open Kora in your browser →</a></p>
       </section>
 
       <h2>Or download the app{d.version ? <small className="muted"> version {d.version}</small> : null}</h2>
@@ -45,7 +46,7 @@ export default async function DownloadPage() {
             <h3 id={`dl-${c.os}`}>{c.name}</h3>
             <p className="muted">{c.line}</p>
             <Action file={c.os === 'ios' ? undefined : d.files[c.os]} os={c.os} />
-            <ol>{c.how.map((h) => <li key={h}>{h}</li>)}</ol>
+            {(c.os === 'ios' || d.files[c.os]) && <ol>{c.how.map((h) => <li key={h}>{h}</li>)}</ol>}
           </section>
         ))}
       </div>
@@ -56,7 +57,7 @@ export default async function DownloadPage() {
       <h3>Why does my computer warn me?</h3>
       <p>Kora is in early access and the downloads are not signed with a paid developer certificate yet, so Windows and macOS ask you to confirm. Installing from your browser avoids the warning.</p>
       <h3>Do I need to be online?</h3>
-      <p>You can start an invoice without a connection and it is saved on your device. It is sent to your account when you are back online.</p>
+      <p>Sign in and open the invoicing screens while connected first. You can then save invoice drafts on that device without a connection. Drafts sync when you return online; issuing invoices and recording payments need a connection.</p>
     </MarketingPage>
   );
 }
