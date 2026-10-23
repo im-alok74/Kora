@@ -3,6 +3,7 @@ export * from './messenger.js';
 export * from './gstin-lookup.js';
 export * from './payments.js';
 export * from './gsp.js';
+export * from './gsp-lazy.js';
 export * from './eway.js';
 export * from './mock-gsp-server.js';
 export * from './live.js';
