@@ -44,7 +44,7 @@ Authorization: Bearer kora_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 | 415 | `unsupported_media_type` | Send JSON |
 | 429 | `rate_limited` | Slow down. See `Retry-After` |
 
-**Rate limit:** 120 requests a minute for each key, counted in each server process (set `API_RATE_LIMIT` to change it). Every answer has `X-RateLimit-Limit` and `X-RateLimit-Remaining`.
+**Rate limit:** 120 requests a minute for each key, counted across all server instances (set `API_RATE_LIMIT` to change it). Every answer has `X-RateLimit-Limit` and `X-RateLimit-Remaining`.
 
 ## Endpoints
 

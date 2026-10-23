@@ -70,7 +70,7 @@ For production, use [docs/launch-checklist.md](docs/launch-checklist.md), which 
 | `SESSION_TTL_DAYS` | web | Sign-in lifetime, default 30. |
 | `KORA_ALLOW_MOCKS` | web, worker | Set to `1` only for a staging demo. In production every mock adapter refuses to start without it. |
 | `DEMO_FIXED_OTP` | web | Staging demos only; needs `KORA_ALLOW_MOCKS=1`. Never use it with real customers. |
-| `API_RATE_LIMIT` | web | Requests a minute for each API key (default 120), counted in each server process. |
+| `API_RATE_LIMIT` | web | Requests a minute for each API key (default 120), counted in the shared limiter (Upstash if set, otherwise Postgres). |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `API_RATE_PER_MINUTE` | web | Request limits shared by every server instance. The per-address limit across `/api` is on only when Upstash is set (default 300 a minute). |
 | `BLOB_S3_*` | web, worker | Files in object storage instead of the database. |
 | `SENTRY_DSN`, `LOG_LEVEL` | web, worker | Error reporting and log detail. |
