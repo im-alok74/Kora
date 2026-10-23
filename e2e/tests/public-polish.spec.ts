@@ -92,3 +92,50 @@ for (const theme of ['light', 'dark'] as const) {
     }
   });
 }
+
+// B-2: the form no longer waits for the session check, and signed-out visits leave no 401 in the console.
+test('the sign-in form shows at once, even when the session check is slow, and logs no errors', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  await page.route('**/api/auth/session', async (route) => { await new Promise((r) => setTimeout(r, 4000)); await route.continue(); });
+  await page.goto('/login');
+  await expect(page.getByRole('heading', { name: 'Sign in to Kora' })).toBeVisible({ timeout: 2500 });
+  await expect(page.getByLabel('Mobile number or email')).toBeVisible();
+  await page.waitForTimeout(4500);
+  expect(errors.filter((e) => /401|Unauthorized/.test(e))).toEqual([]);
+});
+
+test('a signed-in visitor on /login is sent on', async ({ page }) => {
+  const email = `login${Date.now()}@example.test`;
+  expect((await page.request.post('/api/auth/signup', { data: { identifier: email, password: 'a good long password', name: 'Asha', accountType: 'business' } })).status()).toBe(200);
+  await page.goto('/login');
+  await expect(page).toHaveURL(/\/setup/);
+});
+
+test('the tabs control a labelled panel', async ({ page }) => {
+  await page.goto('/login');
+  const tab = page.getByRole('tab', { name: 'Sign in' });
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+  const panel = page.getByRole('tabpanel', { name: 'Sign in' });
+  await expect(panel).toBeVisible();
+  await expect(tab).toHaveAttribute('aria-controls', (await panel.getAttribute('id'))!);
+  await page.getByRole('tab', { name: 'Create account' }).click();
+  await expect(page.getByRole('tabpanel', { name: 'Create account' })).toBeVisible();
+});
+
+// B-3: with nothing stored, the device setting decides; a stored choice always wins.
+test('the theme follows the device setting until the visitor chooses', async ({ browser }) => {
+  const theme = async (scheme: 'dark' | 'light', stored?: string) => {
+    const ctx = await browser.newContext({ colorScheme: scheme });
+    if (stored) await ctx.addInitScript((t) => localStorage.setItem('kora-theme', t), stored);
+    const page = await ctx.newPage();
+    await page.goto('/pricing');
+    const v = await page.evaluate(() => document.documentElement.dataset.theme);
+    await ctx.close();
+    return v;
+  };
+  expect(await theme('dark')).toBe('dark');
+  expect(await theme('light')).toBe('light');
+  expect(await theme('dark', 'light')).toBe('light');
+  expect(await theme('light', 'dark')).toBe('dark');
+});

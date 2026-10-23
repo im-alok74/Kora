@@ -1,7 +1,6 @@
 'use client';
 import KoraLogo from '../../components/KoraLogo';
 
-import KoraLoader from '../../components/KoraLoader';
 // Sign in with a password (no address check), create an account, or use an emailed or texted code.
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/client';
@@ -19,7 +18,6 @@ const LANDING: Record<string, string> = { ca: '/app/firm', lawyer: '/app/matters
 const remember = (k: string, v?: string) => { try { if (v === undefined) return localStorage.getItem(k) ?? ''; localStorage.setItem(k, v); } catch { /* storage may be blocked */ } return ''; };
 
 export default function Login() {
-  const [ready, setReady] = useState(false);
   const [mode, setMode] = useState<Mode>('signin');
   const [step, setStep] = useState<Step>('id');
   const [mfaToken, setMfaToken] = useState('');
@@ -33,13 +31,15 @@ export default function Login() {
   const [idErr, setIdErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [demo, setDemo] = useState(false);
+  const [booted, setBooted] = useState(false);   // the saved mode and address are in; until then the box is hidden so it never flashes the wrong mode
 
   const enter = async () => {
     if (demo || new URLSearchParams(window.location.search).has('demo')) { try { await api('/api/demo', { body: {} }); window.location.href = '/app'; return; } catch { /* fall through to the normal route */ } }
     const me = await api('/api/me');
     window.location.href = me.businesses.length ? (LANDING[me.accountType] ?? '/app') : '/setup';
   };
-  useEffect(() => { api('/api/me').then(enter).catch(() => setReady(true)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // The form is there at once. A signed-in visitor is sent on as soon as the session check answers.
+  useEffect(() => { api('/api/auth/session').then((r) => { if (r.signedIn) void enter(); }).catch(() => { /* stay on the form */ }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     if (q.has('demo')) setDemo(true);
@@ -50,6 +50,7 @@ export default function Login() {
     else if (last === 'code' || last === 'signin') setMode(last);
     const who = remember('kora-last-identifier');
     if (who && !q.has('signup')) setIdentifier(who);
+    setBooted(true);
   }, []);
 
   const run = async (fn: () => Promise<void>) => {
@@ -66,8 +67,6 @@ export default function Login() {
   const switchTo = (m: Mode) => { setMode(m); setStep('id'); setErr(''); setIdErr(''); setCode(''); };
   const strength = passwordStrength(password, [identifier, name]);
 
-  if (!ready) return <KoraLoader fullPage label="Opening your account" />;
-
   const idField = (
     <>
       <label htmlFor="id">Mobile number or email</label>
@@ -82,15 +81,15 @@ export default function Login() {
     <main className="auth">
       <div className="auth-shell">
       <div className="auth-main">
-      <div className="auth-box">
+      <div className="auth-box" style={booted ? undefined : { visibility: 'hidden' }}>
       <div className="auth-brand"><a href="/" aria-label="Kora home"><KoraLogo /></a></div>
       <div className="auth-mode" role="tablist" aria-label="Account access" onKeyDown={(e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); switchTo(mode === 'signup' ? 'signin' : 'signup'); } }}>
-        <button type="button" role="tab" aria-selected={mode !== 'signup'} tabIndex={mode !== 'signup' ? 0 : -1} onClick={() => switchTo('signin')}>Sign in</button>
-        <button type="button" role="tab" aria-selected={mode === 'signup'} tabIndex={mode === 'signup' ? 0 : -1} onClick={() => switchTo('signup')}>Create account</button>
+        <button type="button" role="tab" id="tab-signin" aria-controls="auth-panel" aria-selected={mode !== 'signup'} tabIndex={mode !== 'signup' ? 0 : -1} onClick={() => switchTo('signin')}>Sign in</button>
+        <button type="button" role="tab" id="tab-signup" aria-controls="auth-panel" aria-selected={mode === 'signup'} tabIndex={mode === 'signup' ? 0 : -1} onClick={() => switchTo('signup')}>Create account</button>
       </div>
       <h1>{mode === 'signup' ? 'Create your Kora account' : 'Sign in to Kora'}</h1>
       <p className="lead">{mode === 'code' ? 'Receive a sign-in code by email or text message.' : mode === 'signup' ? (demo ? 'Create an account to explore a labelled demo business with sample data.' : 'Create an account to manage your invoices and payments.') : 'Access your invoices, customers, and payments.'}</p>
-      <div className="auth-form" key={`${mode}-${step}`} aria-busy={busy}>
+      <div className="auth-form" id="auth-panel" role="tabpanel" aria-labelledby={mode === 'signup' ? 'tab-signup' : 'tab-signin'} key={`${mode}-${step}`} aria-busy={busy}>
         {step === 'mfa' ? (
           <form onSubmit={(e) => { e.preventDefault(); void run(async () => { await api('/api/auth/mfa', { body: { mfaToken, code } }); remember('kora-last-identifier', identifier.trim()); await enter(); }); }}>
             <label htmlFor="mfa">Code from your authenticator app, or a recovery code</label>
