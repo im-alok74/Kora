@@ -1,0 +1,35 @@
+name: tick
+# Runs Kora's background work every 5 minutes: queued messages, e-invoices and webhooks, due reminders, due recurring invoices.
+# It calls GET /api/cron/tick, which is safe to run at any time and while a worker is also running (jobs use SKIP LOCKED).
+# This is the stop-gap until the worker runs as its own service. It writes nothing to production except what that route does.
+#
+# Secrets to add (Settings > Secrets and variables > Actions > New repository secret). Never put values in the repository:
+#   KORA_SITE_URL   the public address of the site, starting with https://
+#   CRON_SECRET     the same value as the CRON_SECRET environment variable on the site (16 or more characters)
+#
+# GitHub may start a scheduled run a few minutes late, and pauses schedules on a repository with no activity for 60 days.
+on:
+  schedule: [{ cron: '*/5 * * * *' }]
+  workflow_dispatch: {}
+concurrency:
+  group: kora-tick
+  cancel-in-progress: false
+permissions: {}
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Call the tick
+        env:
+          KORA_SITE_URL: ${{ secrets.KORA_SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$KORA_SITE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::notice::KORA_SITE_URL or CRON_SECRET is not set as a repository secret, so nothing was called."
+            exit 0
+          fi
+          case "$KORA_SITE_URL" in https://*) ;; *) echo "::error::KORA_SITE_URL must start with https://"; exit 1 ;; esac
+          curl --fail --silent --show-error --max-time 90 --retry 2 --retry-delay 5 \
+            -H "Authorization: Bearer $CRON_SECRET" "${KORA_SITE_URL%/}/api/cron/tick"
+          echo

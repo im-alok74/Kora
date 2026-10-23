@@ -164,7 +164,7 @@ A backup holds the database only. It does not hold the code (Git), the environme
 | Web is up and the database answers | `GET /api/health` returns `{"status":"ok"}` or 503 | **Not done**: no uptime monitor is configured in the repository. Point any uptime service at it |
 | Worker is alive (if a worker is used) | `GET /healthz` on `WORKER_HEALTH_PORT`, 503 when stalled for a minute | **Not done** (no worker deployed, see section 11) |
 | Application errors | One JSON log line per event on stdout; plus Sentry when `SENTRY_DSN` is set (`packages/core/src/observe.ts`, `apps/web/instrumentation.ts`) | **Unknown** (DSN) |
-| Queue health | `GET /api/admin/jobs` with `Authorization: Bearer <CRON_SECRET>`: counts by queue and status, the oldest waiting job, the 25 latest failures | **Done** (route exists). **Not done**: nobody calls it on a schedule |
+| Queue health | `GET /api/admin/jobs` with `Authorization: Bearer <CRON_SECRET>`: counts by queue and status, the oldest waiting job, the 25 latest failures | **Done** (route exists, and `.github/workflows/watch.yml` polls it every 15 minutes). **Not done** until the two repository secrets are added (section 11) |
 | Failed work | The SQL list in [deploy.md](deploy.md) under Monitoring (jobs, e-invoices, unprocessed payment webhooks, failed webhook deliveries, failed recurring runs) | **Done** as queries (checked against a migrated database). **Not done** as alerts |
 
 Minimum alerts to set up before launch: uptime of `/api/health`; Sentry alert on new issues; a daily check that `/api/admin/jobs` shows no job older than a day; Razorpay's own email for failed webhooks; Supabase's disk and connection alerts.
@@ -254,9 +254,10 @@ Steps:
 3. Give it the same environment names as the web app (section 2): `DATABASE_URL` (the `kora_web` role), `GSP_URL`, `APP_URL`, `MESSENGER=live` with the `WHATSAPP_*`, `MSG91_SMS_TEMPLATE_ID`, `RESEND_API_KEY` and `EMAIL_FROM` names, `BLOB_S3_*`, `SENTRY_DSN`. Do not set `KORA_ALLOW_MOCKS`. For the worker, `DATABASE_URL` may use the session pooler (port 5432) or the transaction pooler (6543).
 4. Set `WORKER_HEALTH_PORT` (for example `8081`) and point the host's health check at `/healthz`. The image's own `HEALTHCHECK` already uses it when set. It answers 503 when the loop has stalled for a minute.
 5. Run two instances for availability. Jobs use `SKIP LOCKED`, so they never double-run work.
-6. Keep the daily Vercel cron as a safety net. It is harmless alongside a worker.
-7. Test: issue an invoice in a test business, press Send to your own number, and check Send history shows delivered within a couple of minutes. Check `GET /api/admin/jobs` shows nothing waiting.
-8. Decide who watches `/api/admin/jobs` and the worker health check (section 5).
+6. **Until the worker runs, use the interim scheduler in this repository.** `.github/workflows/tick.yml` calls `/api/cron/tick` every 5 minutes, and `.github/workflows/watch.yml` checks `/api/health` and the age of the oldest queued job every 15 minutes and fails (GitHub emails the repository owner) when something is stuck or has failed for good. Both stay idle until the owner adds two repository secrets (Settings, Secrets and variables, Actions): `KORA_SITE_URL` (the public address, starting with `https://`) and `CRON_SECRET` (the same value as the site's `CRON_SECRET`). GitHub can start a run a few minutes late, so this gives delivery within minutes, not seconds. Status: **Not done** until the secrets are added; check that the Actions tab shows green runs.
+7. Keep the daily Vercel cron as a safety net. It is harmless alongside a worker.
+8. Test: issue an invoice in a test business, press Send to your own number, and check Send history shows delivered within a couple of minutes. Check `GET /api/admin/jobs` shows nothing waiting.
+9. Decide who watches `/api/admin/jobs` and the worker health check (section 5).
 
 Alternatives that were considered and not chosen: calling `/api/cron/tick` every minute or two from an external scheduler, or per-minute cron on a paid Vercel plan.
 
