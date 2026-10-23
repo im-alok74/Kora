@@ -1,5 +1,5 @@
 import { roundHalfUp, TaxError, type Paise } from './money.js';
-import { DEFAULT_ALLOWED_RATE_BP } from './rules.js';
+import { allowedRatesOn, DEFAULT_ALLOWED_RATE_BP, RATE_REFORM_DATE } from './rules.js';
 
 export type DocType =
   | 'tax_invoice' | 'bill_of_supply' | 'estimate' | 'proforma' | 'delivery_challan' | 'credit_note' | 'debit_note' | 'sales_order';
@@ -35,6 +35,8 @@ export interface DocumentInput {
   /** TDS the customer will deduct, in basis points of a percent of the taxable value. */
   tdsBp?: number;
   allowedRateBp?: ReadonlySet<number>;
+  /** Date of supply, YYYY-MM-DD. When given, the allowed slabs are those in force on that date (12% and 28% end on 22 September 2025). */
+  supplyDate?: string;
   /** Round the total to the nearest whole rupee (the default). Documents in other currencies are not rounded. */
   roundTotal?: boolean;
   /** A manual plus or minus on the total, not taxed, for example a small goodwill reduction. Limited to Rs 10,000 either way. */
@@ -119,7 +121,7 @@ export function computeLine(l: LineInput, supply: 'intra' | 'inter', allowed: Re
  */
 export function computeDocument(d: DocumentInput): DocumentResult {
   if (d.lines.length === 0) throw new TaxError('no_lines', 'Add at least one line.');
-  const allowed = d.allowedRateBp ?? DEFAULT_ALLOWED_RATE_BP;
+  const allowed = d.allowedRateBp ?? (d.supplyDate ? allowedRatesOn(d.supplyDate) : DEFAULT_ALLOWED_RATE_BP);
   const composition = d.registrationType === 'composition';
 
   if (TAX_DOCS.has(d.docType)) {
@@ -132,6 +134,16 @@ export function computeDocument(d: DocumentInput): DocumentResult {
 
   const supply = d.supplierState === d.placeOfSupply ? 'intra' : 'inter';
   const ignoreRate = d.docType === 'bill_of_supply' && composition;
+  if (!ignoreRate && !d.allowedRateBp && d.supplyDate) {
+    for (const l of d.lines) {
+      if (allowed.has(l.taxRateBp) || !DEFAULT_ALLOWED_RATE_BP.has(l.taxRateBp)) continue;   // a rate that never existed gets the plain message below
+      const pct = l.taxRateBp / 100;
+      const reason = d.supplyDate >= RATE_REFORM_DATE
+        ? `${pct}% is not a GST rate for supplies on or after 22 September 2025 (the slabs are 0%, 0.25%, 3%, 5%, 18% and 40%). Change the rate on this line.`
+        : `${pct}% was not a GST rate for supplies before 22 September 2025.`;
+      throw new TaxError('rate_not_allowed', reason);
+    }
+  }
   const lines = d.lines.map((l) => computeLine(l, supply, allowed, ignoreRate));
 
   const sum = (f: (l: LineResult) => bigint) => lines.reduce((a, l) => a + f(l), 0n);

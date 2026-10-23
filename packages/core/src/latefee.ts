@@ -1,3 +1,4 @@
+import { allowedRatesOn } from '@kora/tax';
 import type { Sql } from '@kora/db';
 import { persist, type DocIn } from './documents.js';
 import { inTenant, type TenantSession } from './tenancy.js';
@@ -31,7 +32,8 @@ export function sanitiseLateFeeConfig(raw: unknown): LateFeeConfig {
   const graceDays = r.graceDays === undefined ? DEFAULT_LATE_FEE.graceDays : Number(r.graceDays);
   if (!Number.isInteger(graceDays) || graceDays < 0 || graceDays > 90) throw new ValidationError('The grace period is 0 to 90 days.', 'graceDays');
   const gstRateBp = r.gstRateBp === undefined ? DEFAULT_LATE_FEE.gstRateBp : Number(r.gstRateBp);
-  if (!Number.isInteger(gstRateBp) || gstRateBp < 0 || gstRateBp > 2800) throw new ValidationError('Choose a GST rate for the fee.', 'gstRateBp');
+  // The fee is a supply of its own, taxed at a slab in force today (12% and 28% ended on 22 September 2025).
+  if (!Number.isInteger(gstRateBp) || !allowedRatesOn(new Date().toISOString().slice(0, 10)).has(gstRateBp)) throw new ValidationError('Choose a GST rate for the fee: 0%, 0.25%, 3%, 5%, 18% or 40%.', 'gstRateBp');
   return { enabled: r.enabled === true, mode, value, graceDays, gstRateBp };
 }
 

@@ -14,7 +14,7 @@ export type TaxErrorCode =
   | 'negative_amount' | 'bad_quantity' | 'discount_exceeds_gross' | 'rate_not_allowed'
   | 'specific_cess_unsupported' | 'no_lines' | 'composition_tax_invoice' | 'unregistered_tax_invoice'
   | 'bill_of_supply_with_tax' | 'unsupported_place_of_supply' | 'credit_exceeds_original'
-  | 'gstin_state_mismatch' | 'gstin_invalid' | 'number_too_long' | 'number_bad_characters' | 'hsn_too_short';
+  | 'gstin_state_mismatch' | 'gstin_invalid' | 'bad_date' | 'number_too_long' | 'number_bad_characters' | 'hsn_too_short';
 
 /** Round half up for non-negative integers: round(n / d). */
 export function roundHalfUp(n: bigint, d: bigint): bigint {

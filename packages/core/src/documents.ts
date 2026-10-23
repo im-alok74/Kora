@@ -1,5 +1,5 @@
 import {
-  assertCreditWithinOriginal, checkHsn, computeDocument, CURRENCIES, dueDateFor, isPaymentTerm, isTaxError, parseExchangeRate, parseQuantity, parseRupees, resolvePlaceOfSupply, roundHalfUp,
+  allowedRatesOn, assertCreditWithinOriginal, checkHsn, computeDocument, CURRENCIES, dueDateFor, formatMoney, STATE_NAMES, isPaymentTerm, isTaxError, parseExchangeRate, parseQuantity, parseRupees, resolvePlaceOfSupply, roundHalfUp,
   type DocType, type DocumentResult, type LineInput, type TurnoverBand,
 } from '@kora/tax';
 import type { Sql, Tx } from '@kora/db';
@@ -161,6 +161,11 @@ async function build(tx: Tx, t: TenantSession, input: DocIn): Promise<Built> {
 
   const allServices = input.lines.every((l) => l.kind === 'service');
   let placeOfSupply = input.placeOfSupply ?? '';
+  if (placeOfSupply) {
+    // 01 to 38 and 97 are the states and territories a supply can be made in; 96 is another country, which only a quote in a foreign currency may name.
+    if (!Object.prototype.hasOwnProperty.call(STATE_NAMES, placeOfSupply) || placeOfSupply === '99') throw new ValidationError('Choose a state or union territory for the place of supply.', 'placeOfSupply');
+    if (placeOfSupply === '96' && currency === 'INR') throw new ValidationError('Exports are not supported yet.', 'placeOfSupply');
+  }
   // A quote in another currency is not a tax document, so a customer abroad (place 96) is allowed on it.
   if (!placeOfSupply && currency !== 'INR') placeOfSupply = (party?.state_code as string | undefined) ?? (biz.state_code as string);
   if (!placeOfSupply) {
@@ -185,9 +190,17 @@ async function build(tx: Tx, t: TenantSession, input: DocIn): Promise<Built> {
     try { adjustmentPaise = parseRupees(neg ? raw.slice(1) : raw.replace(/^\+/, '')); } catch (e) { throw new ValidationError(`Adjustment: ${(e as Error).message}`, 'adjustment'); }
     if (neg) adjustmentPaise = -adjustmentPaise;
   }
+  // The slabs in force on the date of supply (12% and 28% ended on 22 September 2025). A credit or debit note may also carry a
+  // rate that was right on the date of the invoice it corrects, so it accepts the slabs of either date.
+  let allowedRateBp: ReadonlySet<number> | undefined;
+  if ((input.docType === 'credit_note' || input.docType === 'debit_note') && input.originalDocumentId) {
+    const [o] = await tx`select doc_date::text as doc_date from document where id = ${input.originalDocumentId}`;
+    if (o) allowedRateBp = new Set([...allowedRatesOn(docDate), ...allowedRatesOn(o.doc_date as string)]);
+  }
   let result: DocumentResult;
   try {
     result = computeDocument({
+      supplyDate: docDate, ...(allowedRateBp ? { allowedRateBp } : {}),
       docType: input.docType, registrationType: biz.registration_type as never, supplierState: biz.state_code as string,
       placeOfSupply, reverseCharge: input.reverseCharge ?? false, lines: lineInputs, tcsBp: input.tcsBp ?? 0, tdsBp: input.tdsBp ?? 0,
       roundTotal: currency === 'INR' && input.roundTotal !== false, adjustmentPaise,
@@ -216,6 +229,10 @@ export async function persist(tx: Tx, t: TenantSession, id: string | null, input
   if (isNote && !input.originalDocumentId) throw new ValidationError('Choose the invoice this note corrects.', 'originalDocumentId');
   if (!isNote && input.originalDocumentId) throw new ValidationError('Only credit and debit notes point at another invoice.');
   if (isNote) {
+    // Section 34: a note answers one invoice. It goes to that invoice's customer and cannot predate the invoice.
+    const [o] = await tx`select party_id, doc_date::text as doc_date from document where id = ${input.originalDocumentId!}`;
+    if (o?.party_id && (input.partyId ?? null) !== o.party_id) throw new ValidationError('A credit or debit note goes to the same customer as the invoice it corrects.', 'partyId');
+    if (o && b.docDate < (o.doc_date as string)) throw new ValidationError('A credit or debit note cannot be dated before the invoice it corrects.', 'docDate');
     const h = await creditHeadroom(tx, input.originalDocumentId!, id);
     if (input.docType === 'credit_note') {
       try { assertCreditWithinOriginal({ originalTaxablePaise: h.original, alreadyCreditedTaxablePaise: h.already, creditTaxablePaise: b.result.taxablePaise }); }
@@ -600,15 +617,41 @@ export async function previewDocumentData(sql: Sql, t: TenantSession, input: Doc
   });
 }
 
-/** Maps stored lines back to editor input, for drafts made from an existing document. */
-export function linesToInput(lines: Record<string, unknown>[], rateMicro: bigint = 1_000_000n): LineIn[] {
-  // Amounts in another currency become rupees at the rate (millionths of a rupee per unit), rounded half up to the paisa.
-  const inr = (minor: unknown) => (rateMicro === 1_000_000n ? BigInt(minor as string) : (BigInt(minor as string) * rateMicro + 500_000n) / 1_000_000n);
-  return lines.map((l) => ({
-    itemId: l.item_id as string | null, name: l.item_name as string, hsnSac: l.hsn_sac as string | null, unit: l.unit as string,
-    quantity: String(l.quantity), rate: rs(inr(l.rate_paise)), discount: rs(inr(l.discount_paise)),
-    taxRateBp: l.tax_rate_bp as number, cessRateBp: l.cess_rate_bp as number, taxInclusive: !!l.price_includes_tax,
-  }));
+/**
+ * Maps stored lines back to editor input, for drafts made from an existing document.
+ *
+ * `rateMicro` is the quoted rate (millionths of a rupee per unit) when the lines are in another currency, and they are then converted
+ * to rupees. The taxable value of each line is converted once, from the quote's own taxable value, and rounded half up to the paisa,
+ * so the invoice is worth exactly what the quote was at that rate. Converting the unit rate and then multiplying by the quantity would
+ * lose or gain paise (1,000 units at USD 0.01 and 83.25 is Rs 832.50, not 1,000 x Rs 0.83). When the unit rate does not convert to a
+ * whole paisa the line is collapsed to one unit of the converted amount, and the original quantity and price go into its description.
+ *
+ * A tax-inclusive line stores its discount without tax, but is typed in with the tax included, so the discount is worked back
+ * from the line total rather than copied. That keeps a copy, a credit note or a conversion worth exactly what the original was.
+ */
+export function linesToInput(lines: Record<string, unknown>[], rateMicro: bigint = 1_000_000n, currency?: string): LineIn[] {
+  return lines.map((l) => {
+    const incl = !!l.price_includes_tax;
+    const rateF = BigInt(l.rate_paise as string);
+    const qtyMilli = parseQuantity(String(l.quantity));
+    const grossF = roundHalfUp(qtyMilli * rateF, 1000n);
+    const discF = incl ? grossF - BigInt(l.line_total_paise as string) : BigInt(l.discount_paise as string);
+    const base = {
+      itemId: l.item_id as string | null, name: l.item_name as string, hsnSac: l.hsn_sac as string | null, unit: l.unit as string,
+      taxRateBp: l.tax_rate_bp as number, cessRateBp: l.cess_rate_bp as number, taxInclusive: incl,
+    };
+    if (rateMicro === 1_000_000n) return { ...base, quantity: String(l.quantity), rate: rs(rateF), discount: rs(discF) };
+
+    const conv = (x: bigint) => roundHalfUp(x * rateMicro, 1_000_000n);
+    const gross = conv(grossF), value = conv(grossF - discF);        // the line before and after its discount, in rupees
+    if ((rateF * rateMicro) % 1_000_000n === 0n) {
+      const rate = (rateF * rateMicro) / 1_000_000n;
+      if (roundHalfUp(qtyMilli * rate, 1000n) === gross) return { ...base, quantity: String(l.quantity), rate: rs(rate), discount: rs(gross - value) };
+    }
+    const qty = milliStr(qtyMilli).replace(/\.?0+$/, '');
+    const what = `${qty} ${String(l.unit ?? '').trim() || 'units'} at ${formatMoney(rateF, currency ?? 'INR')}`;
+    return { ...base, name: `${String(l.item_name).slice(0, 150)} (${what})`, quantity: '1', unit: 'NOS', rate: rs(gross), discount: rs(gross - value) };
+  });
 }
 
 export interface NoteLinePick {
@@ -651,7 +694,11 @@ export async function startNote(sql: Sql, t: TenantSession, originalId: string, 
       return { ...base, quantity: qty, rate, discount: disc > 0n ? rs(disc) : '' };
     });
   }
+  // A note cannot predate its invoice, so for an invoice dated in the future the draft starts on the invoice's date rather than today.
+  const sameDay = String(src.document.doc_date instanceof Date ? (src.document.doc_date as Date).toISOString() : src.document.doc_date).slice(0, 10);
+  const today = await inTenant(sql, t, 'document.read', async (tx) => { const [b] = await tx`select timezone from business where id = ${t.businessId}`; return todayIn(b!.timezone as string); });
   const input: DocIn = {
+    ...(sameDay > today ? { docDate: sameDay } : {}),
     docType: kind, partyId: src.document.party_id as string | null, originalDocumentId: originalId,
     placeOfSupply: src.document.place_of_supply as string, reverseCharge: src.document.reverse_charge as boolean,
     noteReason: opts.reason ?? null, noteReasonDetail: opts.detail ?? null, lines,

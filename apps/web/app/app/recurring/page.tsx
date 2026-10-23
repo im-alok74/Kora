@@ -1,6 +1,6 @@
 'use client';
 import { Fragment, useCallback, useEffect, useState } from 'react';
-import { api, rupees, TAX_RATES } from '../../../lib/client';
+import { api, rupees, taxRatesFor } from '../../../lib/client';
 import EmptyState from '../../../components/EmptyState';
 
 type Preview = { active: boolean; mode: string; channel: string | null; amountPaise: string; dates: { date: string; dueDate: string | null }[] };
@@ -157,7 +157,7 @@ export default function Recurring() {
                 <td><input aria-label={`Line ${i + 1} quantity`} inputMode="decimal" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} /></td>
                 <td><input aria-label={`Line ${i + 1} rate`} inputMode="decimal" value={l.rate} onChange={(e) => setLine(i, { rate: e.target.value })} /></td>
                 <td><select aria-label={`Line ${i + 1} GST rate`} value={l.taxRateBp} onChange={(e) => setLine(i, { taxRateBp: Number(e.target.value) })}>
-                  {TAX_RATES.map((r) => <option key={r.bp} value={r.bp}>{r.label}</option>)}</select></td>
+                  {taxRatesFor(undefined, l.taxRateBp).map((r) => <option key={r.bp} value={r.bp}>{r.label}</option>)}</select></td>
                 <td>{lines.length > 1 && <button type="button" className="link" onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}>Remove</button>}</td>
               </tr>))}</tbody></table>
           <button type="button" className="secondary" onClick={() => setLines((ls) => [...ls, blankLine()])}>Add a line</button>

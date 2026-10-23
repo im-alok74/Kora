@@ -63,7 +63,13 @@ export async function applyCredit(sql: Sql, t: TenantSession, i: { documentId: s
     if (!d) throw new ValidationError('Invoice not found.');
     if (d.status !== 'issued' || !RECEIVABLE.includes(d.doc_type as string)) throw new ValidationError('Credit can only be applied to an issued invoice.');
     if (!d.party_id) throw new ValidationError('This invoice has no customer, so there is no credit to apply.');
-    let due = BigInt(d.grand_total_paise as string) - BigInt(d.amount_settled_paise as string);
+    // Two invoices of one customer can apply the same held money at the same moment. Taking the customer's lock first makes the
+    // second wait, and the statement that reads what is held then runs after the first has committed.
+    await tx`select id from party where id = ${d.party_id} for update`;
+    const [off] = await tx`select id from document_write_off where document_id = ${i.documentId} and cancelled_at is null`;
+    if (off) throw new ValidationError('This invoice has been written off as a bad debt. Cancel the write-off first if you want to apply money to it.');
+    const [fresh] = await tx`select grand_total_paise, amount_settled_paise from document where id = ${i.documentId}`;
+    let due = BigInt(fresh!.grand_total_paise as string) - BigInt(fresh!.amount_settled_paise as string);
     if (due <= 0n) throw new ValidationError('This invoice is already paid.');
     if (cap !== null && cap < due) due = cap;
     const pays = await tx`

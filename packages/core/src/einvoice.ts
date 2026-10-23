@@ -78,7 +78,10 @@ export function buildIrpPayload(i: { doc: Row; lines: Row[]; supplier: Row; reci
 
   // The proof: item totals plus charges plus round-off must equal the invoice value, to the paisa.
   const itemTotal = lines.reduce((a, l) => a + BigInt(String(l.line_total_paise)), 0n);
-  if (itemTotal + BigInt(String(d.tcs_paise)) + BigInt(String(d.round_off_paise)) !== BigInt(String(d.grand_total_paise))) {
+  // A manual adjustment is not part of any item. The portal has two places for it: a deduction goes in the invoice-level discount, an
+  // addition in other charges. Without it the total below would not add up and an adjusted invoice could never be e-invoiced.
+  const adjustment = BigInt(String(d.adjustment_paise ?? 0));
+  if (itemTotal + BigInt(String(d.tcs_paise)) + adjustment + BigInt(String(d.round_off_paise)) !== BigInt(String(d.grand_total_paise))) {
     add('totals', 'The invoice total does not equal the sum of its lines.', 'This should never happen. Contact support with this invoice number.');
   }
   if (problems.length) throw new EinvoiceInvalidError(problems);
@@ -99,7 +102,7 @@ export function buildIrpPayload(i: { doc: Row; lines: Row[]; supplier: Row; reci
     ItemList: items,
     ValDtls: {
       AssVal: rupees(d.taxable_paise), CgstVal: rupees(d.cgst_paise), SgstVal: rupees(d.sgst_paise), IgstVal: rupees(d.igst_paise), CesVal: rupees(d.cess_paise),
-      Discount: 0, OthChrg: rupees(d.tcs_paise), RndOffAmt: rupees(d.round_off_paise), TotInvVal: rupees(d.grand_total_paise),
+      Discount: rupees(adjustment < 0n ? -adjustment : 0n), OthChrg: rupees(BigInt(String(d.tcs_paise)) + (adjustment > 0n ? adjustment : 0n)), RndOffAmt: rupees(d.round_off_paise), TotInvVal: rupees(d.grand_total_paise),
     },
   };
   if (typ !== 'INV' && i.originalNumber) payload.PrecDocDtls = [{ InvNo: i.originalNumber, InvDt: ddmmyyyy(String(i.originalDate ?? d.doc_date)) }];

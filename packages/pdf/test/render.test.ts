@@ -20,6 +20,24 @@ function sample(over: Partial<RenderInput> = {}, docOver: Record<string, any> = 
 
 afterAll(async () => { await closePdfBrowser(); });
 
+describe('UTGST (UTGST Act 2017 section 8; CGST Rule 46 asks for the rate and amount of Union territory tax)', () => {
+  const inUt = (state: string) => sample({ supplier: { ...sample().supplier, state_code: state } }, { place_of_supply: state });
+  it('names the second half UTGST for Chandigarh, Ladakh, Lakshadweep, Andaman and Nicobar and Dadra and Nagar Haveli and Daman and Diu', () => {
+    for (const st of ['04', '38', '31', '35', '26']) {
+      const html = renderDocumentHtml(inUt(st));
+      expect(html).toContain('<th class="n">UTGST</th>');
+      expect(html).not.toMatch(/>SGST</);
+    }
+  });
+  it('keeps SGST for states and for the Union territories that have a legislature (Delhi, Puducherry)', () => {
+    for (const st of ['27', '07', '34']) {
+      const html = renderDocumentHtml(inUt(st));
+      expect(html).toContain('<th class="n">SGST</th>');
+      expect(html).not.toContain('UTGST');
+    }
+  });
+});
+
 describe('renderDocumentHtml', () => {
   it('marks an invoice as paid only when it is issued and fully paid', () => {
     expect(renderDocumentHtml(sample({}, { payment_status: 'paid' }))).toContain('class="paidtag"');

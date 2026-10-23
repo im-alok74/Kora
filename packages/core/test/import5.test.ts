@@ -77,15 +77,16 @@ describe('importing into a business', () => {
       'Invoice Number,Invoice Date,Due Date,Customer Name,Item Name,HSN/SAC,Quantity,Rate,GST %,Discount,Notes',
       'Z-101,05/10/2026,04/11/2026,Asha Stores,Design work,998313,1,10000,18,,First batch',
       'Z-101,,,,Hosting,998315,2,"1,500",18,100,',
-      'Z-102,2026-10-06,,Kumar Traders,Boxes,4819,10,50,12,,',
+      'Z-102,2025-08-06,,Kumar Traders,Boxes,4819,10,50,12,,',                 // before 22 September 2025, so 12% is still a rate
       'Z-103,07/10/2026,,Nobody Known,Item,998313,1,100,18,,',
       'Z-104,31/02/2026,,Asha Stores,Item,998313,1,100,18,,',
       'Z-105,08/10/2026,,Asha Stores,Item,998313,1,100,17,,',
+      'Z-106,09/10/2026,,Asha Stores,Item,998313,1,100,12,,',
     ].join('\n');
     it('checks every invoice and groups the rows that share a reference, without saving anything', async () => {
       const before = (await listDocuments(db.web, owner, {})).length;
       const p = await previewInvoiceImport(db.web, owner, csv);
-      expect(p.counts).toMatchObject({ total: 5, ok: 2, error: 3, existing: 0 });
+      expect(p.counts).toMatchObject({ total: 6, ok: 2, error: 4, existing: 0 });
       const z101 = p.docs.find((d) => d.ref === 'Z-101')!;
       expect(z101).toMatchObject({ status: 'ok', customer: 'Asha Stores', lines: 2, date: '2026-10-05' });
       expect(z101.totalPaise).toBe('1522200');                                         // 10000 + (3000 less 100) = 12900 taxable, plus 18% = 15222
@@ -93,18 +94,19 @@ describe('importing into a business', () => {
       expect(p.docs.find((d) => d.ref === 'Z-103')!.message).toMatch(/"Nobody Known" is not in your customers/);
       expect(p.docs.find((d) => d.ref === 'Z-104')!.message).toMatch(/is not a date/);
       expect(p.docs.find((d) => d.ref === 'Z-105')!.message).toMatch(/tax rate of 17%/);
+      expect(p.docs.find((d) => d.ref === 'Z-106')!.message).toMatch(/12% is not a GST rate for supplies on or after 22 September 2025/);
       expect((await listDocuments(db.web, owner, {})).length).toBe(before);              // a dry run writes nothing
     });
     it('makes drafts for the good invoices, keeps the old number as the reference, and does not repeat on a second import', async () => {
       const r = await commitInvoiceImport(db.web, owner, csv);
-      expect(r).toMatchObject({ created: 2, existing: 0, failed: 3 });
+      expect(r).toMatchObject({ created: 2, existing: 0, failed: 4 });
       const doc = (await getDocument(db.web, owner, r.ids[0]!))!;
       expect(doc.document).toMatchObject({ status: 'draft', number: null, reference: 'Z-101', notes: 'First batch', doc_type: 'tax_invoice' });
       expect(doc.lines).toHaveLength(2);
       expect(doc.lines[1]).toMatchObject({ item_name: 'Hosting', quantity: '2.000', discount_paise: '10000' });
       const again = await commitInvoiceImport(db.web, owner, csv);
-      expect(again).toMatchObject({ created: 0, existing: 2, failed: 3 });
-      expect((await previewInvoiceImport(db.web, owner, csv)).counts).toMatchObject({ existing: 2, ok: 0, error: 3 });
+      expect(again).toMatchObject({ created: 0, existing: 2, failed: 4 });
+      expect((await previewInvoiceImport(db.web, owner, csv)).counts).toMatchObject({ existing: 2, ok: 0, error: 4 });
     });
     it('needs the right columns, a real file, and the right to write', async () => {
       await expect(previewInvoiceImport(db.web, owner, 'Foo,Bar\n1,2')).rejects.toThrow(/needs a column for the customer, the item or description, the rate/);

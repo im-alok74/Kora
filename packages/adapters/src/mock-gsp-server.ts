@@ -78,8 +78,8 @@ export function validateIrpPayload(p: any): Problem[] {
   if (!near(cents(v.CgstVal ?? 0), sum.cgst) || !near(cents(v.SgstVal ?? 0), sum.sgst) || !near(cents(v.IgstVal ?? 0), sum.igst) || !near(cents(v.CesVal ?? 0), sum.ces)) {
     bad('5002', 'ValDtls tax totals must equal the sum of item taxes.');
   }
-  const expectInv = sum.tot + cents(v.OthChrg ?? 0) + cents(v.RndOffAmt ?? 0);
-  if (!near(cents(v.TotInvVal), expectInv)) bad('5003', 'ValDtls.TotInvVal must equal the item totals plus other charges and round off.');
+  const expectInv = sum.tot + cents(v.OthChrg ?? 0) - cents(v.Discount ?? 0) + cents(v.RndOffAmt ?? 0);
+  if (!near(cents(v.TotInvVal), expectInv)) bad('5003', 'ValDtls.TotInvVal must equal the item totals plus other charges, less the invoice discount, plus round off.');
   if (Math.abs(cents(v.RndOffAmt ?? 0)) > 100) bad('5004', 'Round off cannot be more than Rs 1.');
   if (p?.TranDtls?.RegRev === 'Y') bad('2200', 'Reverse-charge supplies are not supported by this mock.');
   return out;

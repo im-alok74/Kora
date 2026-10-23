@@ -89,7 +89,7 @@ export async function convertDocument(sql: Sql, t: TenantSession, documentId: st
       extra: d.extra as { label: string; value: string }[] | null, salesperson: d.salesperson as string | null,
       tcsBp: toInvoice ? Number(d.tcs_bp ?? 0) : 0, tdsBp: toInvoice ? Number(d.tds_bp ?? 0) : 0,
       ...(keepsCurrency ? { currency: d.currency as string, exchangeRate: rateText(rate) } : {}),
-      lines: linesToInput(lines, foreign && !keepsCurrency ? rate : 1_000_000n),
+      lines: linesToInput(lines, foreign && !keepsCurrency ? rate : 1_000_000n, d.currency as string),
       sourceDocumentId: documentId, custom: await copyCustom(tx, d.custom_values),
     };
     const made = await persist(tx, t, null, input);

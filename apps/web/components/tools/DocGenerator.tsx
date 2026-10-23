@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { computeDocument, formatRupees, parseQuantity, parseRupees, rupeesInWords, STATE_NAMES, isTaxError, type DocType } from '@kora/tax';
+import { allowedRatesOn, computeDocument, formatRupees, parseQuantity, parseRupees, rupeesInWords, STATE_NAMES, isTaxError, type DocType } from '@kora/tax';
 
 export type DocKind = 'invoice' | 'quotation' | 'proforma' | 'purchase-order' | 'receipt';
 
@@ -11,8 +11,8 @@ const KINDS: Record<DocKind, { title: string; tax: DocType; from: string; to: st
   'purchase-order': { title: 'PURCHASE ORDER', tax: 'estimate', from: 'Order from (supplier)', to: 'Ship to and bill to (your business)', numberLabel: 'PO number', dateLabel: 'Order date', dueLabel: 'Deliver by' },
   receipt: { title: 'PAYMENT RECEIPT', tax: 'estimate', from: 'Received by (your business)', to: 'Received from', numberLabel: 'Receipt number', dateLabel: 'Date received', dueLabel: null },
 };
-// Rates in force since 22 September 2025. The older 12% and 28% slabs only apply to supplies made before that date.
-const RATES = [0, 3, 5, 18, 40];
+/** The GST percentages offered for a document dated `date`: 12% and 28% ended on 22 September 2025 and 40% began then. */
+const ratesOn = (date: string): number[] => [...allowedRatesOn(/^\d{4}-\d{2}-\d{2}$/.test(date) ? date : today())].sort((a, b) => a - b).map((bp) => bp / 100);
 const METHODS = ['Cash', 'UPI', 'Bank transfer', 'Cheque', 'Card'];
 type Party = { name: string; gstin: string; address: string; state: string };
 type Line = { desc: string; hsn: string; qty: string; rate: string; gst: number };
@@ -54,12 +54,12 @@ export default function DocGenerator({ kind }: { kind: DocKind }) {
       const used = lines.filter((l) => l.desc.trim() || l.rate.trim());
       if (!used.length) return { err: 'Add at least one line.' } as const;
       const r = computeDocument({
-        docType: gst ? k.tax : 'estimate', registrationType: gst ? 'regular' : 'unregistered', supplierState: me.state, placeOfSupply: them.state || me.state, roundTotal: true,
-        lines: used.map((l) => ({ quantityMilli: parseQuantity(l.qty || '0'), ratePaise: parseRupees(l.rate || '0'), taxRateBp: gst ? l.gst * 100 : 0 })),
+        docType: gst ? k.tax : 'estimate', registrationType: gst ? 'regular' : 'unregistered', supplierState: me.state, placeOfSupply: them.state || me.state, roundTotal: true, supplyDate: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined,
+        lines: used.map((l) => ({ quantityMilli: parseQuantity(l.qty || '0'), ratePaise: parseRupees(l.rate || '0'), taxRateBp: gst ? Math.round(l.gst * 100) : 0 })),
       });
       return { r, used } as const;
     } catch (e) { return { err: isTaxError(e) ? e.message : 'Check the quantities and rates. Use numbers only.' } as const; }
-  }, [lines, gst, me.state, them.state, k.tax, isReceipt]);
+  }, [lines, gst, me.state, them.state, k.tax, isReceipt, date]);
 
   const setLine = (i: number, p: Partial<Line>) => setLines(lines.map((l, j) => (j === i ? { ...l, ...p } : l)));
   const party = (p: Party, set: (p: Party) => void, id: string, label: string) => (
@@ -116,7 +116,7 @@ export default function DocGenerator({ kind }: { kind: DocKind }) {
                   {gst && <div><label htmlFor={`l${i}h`}>HSN or SAC</label><input id={`l${i}h`} value={l.hsn} onChange={(e) => setLine(i, { hsn: e.target.value })} /></div>}
                   <div><label htmlFor={`l${i}q`}>Quantity</label><input id={`l${i}q`} inputMode="decimal" value={l.qty} onChange={(e) => setLine(i, { qty: e.target.value })} /></div>
                   <div><label htmlFor={`l${i}r`}>Rate (Rs)</label><input id={`l${i}r`} inputMode="decimal" value={l.rate} onChange={(e) => setLine(i, { rate: e.target.value })} /></div>
-                  {gst && <div><label htmlFor={`l${i}g`}>GST %</label><select id={`l${i}g`} value={l.gst} onChange={(e) => setLine(i, { gst: Number(e.target.value) })}>{RATES.map((r) => <option key={r} value={r}>{r}%</option>)}</select></div>}
+                  {gst && <div><label htmlFor={`l${i}g`}>GST %</label><select id={`l${i}g`} value={l.gst} onChange={(e) => setLine(i, { gst: Number(e.target.value) })}>{ratesOn(date).concat(ratesOn(date).includes(l.gst) ? [] : [l.gst]).map((r) => <option key={r} value={r}>{r}%</option>)}</select></div>}
                 </div>
                 {lines.length > 1 && <button type="button" className="link" onClick={() => setLines(lines.filter((_, j) => j !== i))}>Remove item {i + 1}</button>}
               </div>

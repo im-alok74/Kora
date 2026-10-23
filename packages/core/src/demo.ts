@@ -56,7 +56,7 @@ export async function createDemoBusiness(sql: Sql, userId: string): Promise<{ bu
   };
   await createItem(sql, t, { name: 'Monthly accounts and GST support', kind: 'service', hsnSac: '998221', defaultRateBp: 1800, price: '12000' });
   await createItem(sql, t, { name: 'Consulting hour', kind: 'service', hsnSac: '998313', defaultRateBp: 1800, price: '850' });
-  await createItem(sql, t, { name: 'Printed stationery set', kind: 'goods', hsnSac: '4820', defaultRateBp: 1200, price: '1250' });
+  await createItem(sql, t, { name: 'Printed stationery set', kind: 'goods', hsnSac: '4820', defaultRateBp: 500, price: '1250' });
 
   const doc = (partyId: string, offset: number, due: number, name: string, hsn: string, qty: string, rate: string, bp: number, docType: DocIn['docType'] = 'tax_invoice'): DocIn =>
     ({ docType, partyId, docDate: addDays(today, offset), dueDate: addDays(today, offset + due), lines: [{ name, hsnSac: hsn, quantity: qty, rate, taxRateBp: bp } as never] });
@@ -70,8 +70,8 @@ export async function createDemoBusiness(sql: Sql, userId: string): Promise<{ bu
   const d = await issue(doc(c.iyer, -20, 15, 'Consulting hours', '998313', '10', '850', 1800));
   await pay(d.id, '5000', 'upi', -10);
   await issue(doc(c.mehta, -18, 15, 'Quarterly audit support', '998221', '1', '30000', 1800)); // overdue
-  const e = await issue(doc(c.walkin, -8, 0, 'Printed stationery set', '4820', '4', '1250', 1200));
-  await pay(e.id, '5600', 'cash', -8);
+  const e = await issue(doc(c.walkin, -8, 0, 'Printed stationery set', '4820', '4', '1250', 500));
+  await pay(e.id, '5250', 'cash', -8);
   await issue(doc(c.sharma, -3, 15, 'Cabling work, extra points', '995463', '1', '7200', 1800));
   await saveDraft(sql, t, doc(c.iyer, 0, 15, 'Consulting hours', '998313', '6', '850', 1800)); // left as a draft
   await issue(doc(c.mehta, -2, 14, 'Website refresh, phase 2', '998313', '1', '45000', 1800, 'estimate'));
