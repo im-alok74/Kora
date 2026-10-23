@@ -12,7 +12,7 @@ const KINDS: Record<DocKind, { title: string; tax: DocType; from: string; to: st
   receipt: { title: 'PAYMENT RECEIPT', tax: 'estimate', from: 'Received by (your business)', to: 'Received from', numberLabel: 'Receipt number', dateLabel: 'Date received', dueLabel: null },
 };
 /** The GST percentages offered for a document dated `date`: 12% and 28% ended on 22 September 2025 and 40% began then. */
-const ratesOn = (date: string): number[] => [...allowedRatesOn(/^\d{4}-\d{2}-\d{2}$/.test(date) ? date : today())].sort((a, b) => a - b).map((bp) => bp / 100);
+const ratesOn = (date: string): number[] => [...allowedRatesOn(/^\d{4}-\d{2}-\d{2}$/.test(date) ? date : today())].filter((bp) => bp !== 25).sort((a, b) => a - b).map((bp) => bp / 100);   // 0.25% (rough diamonds) is not offered in the maker
 const METHODS = ['Cash', 'UPI', 'Bank transfer', 'Cheque', 'Card'];
 type Party = { name: string; gstin: string; address: string; state: string };
 type Line = { desc: string; hsn: string; qty: string; rate: string; gst: number };
