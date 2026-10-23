@@ -318,3 +318,16 @@ for (const theme of ['light', 'dark'] as const) {
     await ctx.close();
   });
 }
+
+test('tool pages show six related tools, the footer strip is grouped, and the sitemap dates the tools', async ({ page, request }) => {
+  await page.goto('/tools/pdf-to-image');
+  const more = page.locator('#more .vt-more a');
+  await expect(more).toHaveCount(6);
+  await expect(more.first()).toContainText(/Image Converter|Image Compressor|Images to PDF|Merge and Split PDF/);   // same group first
+  await page.goto('/pricing');
+  const strip = page.locator('.k-toolstrip');
+  for (const g of ['Documents', 'PDF and images', 'Text and numbers', 'Calculators, codes and logos']) await expect(strip.getByRole('group', { name: g })).toBeVisible();
+  await expect(strip.locator('a')).toHaveCount(19);
+  const map = await (await request.get('/sitemap.xml')).text();
+  expect(map).toMatch(/\/tools\/gstin-validator<\/loc>\s*<lastmod>2026-10-24/);
+});

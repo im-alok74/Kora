@@ -16,7 +16,6 @@ import '../../landing.css';
 import '../../landing-dark.css';
 import '../../site.css';
 import '../../tools.css';
-import '../../tools-more.css';
 
 export const dynamicParams = false;
 export const generateStaticParams = () => TOOLS.map((t) => ({ slug: t.slug }));

@@ -90,7 +90,10 @@ export { toolIcon };
 
 /** Links to the other tools, like the "Special purpose tools" strip on the reference. */
 export function MoreTools({ current }: { current?: string }) {
-  const list: Tool[] = TOOLS.filter((t) => t.slug !== current);
+  // Six related tools: the others in the same group first, then the rest in list order. The hub and the footer strip have the full list.
+  const here = TOOLS.find((t) => t.slug === current);
+  const others = TOOLS.filter((t) => t.slug !== current);
+  const list: Tool[] = [...others.filter((t) => t.group === here?.group), ...others.filter((t) => t.group !== here?.group)].slice(0, 6);
   return (
     <div className="vt-more">
       {list.map((t) => <a key={t.slug} href={`/tools/${t.slug}`}><span className="vt-ico sky"><Icon name={toolIcon(t.slug)} size={20} /></span><span>{t.title}</span><Icon name="arrow" size={16} /></a>)}
