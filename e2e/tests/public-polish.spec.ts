@@ -41,13 +41,15 @@ test('the 404 page keeps the site header and offers ways out', async ({ page }) 
 test('the header Tools menu opens on hover and from the keyboard, and tablets get the compact menu', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/pricing');
-  const pop = page.getByRole('group', { name: 'Free tools' });
+  const pop = page.locator('.k-menu-pop');
+  const tools = page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'Tools' });
   await expect(pop).toBeHidden();
-  await page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Tools' }).hover();
+  await tools.hover();
   await expect(pop).toBeVisible();
   await page.mouse.move(5, 400);
   await expect(pop).toBeHidden();
-  await page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Tools' }).focus();
+  await tools.focus();
+  await page.keyboard.press('Enter');
   await expect(pop).toBeVisible();
   await page.setViewportSize({ width: 768, height: 900 });
   await expect(page.getByRole('navigation', { name: 'Primary' })).toBeHidden();
