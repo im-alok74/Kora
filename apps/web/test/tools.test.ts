@@ -45,8 +45,8 @@ describe('Code 128', () => {
 });
 
 describe('tool list', () => {
-  it('has the eleven tools with unique addresses', () => {
-    expect(TOOLS).toHaveLength(11);
-    expect(new Set(TOOLS.map((t) => t.slug)).size).toBe(11);
+  it('has the nineteen tools with unique addresses', () => {
+    expect(TOOLS).toHaveLength(19);
+    expect(new Set(TOOLS.map((t) => t.slug)).size).toBe(19);
   });
 });
