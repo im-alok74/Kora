@@ -56,7 +56,8 @@ export function inspectGstin(raw: string): GstinReport {
     r.checkChar = { found: gstin[14]!, expected };
     if (expected !== gstin[14]) problems.push(`The last character (check character) should be ${expected}, not ${gstin[14]}. A digit may have been mistyped.`);
   }
-  r.valid = gstinValid(gstin);
+  // The engine checks the pattern and the check character. A state code that does not exist, or an unknown holder letter, also fails here.
+  r.valid = gstinValid(gstin) && problems.length === 0;
   if (!r.valid && problems.length === 0) problems.push('This is not a valid GSTIN.');
   return r;
 }

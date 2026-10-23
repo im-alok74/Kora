@@ -4,6 +4,10 @@ import DocGenerator, { type DocKind } from '../../../components/tools/DocGenerat
 import GstCalculator from '../../../components/tools/GstCalculator';
 import { BarcodeGenerator, QrGenerator, ScanTool } from '../../../components/tools/CodeTools';
 import LogoMaker from '../../../components/tools/LogoMaker';
+import { ImageCompressor, ImageConverter } from '../../../components/tools/ImageTools';
+import PdfToImage from '../../../components/tools/PdfToImage';
+import { ImagesToPdf, MergeSplitPdf } from '../../../components/tools/PdfTools';
+import { AmountInWords, GstinValidator, WordCounter } from '../../../components/tools/TextTools';
 import { Band, Cards, Cross, Faq, MoreTools, Steps, ToolHero, ToolsShell } from '../../../components/tools/ToolShell';
 import { TOOLS, toolBySlug } from '../../../lib/tools';
 import { GST_SLABS, toolPageInfo } from '../../../lib/toolPages';
@@ -12,6 +16,7 @@ import '../../landing.css';
 import '../../landing-dark.css';
 import '../../site.css';
 import '../../tools.css';
+import '../../tools-more.css';
 
 export const dynamicParams = false;
 export const generateStaticParams = () => TOOLS.map((t) => ({ slug: t.slug }));
@@ -34,6 +39,14 @@ function Body({ slug }: { slug: string }) {
     case 'qr-code-scanner': return <ScanTool mode="qr" />;
     case 'barcode-scanner': return <ScanTool mode="barcode" />;
     case 'logo-maker': return <LogoMaker />;
+    case 'pdf-to-image': return <PdfToImage />;
+    case 'image-converter': return <ImageConverter />;
+    case 'image-compressor': return <ImageCompressor />;
+    case 'images-to-pdf': return <ImagesToPdf />;
+    case 'merge-split-pdf': return <MergeSplitPdf />;
+    case 'gstin-validator': return <GstinValidator />;
+    case 'amount-in-words': return <AmountInWords />;
+    case 'word-counter': return <WordCounter />;
     default: return null;
   }
 }

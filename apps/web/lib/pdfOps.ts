@@ -13,7 +13,7 @@ export async function openForEdit(bytes: Uint8Array, name = 'This file'): Promis
     return doc;
   } catch (e) {
     if (e instanceof PdfProblem) throw e;
-    if (e instanceof EncryptedPDFError) throw new PdfProblem('encrypted', `${name} is password protected. Open it with its password and save an unprotected copy first, then add it here.`);
+    if (e instanceof EncryptedPDFError || /encrypted/i.test((e as Error)?.message ?? '')) throw new PdfProblem('encrypted', `${name} is password protected. Open it with its password and save an unprotected copy first, then add it here.`);
     throw new PdfProblem('broken', `${name} could not be read. It may be damaged or not a PDF.`);
   }
 }

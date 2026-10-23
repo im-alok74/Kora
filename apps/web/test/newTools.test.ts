@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
 import { gstinCheckChar } from '@kora/tax';
@@ -36,6 +37,7 @@ describe('GSTIN validator', () => {
     expect(inspectGstin('').problems[0]).toMatch(/Enter a GSTIN/);
     expect(inspectGstin('27AAAPL1234C1Z').problems[0]).toMatch(/15 characters\. This one has 14/);
     expect(inspectGstin(withCheck('98AAAPL1234C1Z')).problems.join(' ')).toMatch(/98 is not a GST state code/);
+    expect(inspectGstin(withCheck('98AAAPL1234C1Z')).valid).toBe(false);   // right check character, but no such state
     expect(inspectGstin('27AAPF10939F1Z5').problems.join(' ')).toMatch(/must be a PAN/);
     expect(inspectGstin(withCheck('27AAAPL1234C1X')).problems.join(' ')).toMatch(/must be the letter Z/);
     expect(inspectGstin('27AAAPL1234C0ZX').problems.join(' ')).toMatch(/cannot be 0/);
@@ -192,6 +194,10 @@ describe('PDF operations', () => {
   it('says plainly when a file is not a PDF or has no pages', async () => {
     await expect(mergePdfs([{ name: 'x.pdf', bytes: new TextEncoder().encode('hello') }])).rejects.toMatchObject({ reason: 'broken' });
     await expect(mergePdfs([])).rejects.toMatchObject({ reason: 'empty' });
+  });
+  it('names a password protected PDF instead of calling it damaged', async () => {
+    const locked = new Uint8Array(readFileSync(new URL('../../../e2e/fixtures/locked.pdf', import.meta.url)));
+    await expect(mergePdfs([{ name: 'locked.pdf', bytes: locked }])).rejects.toMatchObject({ reason: 'encrypted', message: expect.stringContaining('locked.pdf is password protected') });
   });
   it('builds a PDF from pictures with the right page sizes', async () => {
     // 1x1 pixel PNG

@@ -1,6 +1,7 @@
 import KoraLogo from './KoraLogo';
 import Icon from './Icon';
 import SiteThemeToggle from './SiteThemeToggle';
+import ToolsMenu from './ToolsMenu';
 import { TOOLS, toolIcon } from '../lib/tools';
 import '../app/site-tools.css';
 import '../app/polish.css';
@@ -17,13 +18,7 @@ export function SiteHeader() {
           <a className="l-brand" href="/" aria-label="Kora Invoice home"><KoraLogo /></a>
           <nav aria-label="Primary">
             {links.map(([h, t]) => <a key={h} href={h}>{t}</a>)}
-            <div className="k-menu">
-              <a href="/tools" aria-haspopup="true">Tools <Icon name="arrow" size={13} /></a>
-              <div className="k-menu-pop" role="group" aria-label="Free tools">
-                {TOOLS.map((t) => <a key={t.slug} href={`/tools/${t.slug}`}><span className="k-menu-ico"><Icon name={toolIcon(t.slug)} size={16} /></span>{t.title}</a>)}
-                <a className="k-menu-all" href="/tools">See all free tools <Icon name="arrow" size={13} /></a>
-              </div>
-            </div>
+            <ToolsMenu />
             <a href={help[0]}>{help[1]}</a>
             <a href="/login">Sign in</a>
             <a className="btn" href="/login?signup=1">Get started <Icon name="arrow" size={15} /></a>
