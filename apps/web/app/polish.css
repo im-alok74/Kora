@@ -5,8 +5,8 @@
 .landing.kora-home .l-footer .l-wrap > .l-legal { grid-column: 1 / -1; }
 @media (max-width: 480px) { .landing.kora-home .l-footer .l-wrap { grid-template-columns: 1fr 1fr; } }
 
-/* Header: the full menu needs about 980px, so tablets get the compact menu instead of a squeezed, wrapping one. */
-@media (max-width: 980px) {
+/* Header: the full menu needs about 1080px, so tablets get the compact menu instead of a squeezed, wrapping one. */
+@media (max-width: 1080px) {
   .landing.kora-home .l-bar { min-height: 70px; }
   .landing.kora-home .l-bar > nav { display: none; }
   .landing .k-mobile-menu { display: block; position: relative; }
@@ -28,3 +28,23 @@
 :root[data-theme="dark"] .landing.kora-home .k-app-preview { color: #253244; }
 :root[data-theme="dark"] .landing.kora-home .k-app-preview :is(p, span, b, small, strong, h4, td, th, div, li):not([class*='studio'], [class*='chip'], [class*='badge'], [class*='tag']) { color: #3a4856; }
 :root[data-theme="dark"] .landing.kora-home .k-reassurance span { color: var(--text-muted); }
+
+/* "Do more with Kora" mock cards: real content instead of grey placeholder bars. */
+.landing .mk-sheet { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+.landing .mk-to { display: flex; gap: 10px; align-items: baseline; margin: 0; font-size: 13px; color: #44515d; }
+.landing .mk-to b { color: #212326; font-weight: 600; }
+.landing .mk-msg { margin: 0; padding: 12px 14px; border-radius: 4px 14px 14px 14px; background: #e7f6ec; color: #1f3a2b; font-size: 13px; line-height: 1.5; }
+.landing .mk-send { align-self: flex-start; padding: 8px 16px; border-radius: 7px; background: #106cd9; color: #fff; font-size: 13px; font-weight: 600; }
+.landing .mk-note { margin: 0; padding: 12px 18px; border-top: 1px solid #eceff2; font-size: 13px; color: #44515d; }
+/* all three mock panels share one height so the row reads evenly */
+@media (min-width: 1001px) { .landing .l-do-mock { min-height: 310px; } }
+:root[data-theme="dark"] .landing.kora-home .mk-to { color: #44515d; }
+:root[data-theme="dark"] .landing.kora-home .mk-to b { color: #212326; }
+:root[data-theme="dark"] .landing.kora-home .mk-msg { color: #1f3a2b; }
+:root[data-theme="dark"] .landing.kora-home .mk-note { color: #44515d; }
+
+/* The top strip is gone: the theme switch lives in the main header, icon only below 1100px. */
+.landing.kora-home .k-header-tools { display: flex; align-items: center; margin-left: 12px; }
+.landing.kora-home .l-bar { gap: 8px; }
+@media (max-width: 1100px) { .landing.kora-home .k-header-tools .site-theme-toggle span { display: none; } .landing.kora-home .k-header-tools .site-theme-toggle { padding: 0 10px; } }
+@media (max-width: 1080px) { .landing.kora-home .k-header-tools { margin-left: auto; } }

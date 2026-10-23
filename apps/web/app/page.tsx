@@ -96,19 +96,20 @@ function Mock({ k }: { k: string }) {
     <div className="mk">
       <div className="mk-bar"><span>Send invoice</span><span aria-hidden="true">&times;</span></div>
       <div className="mk-tabs"><span className="on">WhatsApp</span><span>SMS</span><span>Email</span></div>
-      <div className="mk-sheet"><i /><i /><i className="short" /></div>
+      <div className="mk-sheet"><p className="mk-to"><span>To</span><b>Verma Stores</b></p><p className="mk-msg">Hello, invoice INV-0042 for Rs 19,470.00 is ready. You can pay by UPI from the link below.</p><span className="mk-send">Send now</span></div>
     </div>
   );
   if (k === 'pay') return (
     <div className="mk">
       <div className="mk-pay"><span className="mk-ic" /><div><b>INV-0042</b><small>Balance due</small></div><strong>Rs 19,470.00</strong></div>
       <div className="mk-upi"><span className="l-qr" /><div><b>Pay by UPI</b><small>The amount is filled in for you.</small></div></div>
+      <p className="mk-note">Part payments are matched to the invoice.</p>
     </div>
   );
   return (
     <div className="mk">
       <div className="mk-rec"><b>Monthly retainer</b><span className="chip paid">Active</span></div>
-      <dl className="mk-dl"><div><dt>Repeats</dt><dd>Every month</dd></div><div><dt>Next invoice</dt><dd>1st of the month</dd></div><div><dt>Payment terms</dt><dd>Due in 7 days</dd></div></dl>
+      <dl className="mk-dl"><div><dt>Repeats</dt><dd>Every month</dd></div><div><dt>Next invoice</dt><dd>1st of the month</dd></div><div><dt>Payment terms</dt><dd>Due in 7 days</dd></div><div><dt>Sent by</dt><dd>WhatsApp</dd></div></dl>
     </div>
   );
 }
