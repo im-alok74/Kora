@@ -2,7 +2,7 @@
 try { process.loadEnvFile?.(new URL('../../.env', import.meta.url)); } catch { /* no .env file */ }
 
 // Not a full script policy (Next.js inlines its bootstrap), but it shuts the frame, base and plugin routes.
-// The public invoice route (/i/) sets its own, much stricter policy, so it is left out here.
+// The public invoice route (/i/) and the landing page's sample invoices (/samples/) set their own, much stricter policy, so they are left out here.
 const APP_CSP = { key: 'Content-Security-Policy', value: "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'" };
 
 const SECURITY_HEADERS = [
@@ -30,7 +30,7 @@ export default {
   async headers() {
     return [
       { source: '/:path*', headers: SECURITY_HEADERS },
-      { source: '/((?!i/).*)', headers: [APP_CSP] },
+      { source: '/((?!i/|samples/).*)', headers: [APP_CSP] },
     ];
   },
   // Workspace packages import their own files as './x.js' (the ESM convention); map that to the .ts source.

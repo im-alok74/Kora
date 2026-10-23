@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
 
-type Template = { key: string; label: string; html: string };
+type Template = { key: string; label: string };
+const sampleUrl = (t: Template) => `/samples/${t.key}`;   // fetched by the frame itself, so the landing page does not carry every invoice
 
 export default function TemplateCarousel({ templates }: { templates: Template[] }) {
   const [background, setBackground] = useState<'light' | 'dark'>('light');
@@ -87,7 +88,7 @@ export default function TemplateCarousel({ templates }: { templates: Template[] 
       <div className="k-template-track" ref={track}>
         {[false, ...(canAnimate ? [true] : [])].map(duplicate => <div className="l-tpl" key={String(duplicate)} aria-hidden={duplicate || undefined}>
           {templates.map(template => <button type="button" key={template.key} className="tpl-card" tabIndex={duplicate ? -1 : 0} onClick={() => setPreview(template)} aria-label={`Preview ${template.label} invoice`}>
-            <span className="tpl-thumb" aria-hidden="true"><iframe title={`${template.label} sample invoice`} srcDoc={template.html} sandbox="" tabIndex={-1} loading="lazy" /></span>
+            <span className="tpl-thumb" aria-hidden="true"><iframe title={`${template.label} sample invoice`} src={sampleUrl(template)} sandbox="" tabIndex={-1} loading="lazy" /></span>
             <span className="tpl-foot"><span>{template.label}</span><Icon name="arrow" size={18} /></span>
           </button>)}
         </div>)}
@@ -96,7 +97,7 @@ export default function TemplateCarousel({ templates }: { templates: Template[] 
     <p className="k-template-caption">Actual Kora invoice layouts with fictional sample details. Select a template to read it in full.</p>
     <dialog className="k-invoice-dialog" ref={dialog} onClose={() => setPreview(null)} aria-label={`${preview?.label ?? ''} invoice preview`}>
       <header><strong>{preview?.label} invoice</strong><button type="button" autoFocus onClick={() => dialog.current?.close()}>Close preview</button></header>
-      {preview && <iframe title={`${preview.label} invoice preview`} sandbox="" srcDoc={preview.html} />}
+      {preview && <iframe title={`${preview.label} invoice preview`} sandbox="" src={sampleUrl(preview)} />}
       <footer>Sample invoice · No payment due <a href="/login?signup=1">Create your own invoice <Icon name="arrow" size={16} /></a></footer>
     </dialog>
   </div>;
