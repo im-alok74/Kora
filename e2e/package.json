@@ -7,9 +7,10 @@
     "typecheck": "tsc --noEmit -p ."
   },
   "devDependencies": {
-    "@playwright/test": "1.64.1",
     "@axe-core/playwright": "^4.10.0",
-    "postgres": "^3.4.5",
-    "@kora/db": "workspace:*"
+    "@kora/db": "workspace:*",
+    "@playwright/test": "1.64.1",
+    "pdf-lib": "1.17.1",
+    "postgres": "^3.4.5"
   }
 }

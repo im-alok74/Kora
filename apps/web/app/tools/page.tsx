@@ -9,9 +9,9 @@ import '../tools.css';
 
 export const metadata: Metadata = {
   title: 'Free business tools',
-  description: 'Free tools for Indian businesses: GST calculator, invoice, quotation, proforma and purchase order makers, receipt maker, QR and barcode tools, and a logo maker.',
+  description: 'Free tools for Indian businesses: GST calculator, invoice and quotation makers, PDF and image tools, GSTIN validator, amount in words, word counter, QR and barcode tools and a logo maker.',
   alternates: { canonical: '/tools' },
-  openGraph: { type: 'website', title: 'Free business tools | Kora', description: 'Free GST calculator, invoice, quotation, proforma, purchase order and receipt makers, QR and barcode tools and a logo maker.', url: '/tools' },
+  openGraph: { type: 'website', title: 'Free business tools | Kora', description: 'Free GST calculator, document makers, PDF and image tools, GSTIN validator, amount in words, word counter, QR and barcode tools and a logo maker.', url: '/tools' },
 };
 
 const TINTS = ['pink', 'mint', 'sky', 'sun'];
@@ -22,7 +22,7 @@ export default function Tools() {
       <ToolHero
         crumbs={[['Home', '/'], ['Free tools', '']]}
         badge="Free, no signup" title="Free business tools" highlight="Small tools that do one job well"
-        lead="Make an invoice, work out GST, print a barcode or draw a logo. Each tool runs in your browser, there is nothing to sign up for, and what you type stays on your device."
+        lead="Make an invoice, work out GST, merge PDFs, shrink a picture or check a GSTIN. Each tool runs in your browser, there is nothing to sign up for, and what you type stays on your device."
         primary={['Browse the tools', '#all-tools']} secondary={['Try Kora free', '/login?signup=1']}
         stats={[[String(TOOLS.length), 'Free tools'], ['No signup', 'Start straight away'], ['On your device', 'Nothing is uploaded']]}
       />

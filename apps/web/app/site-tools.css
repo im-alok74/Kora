@@ -1,14 +1,18 @@
 /* The Tools menu in the header and the tools strip above the footer. Theme tokens with light fallbacks, so dark mode follows. */
 .kora-home .k-menu { position: relative; display: inline-flex; align-items: center; }
-.kora-home .k-menu > a { display: inline-flex; align-items: center; gap: 5px; }
-.kora-home .k-menu > a svg { transform: rotate(90deg); transition: transform .15s; }
-.kora-home .k-menu:hover > a svg, .kora-home .k-menu:focus-within > a svg { transform: rotate(-90deg); }
-.kora-home .k-menu-pop { display: none; position: absolute; top: 100%; left: -24px; z-index: 80; width: 310px; margin-top: 12px; padding: 10px; flex-direction: column; gap: 2px; background: var(--surface-raised, #fff); border: 1px solid var(--border, #e4e8ed); border-radius: 14px; box-shadow: 0 18px 44px rgba(20, 30, 40, .16); }
+.kora-home .k-menu-btn { display: inline-flex; align-items: center; gap: 5px; height: auto; padding: 0; margin: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; border-radius: 4px; box-shadow: none; min-height: 0; }
+.kora-home .k-menu-btn:hover { color: var(--accent, #106cd9); background: none; box-shadow: none; transform: none; }
+.kora-home .k-menu-btn svg { transform: rotate(90deg); transition: transform .15s; }
+.kora-home .k-menu.open .k-menu-btn svg { transform: rotate(-90deg); }
+.kora-home .k-menu-pop { display: none; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); z-index: 80; width: 700px; max-width: calc(100vw - 32px); max-height: calc(100vh - 110px); overflow-y: auto; margin-top: 12px; padding: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; background: var(--surface-raised, #fff); border: 1px solid var(--border, #e4e8ed); border-radius: 14px; box-shadow: 0 18px 44px rgba(20, 30, 40, .16); }
 .kora-home .k-menu-pop::before { content: ''; position: absolute; left: 0; right: 0; top: -14px; height: 14px; }
-.kora-home .k-menu:hover .k-menu-pop, .kora-home .k-menu:focus-within .k-menu-pop { display: flex; }
-.kora-home .k-menu-pop a { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: var(--text, #1b2835); font-size: 14px; text-decoration: none; }
+.kora-home .k-menu.open .k-menu-pop { display: grid; }
+.kora-home .k-menu-pop[hidden] { display: none; }
+.kora-home .k-menu-col { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.kora-home .k-menu-h { padding: 4px 10px 6px; color: var(--text-muted, #62686d); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.kora-home .k-menu-pop a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: var(--text, #1b2835); font-size: 14px; text-decoration: none; }
 .kora-home .k-menu-pop a:hover { background: var(--surface, #f2f6fb); color: var(--accent, #106cd9); }
-.kora-home .k-menu-pop .k-menu-all { margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--border, #e4e8ed); border-radius: 0 0 8px 8px; color: var(--accent, #106cd9); font-weight: 600; }
+.kora-home .k-menu-pop .k-menu-all { grid-column: 1 / -1; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--border, #e4e8ed); border-radius: 0 0 8px 8px; color: var(--accent, #106cd9); font-weight: 600; }
 .kora-home .k-menu-pop .k-menu-all svg { margin-left: -4px; }
 .k-menu-ico { display: inline-grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 8px; background: var(--tint-sky, #c5def2); color: #212326; }
 
@@ -25,4 +29,4 @@
 .k-toolstrip-grid a:nth-child(4n+3) .k-menu-ico { background: var(--tint-sky, #c5def2); }
 .k-toolstrip-grid a:nth-child(4n) .k-menu-ico { background: var(--tint-sun, #fce1a8); }
 @media (max-width: 1000px) { .k-toolstrip-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .k-toolstrip-grid { grid-template-columns: 1fr; } .kora-home .k-toolstrip { padding: 52px 0 56px; } }
+@media (max-width: 560px) { .k-toolstrip-grid { grid-template-columns: 1fr; gap: 10px; } .kora-home .k-toolstrip { padding: 52px 0 56px; } .kora-home .k-toolstrip-grid a { padding: 10px 12px; } .k-toolstrip-grid .k-menu-ico { width: 34px; height: 34px; } }
