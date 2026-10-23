@@ -473,14 +473,6 @@ iframe.preview { width: 100%; height: 880px; border: 1px solid var(--border); bo
 .l-close h2 { color: #fff; font-size: clamp(28px, 3.8vw, 40px); font-weight: 400; margin: 0 0 8px; }
 .l-close p { color: #b9bdc4; margin: 0 0 24px; }
 .l-close .btn { margin-top: 0; height: 46px; padding: 0 28px; font-size: 15.5px; }
-.l-footer { background: #161719; color: #c7cbd1; padding: 48px 0 28px; font-size: 14px; }
-.l-footer .l-wrap { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 32px; }
-.l-footer .l-brand { color: #fff; font-size: 22px; margin-bottom: 10px; }
-.l-footer p { margin: 0; max-width: 320px; color: #9aa0a8; }
-.l-footer h3 { color: #fff; font-size: 12px; letter-spacing: .09em; text-transform: uppercase; margin: 0 0 12px; font-weight: 700; }
-.l-footer a:not(.l-brand) { color: #c7cbd1; text-decoration: none; display: block; padding: 4px 0; }
-.l-footer a:not(.l-brand):hover { color: #fff; text-decoration: underline; }
-.l-legal { grid-column: 1 / -1; border-top: 1px solid #2c2e32; padding-top: 20px; color: #8c919b; }
 @media (max-width: 1100px) {
   .l-showcase { grid-template-columns: 1fr 1fr; align-items: stretch; }
   .l-demo { grid-column: 1 / -1; order: -1; max-width: 380px; margin: 0 auto 22px; }
@@ -497,7 +489,6 @@ iframe.preview { width: 100%; height: 880px; border: 1px solid var(--border); bo
   .l-showcase { grid-template-columns: 1fr; }
   .l-badge.wa { left: 6px; } .l-badge.paid { right: 6px; }
   .l-proof-r { grid-template-columns: 1fr; padding: 28px 24px; }
-  .l-footer .l-wrap { grid-template-columns: 1fr; }
   .l-dash .row3 { grid-template-columns: 1fr; }
 }
 
