@@ -77,10 +77,10 @@ test('the login screen asks for the authenticator code as a second step', async 
   await expect(p2.getByLabel(/Six-digit code sent to/)).toBeVisible();
   await db`update otp_challenge set created_at = created_at - interval '1 minute' where identifier = ${u.email}`;
   await p2.getByLabel(/Six-digit code sent to/).fill(await recoverOtp(u.email));
-  await p2.getByRole('button', { name: 'Sign in' }).click();
+  await p2.locator('form').getByRole('button', { name: 'Sign in' }).click();
   await expect(p2.getByLabel('Code from your authenticator app, or a recovery code')).toBeVisible();
   await p2.getByLabel('Code from your authenticator app, or a recovery code').fill(totpAt(secret, totpStep() + 1));
-  await p2.getByRole('button', { name: 'Sign in' }).click();
+  await p2.locator('form').getByRole('button', { name: 'Sign in' }).click();
   await expect(p2).toHaveURL(/\/setup|\/app/);
   await ctx2.close();
 });

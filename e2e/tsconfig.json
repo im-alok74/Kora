@@ -1,1 +1,1 @@
-{ "extends": "../tsconfig.base.json", "compilerOptions": { "lib": ["ES2022","dom"] }, "include": ["tests", "scripts", "helpers.ts", "playwright.config.ts"] }
+{ "extends": "../tsconfig.base.json", "compilerOptions": { "lib": ["ES2022","dom"], "jsx": "preserve" }, "include": ["tests", "scripts", "helpers.ts", "playwright.config.ts"] }

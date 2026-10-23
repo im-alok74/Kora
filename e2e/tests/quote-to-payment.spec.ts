@@ -5,7 +5,8 @@ import { makeBusiness, signedIn } from '../helpers';
 test('quotation details survive conversion, PDF and two payments with receipts', async ({ page, context }) => {
   const faults: string[] = [];
   page.on('pageerror', e => faults.push(e.message));
-  page.on('console', m => { if (m.type() === 'error') faults.push(m.text()); });
+  // axe tries to inject itself into the sandboxed document previews and the browser logs that refusal; it is the scanner, not the app
+  page.on('console', m => { if (m.type() === 'error' && !m.text().startsWith('Blocked script execution in')) faults.push(m.text()); });
   page.on('response', r => { if (r.status() >= 500) faults.push(`${r.status()} ${r.url()}`); });
   const user = await signedIn(context);
   await makeBusiness(user.userId, 'Kora Journey Test');
@@ -20,8 +21,10 @@ test('quotation details survive conversion, PDF and two payments with receipts',
   expect((await page.request.post(`/api/documents/${quote.id}/issue`, { data: {} })).ok()).toBeTruthy();
   await page.goto(`/app/invoices/${quote.id}`);
   await page.getByRole('button', { name: 'Mark accepted' }).click();
+  await page.getByRole('button', { name: 'Save answer' }).click();
   await expect(page.getByTestId('estimate-status')).toHaveText('Accepted');
   await page.getByRole('button', { name: 'Convert to invoice' }).click();
+  await page.getByRole('link', { name: 'Edit' }).click();   // a converted quote opens as a draft; the editor is one click away
   await expect(page.getByRole('heading', { name: 'Edit draft' })).toBeVisible();
   await expect(page.getByLabel('Order or PO number')).toHaveValue('PO-402');
   await expect(page.getByLabel('Subject', { exact: true })).toHaveValue('Website refresh');
@@ -47,7 +50,7 @@ test('quotation details survive conversion, PDF and two payments with receipts',
   await page.reload();
   await expect(page.getByText('Fully paid.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Receipt', exact: true })).toHaveCount(2);
-  expect.soft((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+  expect.soft((await new AxeBuilder({ page }).exclude('iframe').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
   expect(faults).toEqual([]);
 });
 

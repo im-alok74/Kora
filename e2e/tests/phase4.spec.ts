@@ -33,7 +33,7 @@ test('a look is chosen from samples, saved, and used on the invoice', async ({ p
   const u = await signedIn(context);
   await makeBusiness(u.userId);
   await page.goto('/app/settings');
-  const gallery = page.getByRole('group', { name: 'Choose a look' });
+  const gallery = page.getByRole('group', { name: 'Choose an invoice template' });
   await expect(gallery.getByRole('button', { name: /Modern/ })).toBeVisible();
   await expect(gallery.getByRole('button', { name: /Classic/ })).toHaveAttribute('aria-pressed', 'true');
   await gallery.getByRole('button', { name: /Modern/ }).click();
