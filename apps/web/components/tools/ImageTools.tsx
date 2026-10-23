@@ -142,7 +142,7 @@ export function ImageCompressor() {
     } catch (e) { setError((e as Error).message || `${f.name} could not be read. It may be damaged.`); } finally { setBusy(''); }
   }
 
-  async function run(s: { mode: Mode; kb: number; out: ImageFormat | 'same'; w: number; h: number; quality: number }) {
+  async function run(s: { mode: Mode; kb: number; out: ImageFormat | 'same'; w: number; h: number; quality: number; logo?: boolean }) {
     if (!file || !pic.current) return;
     drop(); setError(''); setBusy('Making the smaller picture'); await nextFrame();
     const type: ImageFormat = s.out === 'same' ? formatOf(file) : s.out;
@@ -150,9 +150,12 @@ export function ImageCompressor() {
     try {
       let blob: Blob, width: number, height: number, note = '', met = true;
       if (s.mode === 'size') {
-        const r = await fitToSize(async (scale, q) => { const b = await renderPicture(p, { type, quality: q ?? undefined, scale }); return { out: b, size: b.size }; }, s.kb * 1024, { lossy: type !== 'image/png' });
+        const fit = (t: ImageFormat) => fitToSize(async (scale, q) => { const b = await renderPicture(p, { type: t, quality: q ?? undefined, scale }); return { out: b, size: b.size }; }, s.kb * 1024, { lossy: t !== 'image/png' });
+        let r = await fit(type), jpgNote = '';
+        // A PNG can only get smaller by losing pixels. For the logo button, a JPG that keeps more of the picture is the better answer.
+        if (s.logo && type === 'image/png' && r.scale < 0.9) { const j = await fit('image/jpeg'); if (j.met && j.scale > r.scale) { r = j as typeof r; jpgNote = ' Saved as JPG to keep more detail; transparent areas became white.'; } }
         blob = r.out; width = Math.round(p.width * r.scale); height = Math.round(p.height * r.scale); met = r.met;
-        note = r.met ? `Fits under ${s.kb} KB${r.scale < 1 ? `, with the picture made ${Math.round((1 - r.scale) * 100)}% smaller in each direction` : ''}.` : `Could not reach ${s.kb} KB without making the picture tiny. This is the smallest we could make. Try JPG or WebP, or a higher limit.`;
+        note = r.met ? `Fits under ${s.kb} KB${r.scale < 1 ? `, with the picture made ${Math.round((1 - r.scale) * 100)}% smaller in each direction` : ''}.${jpgNote}` : `Could not reach ${s.kb} KB without making the picture tiny. This is the smallest we could make. Try JPG or WebP, or a higher limit.`;
         if (r.met && blob.size > file.size) note += ' This is larger than your original, which was already under the limit. Keep the original.';
       } else {
         width = s.w; height = s.h;
@@ -181,7 +184,7 @@ export function ImageCompressor() {
             <p className="tl-file"><b>{file.name}</b><span>{dims.w} x {dims.h}, {formatBytes(file.size)}</span></p>
             <p className="muted">Kora accepts a PNG or JPG logo under 150 KB. This button sets that up for you (a WebP logo becomes a JPG).</p>
             <div className="tl-actions">
-              <button type="button" disabled={!!busy} onClick={() => { const o = formatOf(file) === 'image/webp' ? 'image/jpeg' : 'same'; setMode('size'); setKb('150'); setOut(o); void run({ mode: 'size', kb: 150, out: o, w: 0, h: 0, quality }); }}>Kora invoice logo (under 150 KB)</button>
+              <button type="button" disabled={!!busy} onClick={() => { const o = formatOf(file) === 'image/webp' ? 'image/jpeg' : 'same'; setMode('size'); setKb('150'); setOut(o); void run({ mode: 'size', kb: 150, out: o, w: 0, h: 0, quality, logo: true }); }}>Kora invoice logo (under 150 KB)</button>
             </div>
             <fieldset className="tl-fs"><legend>Shrink by</legend>
               <div className="tl-seg">
