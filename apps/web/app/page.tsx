@@ -222,6 +222,21 @@ export default function Landing() {
             </div>
           </section>
 
+          <section id="download" className="l-section k-device-section" aria-labelledby="device-h">
+            <div>
+              <p className="k-device-eyebrow">AT YOUR DESK. ON THE MOVE.</p>
+              <h2 id="device-h">Your business goes with you.</h2>
+              <p className="l-sub">One account for your invoices, customers and payments. Open Kora in your browser or install it on the device you use every day.</p>
+              <a className="btn" href="/download">Get Kora for your device <Icon name="arrow" size={18} /></a>
+              <a className="k-device-browser" href="/app">Open in browser</a>
+            </div>
+            <div className="k-device-options">
+              <a href="/download#dl-windows"><Icon name="documents" size={24} /><span><b>Desktop</b><small>Windows and Mac</small></span><Icon name="arrow" size={16} /></a>
+              <a href="/download#dl-android"><Icon name="phone" size={24} /><span><b>Mobile and tablet</b><small>Android, iPhone and iPad</small></span><Icon name="arrow" size={16} /></a>
+              <p>Draft offline after setup. Reconnect to sync and issue.</p>
+            </div>
+          </section>
+
           <section id="trust" className="l-section" aria-labelledby="t-h">
             <h2 id="t-h">Built to be run <span className="hl">with your CA</span></h2>
             <p className="l-sub">Straight answers about what Kora does and does not do.</p>

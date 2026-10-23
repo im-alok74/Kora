@@ -702,26 +702,21 @@ ul.notes li { align-items: flex-start; } ul.notes li p { margin: 2px 0 0; white-
 @media (max-width: 480px) { .site-header-actions { gap: 10px; } }
 .kora-home .site-header-actions > a { font-size: 12px; text-decoration: none; }
 
-/* The approved multicolour logo uses a white plate for legibility in both themes. */
-.kora-logo { display: inline-flex; align-items: center; justify-content: center; width: 132px; height: 66px; flex: 0 0 auto; background: #fff; border-radius: 6px; overflow: hidden; vertical-align: middle; }
+/* Kora's invoice-and-payment identity; ink follows the host theme. */
+.kora-logo { display: inline-flex; align-items: center; width: 132px; height: 42px; flex: 0 0 auto; color: var(--text, #172d32); vertical-align: middle; }
 .kora-logo-vector { display: block; width: 100%; height: 100%; overflow: visible; }
-.side .brand .kora-logo { width: 144px; height: 72px; }
-.mobile-bar .brand .kora-logo { width: 88px; height: 44px; }
-.auth-brand .kora-logo, .auth-brand-link .kora-logo { width: 152px; height: 76px; }
+.side .brand .kora-logo { width: 144px; height: 46px; color: var(--side-ink); }
+.mobile-bar .brand .kora-logo { width: 108px; height: 34px; color: var(--side-ink); }
+.auth-brand .kora-logo, .auth-brand-link .kora-logo { width: 152px; height: 48px; }
 .kora-loader .kora-loader-brand { height: auto; }
-.kora-loader .kora-logo { width: 200px; height: 100px; }
-@media (prefers-reduced-motion: reduce) { .kora-loader .kora-logo { animation: none; } }
-/* Each coloured link moves in sequence; the wordmark remains anchored. */
-.kora-logo-shape { transform-box: fill-box; transform-origin: center; animation: kora-link-motion 3.6s cubic-bezier(.4,0,.2,1) infinite; }
-.kora-logo-green { animation-delay: .18s; }
-.kora-logo-amber { animation-delay: .36s; }
-.kora-logo-red { animation-delay: .54s; }
-@keyframes kora-link-motion {
-  0%, 8%, 46%, 100% { transform: translateY(0) rotate(0deg); }
-  23% { transform: translateY(-4px) rotate(-5deg); }
-  34% { transform: translateY(1px) rotate(2deg); }
-}
-@media (prefers-reduced-motion: reduce) { .kora-logo-shape { animation: none !important; } }
+.kora-loader .kora-logo { width: 200px; height: 64px; }
+.kora-ledger-lines { stroke-dasharray: 1; stroke-dashoffset: 0; animation: kora-ledger-write .9s ease-out both; }
+.kora-payment-dot { transform-box: fill-box; transform-origin: center; animation: kora-payment-arrive .9s cubic-bezier(.2,.7,.2,1) both; }
+.kora-loader .kora-ledger-lines { animation: kora-ledger-write 2.8s ease-in-out infinite; }
+.kora-loader .kora-payment-dot { animation: kora-payment-arrive 2.8s cubic-bezier(.2,.7,.2,1) infinite; }
+@keyframes kora-ledger-write { 0%, 8% { stroke-dashoffset: 1; } 48%, 100% { stroke-dashoffset: 0; } }
+@keyframes kora-payment-arrive { 0%, 28% { transform: scale(.55); opacity: .25; } 56%, 90%, 100% { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .kora-logo *, .kora-loader .kora-logo * { animation: none !important; transform: none !important; } }
 
 /* guided credit and debit note */
 .choice-row{display:grid;gap:10px}
@@ -741,3 +736,14 @@ ul.notes li { align-items: flex-start; } ul.notes li p { margin: 2px 0 0; white-
 .auth-sample-label { font-size: 12px; color: var(--text-muted); margin: 6px 0 0; }
 .auth-product-link { color: var(--accent-ink); font-weight: 600; }
 .auth-product-link:hover { text-decoration: underline; }
+
+/* Transparent lockup with a staggered, settled wordmark reveal. */
+.kora-logo, .kora-logo-vector, .kora-loader-brand { background: transparent; box-shadow: none; border: 0; }
+.kora-wordmark-letter { animation: kora-letter-reveal 1.4s cubic-bezier(.22,.61,.36,1) both; }
+.kora-wordmark-letter:nth-child(2) { animation-delay: .09s; }
+.kora-wordmark-letter:nth-child(3) { animation-delay: .18s; }
+.kora-wordmark-letter:nth-child(4) { animation-delay: .27s; }
+.kora-loader .kora-wordmark-letter { animation-name: kora-letter-loading; animation-duration: 2.8s; animation-iteration-count: infinite; }
+@keyframes kora-letter-reveal { from { opacity: 0; transform: translateY(5px); } 55% { opacity: 1; transform: translateY(-1.5px); } 75%, to { opacity: 1; transform: translateY(0); } }
+@keyframes kora-letter-loading { 0%, 8% { opacity: .25; transform: translateY(3px); } 32%, 82% { opacity: 1; transform: translateY(0); } 100% { opacity: .25; transform: translateY(3px); } }
+@media (prefers-reduced-motion: reduce) { .kora-wordmark-letter, .kora-loader .kora-wordmark-letter { animation: none; opacity: 1; transform: none; } }

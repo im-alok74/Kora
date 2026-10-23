@@ -11,7 +11,7 @@ export const metadata = {
   twitter: { card: 'summary_large_image', title: SITE_TITLE, description: SITE_DESCRIPTION },
   alternates: { canonical: '/' },
   manifest: '/manifest.webmanifest',
-  icons: { icon: [{ url: '/icons/icon.svg?v=2', type: 'image/svg+xml' }, { url: '/icons/icon-32.png?v=2', sizes: '32x32', type: 'image/png' }], shortcut: '/favicon.ico?v=2', apple: '/icons/icon-180.png?v=2' },
+  icons: { icon: [{ url: '/icons/icon.svg?v=4', type: 'image/svg+xml' }, { url: '/icons/icon-32.png?v=4', sizes: '32x32', type: 'image/png' }], shortcut: '/favicon.ico?v=4', apple: '/icons/icon-180.png?v=4' },
   appleWebApp: { capable: true, title: 'Kora', statusBarStyle: 'default' as const },
 };
 export const viewport = { themeColor: '#106cd9', width: 'device-width', initialScale: 1 };

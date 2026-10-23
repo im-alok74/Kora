@@ -12,10 +12,10 @@ const MATCH: Record<Platform, RegExp> = { windows: /\.exe$/i, mac: /\.dmg$/i, an
 
 export async function getDownloads(): Promise<Downloads> {
   try {
-    const r = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=15`, { headers: { accept: 'application/vnd.github+json' }, next: { revalidate: 600 } });
+    const r = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=15`, { headers: { accept: 'application/vnd.github+json' }, next: { revalidate: 600 }, signal: AbortSignal.timeout(5000) });
     if (!r.ok) return { version: null, files: {} };
-    const releases = (await r.json()) as { tag_name: string; draft: boolean; assets: { name: string; browser_download_url: string; size: number }[] }[];
-    const rel = releases.find((x) => !x.draft && x.tag_name.startsWith('app-v') && x.assets.length > 0);
+    const releases = (await r.json()) as { tag_name: string; draft: boolean; prerelease: boolean; assets: { name: string; browser_download_url: string; size: number }[] }[];
+    const rel = releases.find((x) => !x.draft && !x.prerelease && x.tag_name.startsWith('app-v') && x.assets.some((a) => Object.values(MATCH).some((pattern) => pattern.test(a.name))));
     if (!rel) return { version: null, files: {} };
     const files: Downloads['files'] = {};
     for (const p of Object.keys(MATCH) as Platform[]) {
