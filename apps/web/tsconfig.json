@@ -21,11 +21,10 @@
     "**/*.tsx",
     ".next-e2e/types/**/*.ts",
     ".next-local-preview/types/**/*.ts",
-    ".next-overnight-d/types/**/*.ts",
     ".next-vtest/types/**/*.ts",
     ".next/types/**/*.ts",
     "next-env.d.ts",
-    ".next-more-build/types/**/*.ts"
+    ".next-overnight-d/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"
