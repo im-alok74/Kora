@@ -23,7 +23,7 @@ A service quotation for two design sessions at Rs 2,500 each plus 18% GST: Rs 5,
 
 ## Reproduced defect
 
-**QP-001 — S2: Conversion drops quotation details.**
+**QP-001, S2: Conversion drops quotation details.**
 
 Steps: issue a quotation containing PO-402, Website refresh, salesperson Asha, Project WEB-26 and net30 payment terms; convert to invoice; inspect the generated draft.
 
