@@ -29,7 +29,7 @@ Names only. Set them in the host (Vercel: Project, Settings, Environment Variabl
 |---|---|---|
 | `DATABASE_URL` | Database connection as the `kora_web` role | Use the Supabase pooler in transaction mode (port 6543). The user name on the pooler has the project reference after a dot: `kora_web.<project-ref>`. `createSql` turns off prepared statements for port 6543 automatically |
 | `OTP_HMAC_SECRET` | Signs stored sign-in codes | 32 or more characters, random, different from every other environment. The web app refuses to start with a shorter one |
-| `GSP_URL` | GST partner base address | **The web app and the worker throw at start-up if this is empty**, even when no business uses e-invoicing (`need('GSP_URL')` in `apps/web/lib/server.ts` and `apps/worker/src/index.ts`). Until a partner exists it must still hold some address. Do not point production at the mock partner |
+| `GSP_URL` | GST partner base address | Optional until a partner is chosen. The client is built on first use (`createLazyGsp` in `packages/adapters/src/gsp-lazy.ts`), so an empty value only makes e-invoice and e-way bill calls fail with "The GST partner is not connected yet". Do not point production at the mock partner |
 | `APP_URL` | Public address used in messages, payment links and share links | Falls back to Vercel's production host name. Set it once a custom domain is attached |
 | `CRON_SECRET` | Lets the scheduler call `/api/cron/tick`, and the operator call `/api/admin/jobs` | 16 or more characters. Without it both routes answer 503 |
 
@@ -190,6 +190,20 @@ Status: **Done** in code. **Unknown** whether Upstash is configured in productio
 | A real support address and a grievance officer address | **Not done** | Placeholders listed in section 1, item 2 |
 | `robots.txt` and sitemap | **Done** | `apps/web/app/robots.ts`, `sitemap.ts` |
 | Security headers (HSTS in production, no framing, no sniffing) | **Done** | `apps/web/next.config.mjs` |
+
+### Where the final address has to be written
+
+When the domain exists, the same address appears in several places. Missing one gives a quiet fault, not an error.
+
+| Where | Name or file | What goes wrong if it is missed |
+|---|---|---|
+| Vercel environment | `APP_URL` | Message links, payment links and share links point at the old host |
+| Vercel environment | `NEXT_PUBLIC_SITE_URL` | Sitemap, canonical links and structured data name the old host (falls back to `APP_URL`, then `https://kora-invoice.vercel.app`) |
+| GitHub repository secret | `KORA_SITE_URL` | The 5 minute tick and the queue watch call the old host |
+| Razorpay dashboard (live) | Webhook URL `<address>/api/webhooks/razorpay` | Payments are not matched |
+| Resend | Verified sending domain, `EMAIL_FROM` | Email lands in spam or is refused |
+| `apps/desktop/src/app-config.json`, `apps/mobile/capacitor.config.json` | `url` | Installed apps open a deployment alias. Publish a new app version afterwards |
+| Privacy, terms and refunds pages | Support and grievance addresses | Placeholders stay public (section 12) |
 
 ## 8. Sign-in codes (MSG91, Resend) and WhatsApp
 
