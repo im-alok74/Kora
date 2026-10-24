@@ -1,4 +1,4 @@
-import { applyGatewayEvent } from '@kora/core';
+import { applyGatewayEvent, log } from '@kora/core';
 import { isWebhookSignatureError } from '@kora/adapters';
 import { json, services } from '../../../../lib/server';
 
@@ -24,6 +24,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ gateway: strin
   }
   try {
     const r = await applyGatewayEvent(svc.sql, name, evt, JSON.parse(raw));
+    // Money the books could not place. The event is kept in webhook_event (processed, payload intact), but nobody sees it unless a log
+    // alert watches for this name: a payment for a link Kora has no row for, or one made in a currency other than rupees.
+    if (r.reason === 'unknown_link' || (evt.kind === 'ignored' && /^payment_link\.paid_in_/.test(evt.type))) {
+      log('error', 'payment_unmatched', { gateway: name, eventId: evt.eventId, reason: r.reason === 'unknown_link' ? 'unknown_link' : evt.kind === 'ignored' ? evt.type : undefined });
+    }
     return json({ ok: true, duplicate: r.duplicate });
   } catch (e) {
     console.error('webhook failed', e);

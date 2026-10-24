@@ -27,7 +27,7 @@ export class WebhookSignatureError extends Error {
 }
 export const isWebhookSignatureError = (e: unknown): e is WebhookSignatureError => e instanceof Error && e.name === 'WebhookSignatureError';
 
-const METHODS = new Set(['upi', 'card', 'netbanking', 'wallet', 'emi', 'bank_transfer']);
+const METHODS = new Set(['upi', 'card', 'netbanking', 'bank_transfer']);
 
 /** The body shape follows Razorpay's payment_link.paid event, amounts in paise. */
 export function mockPaidEventBody(a: { linkId: string; paymentId: string; amountPaise: bigint; method?: string; referenceId?: string }): string {
