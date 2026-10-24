@@ -138,7 +138,7 @@ export default function Data() {
                   <option value="customers">Customers</option><option value="items">Items</option></select></div>
               <div><label htmlFor="if">CSV file (or an Excel or Tally file)</label><input id="if" type="file" accept=".csv,text/csv,.xlsx,.xml" onChange={(e) => void chooseFile(e.target.files?.[0] ?? null)} /></div>
             </div>
-            <p><a href={template} download={`kora_${kind}_template.csv`}>Download a template</a></p>
+            <p><a href={template} download={`kora_${kind}_template.csv`} style={{ display: 'inline-block', padding: '8px 0' }}>Download a template</a></p>
             {err && <p className="error" role="alert">{err}</p>}
             {busy && <p className="muted" role="status">Working</p>}
             {preview && (
