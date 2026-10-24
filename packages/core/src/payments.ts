@@ -99,6 +99,11 @@ export async function voidPayment(sql: Sql, t: TenantSession, paymentId: string)
   });
 }
 
+/** How long a payment link stays payable. A link that never expires can be paid long after the invoice was settled some other way. */
+export const PAYMENT_LINK_DAYS = 90;
+/** A link is reused only while it still has at least this many days left. */
+const REUSE_UNTIL_DAYS = PAYMENT_LINK_DAYS - 5;
+
 /** Creates (or reuses) a hosted payment link for what is still due on an invoice. */
 export async function createPaymentLink(sql: Sql, t: TenantSession, gateway: PaymentGateway, documentId: string) {
   const ctx = await inTenant(sql, t, 'payment.write', async (tx) => {
@@ -109,12 +114,13 @@ export async function createPaymentLink(sql: Sql, t: TenantSession, gateway: Pay
     const outstanding = BigInt(d.grand_total_paise as string) - BigInt(d.amount_settled_paise as string);
     if (outstanding <= 0n) throw new ValidationError('This invoice is already paid.');
     const [existing] = await tx`select id, url, amount_paise from payment_link where document_id = ${documentId} and gateway = ${gateway.name}
-                                  and status = 'created' and amount_paise = ${outstanding.toString()} order by created_at desc limit 1`;
+                                  and status = 'created' and amount_paise = ${outstanding.toString()}
+                                  and created_at > now() - make_interval(days => ${REUSE_UNTIL_DAYS}) order by created_at desc limit 1`;
     return { d, outstanding, existing };
   });
   if (ctx.existing) return { id: ctx.existing.id as string, url: ctx.existing.url as string, amountPaise: ctx.existing.amount_paise as string, reused: true };
   const link = await gateway.createPaymentLink({
-    amountPaise: ctx.outstanding, referenceId: documentId, description: `Invoice ${ctx.d.number}`,
+    amountPaise: ctx.outstanding, referenceId: documentId, description: `Invoice ${ctx.d.number}`, expiresAt: new Date(Date.now() + PAYMENT_LINK_DAYS * 86_400_000),
     customer: { name: ctx.d.name as string | null, phone: ctx.d.phone as string | null, email: ctx.d.email as string | null },
   });
   const id = await inTenant(sql, t, 'payment.write', async (tx) => {
@@ -168,20 +174,25 @@ export async function applyGatewayEvent(sql: Sql, gateway: string, evt: GatewayE
       left -= take;
     }
     const allocate = amount - left;
-
+    // A method the table does not know would fail the insert on every retry. Anything outside the list is stored as 'other'.
+    const method = ['upi', 'card', 'netbanking', 'bank_transfer'].includes(evt.method) ? evt.method : 'other';
     const [p] = await tx`insert into payment (business_id, party_id, amount_paise, method, gateway, gateway_event_id, gateway_payment_id, received_on)
-                         values (${link.business_id}, ${plan[0]!.party}, ${amount.toString()}, ${evt.method}, ${gateway}, ${evt.eventId}, ${evt.gatewayPaymentId},
+                         values (${link.business_id}, ${plan[0]!.party}, ${amount.toString()}, ${method}, ${gateway}, ${evt.eventId}, ${evt.gatewayPaymentId},
                                  ${todayIn(b!.timezone as string)}) on conflict do nothing returning id`;
     if (!p) { await done(); return { duplicate: true } as GatewayResult; }
+    // Reverse a write-off only for new money, never for a replay of an older partial payment.
+    // Do this before allocation so bad debt and the new receipt cannot both remain on the books.
     for (const x of plan) {
       if (x.pay > 0n) {
+        await tx`update document_write_off set cancelled_at = now(), cancel_reason = 'Paid through the payment link after the write-off'
+                  where document_id = ${x.id} and cancelled_at is null`;
         await tx`insert into payment_allocation (business_id, payment_id, document_id, amount_paise)
                  values (${link.business_id}, ${p!.id}, ${x.id}, ${x.pay.toString()})`;
       }
     }
     await tx`update payment_link set status = 'paid' where id = ${link.link_id}`;
     const [after] = await tx`select number, payment_status from document where id = ${link.document_id}`;
-    await emitEvent(tx, link.business_id as string, 'payment.received', { payment_id: p!.id, document_id: link.document_id, number: after!.number, amount_paise: amount.toString(), method: evt.method, gateway, status: after!.payment_status });
+    await emitEvent(tx, link.business_id as string, 'payment.received', { payment_id: p!.id, document_id: link.document_id, number: after!.number, amount_paise: amount.toString(), method, gateway, status: after!.payment_status });
     await done();
     return { duplicate: false, applied: { paymentId: p!.id as string, allocatedPaise: allocate.toString(), unallocatedPaise: (amount - allocate).toString() } } as GatewayResult;
   }) as Promise<GatewayResult>;
