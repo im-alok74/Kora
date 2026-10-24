@@ -134,7 +134,7 @@ The longer version, with a diagram of an invoice from draft to paid, is in [docs
 | `infra` | Local database roles, SQL smoke test, backup and restore-check scripts |
 | `e2e` | Playwright suite |
 | `replica/` | Research, plan, schema record, tax cases, design tokens, brand, final report |
-| `docs/` | [Architecture](docs/architecture.md), [launch checklist](docs/launch-checklist.md), [deployment](docs/deploy.md), [troubleshooting](docs/troubleshooting.md), [contributing](docs/contributing.md), [compliance](docs/compliance.md), [database](docs/database.md) and the [API and webhooks guide](docs/api.md) |
+| `docs/` | [Architecture](docs/architecture.md), [launch checklist](docs/launch-checklist.md), [deployment](docs/deploy.md), [troubleshooting](docs/troubleshooting.md), [contributing](docs/contributing.md), [compliance](docs/compliance.md), [database](docs/database.md) and the [API and webhooks guide](docs/api.md), and the [October 2026 audit](docs/audit-2026-10.md) |
 
 ## Licence and clean-room note
 
