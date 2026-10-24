@@ -53,7 +53,7 @@ describe('the sign-up call to action under each tool', () => {
       expect(c!.button.length).toBeGreaterThan(8);
       expect(seen.has(c!.title), `${t.slug} repeats a title`).toBe(false);
       seen.add(c!.title);
-      expect(JSON.stringify(c)).not.toMatch(/2014|\d+%|\d+ ?(lakh|crore|users|customers)/i);   // no dashes of the long kind, no invented figures
+      expect(JSON.stringify(c)).not.toMatch(/—|\d+%|\d+ ?(lakh|crore|users|customers)/i);   // no dashes of the long kind, no invented figures
     }
     for (const slug of Object.keys(KORA_CTA)) expect(toolBySlug(slug), `${slug} is not a tool`).toBeTruthy();
   });
