@@ -173,9 +173,12 @@ Minimum alerts to set up before launch: uptime of `/api/health`; Sentry alert on
 
 | Limit | Where | Value | Notes |
 |---|---|---|---|
-| API key | `apps/web/lib/apiV1.ts` | 120 a minute for each key (`API_RATE_LIMIT`) | Counted in each server process, so it is a runaway-loop guard. On Vercel each function instance counts separately |
+| API key | `apps/web/lib/apiV1.ts` | 120 a minute for each key (`API_RATE_LIMIT`) | Counted in the shared limiter (Upstash if configured, otherwise Postgres), so every instance sees the same number. If the shared limiter fails it falls back to a per-process count and reports the fault |
 | Address across `/api` | `apps/web/middleware.ts` | 300 a minute for each address (`API_RATE_PER_MINUTE`) | **Only when Upstash is configured.** Webhooks, `/api/cron/*` and `/api/health` are exempt. If Upstash is down the request goes through |
 | Sign-in codes and attempts | `packages/core/src/auth.ts` with `ratelimit.ts` | 20 code requests from one network address in 15 minutes, and per-address limits on wrong guesses, plus limits kept with each code | Uses Upstash when set, and falls back to Postgres (`rate_event` table) if Upstash errors or is not set |
+| Public pages and checks | `apps/web/lib/publicLimit.ts` | Per address and minute: invoice page 120, invoice PDF 20, quote answer 20, customer portal 240, GSTIN checks 120 | Works without Upstash (Postgres is the default). Fails open and reports the fault |
+| Sign-up | `packages/core/src/auth.ts` | 10 sign-ups from one network address and 5 attempts for one number or email in 15 minutes | Shared with the limiter above |
+| Limiter faults | `reportLimiterProblem` in `packages/core/src/ratelimit.ts`, `apps/web/middleware.ts` | One error log line (event `ratelimit_unavailable`) and one Sentry event a minute for each process | Set a log alert on that event name |
 | Outgoing webhooks | `packages/core/src/webhooks.ts` | 10 second timeout, retries with growing delay, switched off after 20 failures in a row | |
 
 Status: **Done** in code. **Unknown** whether Upstash is configured in production. Put a rate limit at the edge (Vercel Firewall) as well if the API is exposed widely.

@@ -203,6 +203,8 @@ export function createAuth(sql: Sql, sender: OtpSender, cfg: AuthConfig) {
     async signUp(i: { identifier: string; password: string; name: string; accountType?: string }, info: RequestInfo = {}): Promise<SignInStep> {
       await ipLimit(info, 'signup-ip', 10);
       const id = normaliseIdentifier(i.identifier);
+      // Five tries for one address in 15 minutes, from anywhere, so one account cannot be probed or hammered from many networks.
+      if (cfg.limiter && !(await cfg.limiter.hit(`signup-id:${id.value}`, 5, 900))) throw new AuthError('rate_limited', 'Too many attempts for this number or email. Try again in a few minutes.');
       const password = String(i.password ?? '');
       if (password.length < 8) throw new AuthError('weak_password', 'Use a password of at least 8 characters.');
       if (password.length > 128) throw new AuthError('weak_password', 'That password is too long. Use 128 characters or fewer.');
