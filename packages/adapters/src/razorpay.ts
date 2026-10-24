@@ -13,7 +13,9 @@ export interface RazorpayConfig {
   fetch?: Fetch;
 }
 
-const METHODS = new Set(['upi', 'card', 'netbanking', 'wallet', 'emi', 'bank_transfer']);
+// Only methods the payment table accepts. Razorpay also reports wallet, emi, paylater, cardless_emi and more: those are stored as 'other',
+// because a method the table refuses would roll the webhook back on every retry and the invoice would never show as paid.
+const METHODS = new Set(['upi', 'card', 'netbanking', 'bank_transfer']);
 
 /**
  * Razorpay Payment Links. Links are created through the REST API with the key id and secret. The webhook is the only thing that
@@ -61,6 +63,9 @@ export function createRazorpayGateway(cfg: RazorpayConfig): PaymentGateway {
       try { body = JSON.parse(rawBody); } catch { throw new WebhookSignatureError('Body is not JSON.'); }
       if (body?.event !== 'payment_link.paid') return { kind: 'ignored', eventId, type: String(body?.event ?? 'unknown') };
       const link = body.payload?.payment_link?.entity, pay = body.payload?.payment?.entity;
+      // Links are made in rupees. An event in any other currency is kept in the inbox but never booked as rupees.
+      const cur = String(pay?.currency ?? link?.currency ?? 'INR').toUpperCase();
+      if (cur !== 'INR') return { kind: 'ignored', eventId, type: `payment_link.paid_in_${cur.slice(0, 3)}` };
       if (!link?.id || !pay?.id || !Number.isInteger(pay.amount) || pay.amount <= 0) throw new WebhookSignatureError('Malformed payment event.');
       return { kind: 'payment_link.paid', eventId, gatewayLinkId: String(link.id), gatewayPaymentId: String(pay.id), amountPaise: BigInt(pay.amount), method: METHODS.has(pay.method) ? pay.method : 'other' };
     },
