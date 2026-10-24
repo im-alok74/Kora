@@ -28,8 +28,8 @@ describe('credit notes issued at the same moment', () => {
     const b = await startNote(db.web, t, inv.id as string, 'credit_note');
     const out = await Promise.allSettled([issueDocument(db.web, t, a.id), issueDocument(db.web, t, b.id)]);
     expect(out.map((o) => o.status).sort()).toEqual(['fulfilled', 'rejected']);
-    const [{ s }] = await db.owner`select coalesce(sum(taxable_paise), 0)::text as s from document where original_document_id = ${inv.id as string} and doc_type = 'credit_note' and status = 'issued'`;
-    expect(BigInt(s as string)).toBeLessThanOrEqual(BigInt((await getDocument(db.web, t, inv.id as string))!.document.taxable_paise as string));
+    const [row] = await db.owner`select coalesce(sum(taxable_paise), 0)::text as s from document where original_document_id = ${inv.id as string} and doc_type = 'credit_note' and status = 'issued'`;
+    expect(BigInt(row!.s as string)).toBeLessThanOrEqual(BigInt((await getDocument(db.web, t, inv.id as string))!.document.taxable_paise as string));
   });
   it('two half credits and a third are decided in order, never beyond the whole', async () => {
     const inv = await invoice();
