@@ -1,11 +1,11 @@
-import { createHttpGsp, messengerFromEnv } from '@kora/adapters';
-import { createHandlers, reportError, processDueRecurring, processDueReminders, runJobsOnce } from '@kora/core';
+import { createLazyGsp, messengerFromEnv } from '@kora/adapters';
+import { createHandlers, pruneOperationalData, reportError, processDueRecurring, processDueReminders, runJobsOnce } from '@kora/core';
 import { createSql } from '@kora/db';
 import { createServer } from 'node:http';
 
 /**
  * Background worker: sends queued messages, registers e-invoices, and queues due reminders and recurring invoices.
- * It only polls and runs jobs; every job is safe to run twice, so a crash or a second worker does no harm.
+ * Claims coordinate workers. External side effects remain at least once: a crash after provider acceptance can repeat a send.
  */
 const log = (event: string, data: Record<string, unknown> = {}) => console.log(JSON.stringify({ t: new Date().toISOString(), event, ...data }));
 
@@ -17,7 +17,7 @@ function need(name: string): string {
 
 const sql = createSql(need('DATABASE_URL'), { max: 5 });
 const messenger = messengerFromEnv(process.env, (line) => log('message', { line }));
-const gsp = createHttpGsp({ baseUrl: need('GSP_URL'), token: process.env.GSP_TOKEN, timeoutMs: Number(process.env.GSP_TIMEOUT_MS ?? 15_000) });
+const gsp = createLazyGsp();
 const handlers = createHandlers(sql, { messenger, gsp, appUrl: process.env.APP_URL ?? 'http://localhost:3000' });
 const worker = `worker-${process.pid}`;
 let stopping = false;
@@ -26,6 +26,8 @@ for (const s of ['SIGTERM', 'SIGINT'] as const) process.on(s, () => { log('stopp
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let lastReminders = 0;
 let lastRecurring = 0;
+let lastPrune = 0;
+const pruneEveryMs = 6 * 60 * 60 * 1000;
 let lastTick = Date.now();
 const reminderEveryMs = Number(process.env.REMINDER_TICK_MS ?? 30_000);
 const recurringEveryMs = Number(process.env.RECURRING_TICK_MS ?? 60_000);
@@ -53,6 +55,10 @@ while (!stopping) {
       lastRecurring = Date.now();
       const rr = await processDueRecurring(sql);
       if (rr.created || rr.failed) log('recurring', rr);
+    }
+    if (Date.now() - lastPrune > pruneEveryMs) {
+      lastPrune = Date.now();
+      log('prune', await pruneOperationalData(sql));
     }
     const r = await runJobsOnce(sql, handlers, { worker, limit: 10 });
     if (r.claimed) log('jobs', r);

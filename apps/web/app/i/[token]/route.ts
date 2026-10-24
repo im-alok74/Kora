@@ -1,6 +1,7 @@
 import { getPublicDocument, publicEstimateInfo } from '@kora/core';
 import { renderDocumentHtml } from '@kora/pdf';
 import { irnBlock, services, withUpi } from '../../../lib/server';
+import { publicLimit } from '../../../lib/publicLimit';
 
 export const runtime = 'nodejs';
 
@@ -43,6 +44,8 @@ function answerPanel(token: string, e: { status: string; valid_until: string | n
 
 /** The public invoice page. No sign-in; the token in the link is the only credential. */
 export async function GET(req: Request, ctx: { params: Promise<{ token: string }> }) {
+  const limited = await publicLimit('invoice-page', 120, 'text');
+  if (limited) return limited;
   const { token } = await ctx.params;
   const d = await getPublicDocument(services().sql, token);
   if (!d) {

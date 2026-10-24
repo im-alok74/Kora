@@ -1,18 +1,12 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { baseName, downloadBlob, EXT, LIMITS, loadPicture, makeZip, nextFrame, pictureProblem, readBytes, renderPicture, uniqueName, type ImageFormat, type Picture } from '../../lib/browserFiles';
-import { fitToSize, formatBytes } from '../../lib/sizeTarget';
+import { baseName, downloadBlob, EXT, LIMITS, makeZip, nextFrame, pictureProblem, readBytes, uniqueName, type ImageFormat } from '../../lib/browserFiles';
+import { runTask } from '../../lib/runTask';
+import { formatBytes } from '../../lib/sizeTarget';
 import { FileDrop, PRIVATE_NOTE, Status } from './ToolBits';
 
 const FORMATS: [ImageFormat, string][] = [['image/jpeg', 'JPG'], ['image/png', 'PNG'], ['image/webp', 'WebP']];
 const formatOf = (f: File): ImageFormat => (f.type === 'image/png' || /\.png$/i.test(f.name) ? 'image/png' : f.type === 'image/webp' || /\.webp$/i.test(f.name) ? 'image/webp' : 'image/jpeg');
-
-/** Decode a picture, refusing ones too large to hold in memory. */
-async function decode(f: File): Promise<Picture> {
-  const p = await loadPicture(f);
-  if (p.width * p.height > LIMITS.imagePixels) { p.close(); throw new Error(`${f.name} is ${p.width} x ${p.height} pixels, which is too large for the browser to handle safely. Shrink it first (the limit is 50 megapixels).`); }
-  return p;
-}
 
 type Done = { name: string; from: number; blob: Blob; url: string; fromFormat: string };
 
@@ -44,14 +38,12 @@ export function ImageConverter() {
       const f = files[i]!;
       setBusy(`Converting ${f.name} (${i + 1} of ${files.length})`);
       await nextFrame();
-      let p: Picture | undefined;
       try {
-        p = await decode(f);
-        const blob = await renderPicture(p, { type: format, quality: format === 'image/png' ? undefined : quality / 100 });
+        const blob = await runTask('convertImage', [f, f.name, { type: format, quality: format === 'image/png' ? undefined : quality / 100, maxPixels: LIMITS.imagePixels }]);
         const url = URL.createObjectURL(blob); urls.current.push(url);
         out.push({ name: uniqueName(`${baseName(f.name)}.${EXT[format]}`, used), from: f.size, blob, url, fromFormat: FORMATS.find(([t]) => t === formatOf(f))![1] });
         setDone([...out]);
-      } catch (e) { const m = (e as Error).message; failed.push(m.includes(f.name) ? m : `${f.name}: ${m || 'could not be read. It may be damaged.'}`); } finally { p?.close(); }
+      } catch (e) { const m = (e as Error).message; failed.push(m.includes(f.name) ? m : `${f.name}: ${m || 'could not be read. It may be damaged.'}`); }
     }
     setBusy(''); setSkipped(failed);
     setNote(out.length ? `${out.length} picture${out.length === 1 ? '' : 's'} converted.${format === 'image/jpeg' ? ' Transparent areas became white, because JPG has no transparency.' : ''}` : '');
@@ -120,10 +112,9 @@ export function ImageCompressor() {
   const [res, setRes] = useState<Result | null>(null);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const pic = useRef<Picture | null>(null);
   const resUrl = useRef('');
   const srcRef = useRef('');
-  useEffect(() => () => { pic.current?.close(); if (resUrl.current) URL.revokeObjectURL(resUrl.current); if (srcRef.current) URL.revokeObjectURL(srcRef.current); }, []);
+  useEffect(() => () => { if (resUrl.current) URL.revokeObjectURL(resUrl.current); if (srcRef.current) URL.revokeObjectURL(srcRef.current); }, []);
 
   const drop = () => { if (resUrl.current) URL.revokeObjectURL(resUrl.current); resUrl.current = ''; setRes(null); };
 
@@ -134,8 +125,7 @@ export function ImageCompressor() {
     if (bad) { setError(bad); return; }
     setBusy('Reading the picture');
     try {
-      const p = await decode(f);
-      pic.current?.close(); pic.current = p;
+      const p = await runTask('probeImage', [f, f.name, LIMITS.imagePixels]);
       if (srcRef.current) URL.revokeObjectURL(srcRef.current);
       srcRef.current = URL.createObjectURL(f);
       setFile(f); setSrcUrl(srcRef.current); setDims({ w: p.width, h: p.height }); setW(String(p.width)); setH(String(p.height)); setOut('same');
@@ -143,25 +133,12 @@ export function ImageCompressor() {
   }
 
   async function run(s: { mode: Mode; kb: number; out: ImageFormat | 'same'; w: number; h: number; quality: number; logo?: boolean }) {
-    if (!file || !pic.current) return;
+    if (!file) return;
     drop(); setError(''); setBusy('Making the smaller picture'); await nextFrame();
     const type: ImageFormat = s.out === 'same' ? formatOf(file) : s.out;
-    const p = pic.current;
     try {
-      let blob: Blob, width: number, height: number, note = '', met = true;
-      if (s.mode === 'size') {
-        const fit = (t: ImageFormat) => fitToSize(async (scale, q) => { const b = await renderPicture(p, { type: t, quality: q ?? undefined, scale }); return { out: b, size: b.size }; }, s.kb * 1024, { lossy: t !== 'image/png' });
-        let r = await fit(type), jpgNote = '';
-        // A PNG can only get smaller by losing pixels. For the logo button, a JPG that keeps more of the picture is the better answer.
-        if (s.logo && type === 'image/png' && r.scale < 0.9) { const j = await fit('image/jpeg'); if (j.met && j.scale > r.scale) { r = j as typeof r; jpgNote = ' Saved as JPG to keep more detail; transparent areas became white.'; } }
-        blob = r.out; width = Math.round(p.width * r.scale); height = Math.round(p.height * r.scale); met = r.met;
-        note = r.met ? `Fits under ${s.kb} KB${r.scale < 1 ? `, with the picture made ${Math.round((1 - r.scale) * 100)}% smaller in each direction` : ''}.${jpgNote}` : `Could not reach ${s.kb} KB without making the picture tiny. This is the smallest we could make. Try JPG or WebP, or a higher limit.`;
-        if (r.met && blob.size > file.size) note += ' This is larger than your original, which was already under the limit. Keep the original.';
-      } else {
-        width = s.w; height = s.h;
-        blob = await renderPicture(p, { type, quality: type === 'image/png' ? undefined : s.quality / 100, width, height });
-        note = blob.size > file.size ? 'The new picture is larger than the original. Lower the quality or the size.' : '';
-      }
+      const r = await runTask('compressImage', [file, file.name, { mode: s.mode, kb: s.kb, type, width: s.w, height: s.h, quality: s.quality, logo: s.logo, maxPixels: LIMITS.imagePixels }], setBusy);
+      const { blob, width, height, note, met } = r;
       const url = URL.createObjectURL(blob); resUrl.current = url;
       setRes({ blob, url, width, height, note, met });
     } catch (e) { setError((e as Error).message || 'The picture could not be processed. Try a smaller one.'); } finally { setBusy(''); }

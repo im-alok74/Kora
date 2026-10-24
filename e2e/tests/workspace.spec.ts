@@ -13,7 +13,7 @@ test('search opens with the keyboard, finds a customer and a document, and goes 
   await makeBusiness(u.userId);
   await draft(page, 'Zebra Traders', '1000');
   await page.goto('/app');
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
   await page.keyboard.press('Control+k');
   const box = page.getByRole('combobox', { name: 'Search' });
   await expect(box).toBeFocused();
@@ -65,7 +65,7 @@ test('the dark theme can be switched on, is remembered, and is applied before th
   const u = await signedIn(context);
   await makeBusiness(u.userId);
   await page.goto('/app');
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Switch to the dark theme' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.getByRole('button', { name: 'Switch to the light theme' })).toHaveAttribute('aria-pressed', 'true');
@@ -111,7 +111,7 @@ test('documents can be sorted, selected and issued together, and a customer has 
   // the customer page: totals and documents
   await page.goto('/app/customers');
   await page.getByRole('link', { name: 'Bulk Buyer' }).click();
-  await expect(page.getByRole('heading', { name: 'Bulk Buyer' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Bulk Buyer', exact: true })).toBeVisible();
   await expect(page.getByTestId('owed')).toHaveText('Rs 118.00');
   await page.getByRole('tab', { name: 'Documents' }).click();
   await expect(page.getByRole('table', { name: 'Documents' })).toContainText('INV/');
@@ -124,17 +124,17 @@ test('a freelancer runs a project with a timer, and bills it', async ({ page, co
   await makeBusiness(u.userId);
   await page.request.post('/api/parties', { data: { kind: 'customer', name: 'Startup Client', stateCode: '27' } });
   await page.goto('/app/projects');
-  await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'No projects here.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No projects here.', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'New project' }).click();
   await page.getByLabel('Client', { exact: true }).selectOption({ label: 'Startup Client' });
   await page.getByLabel('Project name').fill('Website redesign');
   await page.getByLabel('Hourly rate (Rs)').fill('2000');
   await page.getByRole('button', { name: 'Create project' }).click();
   await expect(page).toHaveURL(/\/app\/projects\//);
-  await expect(page.getByRole('heading', { name: 'Website redesign' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Advance held' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Deadlines' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Website redesign', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Advance held', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Deadlines', exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Start timer' }).click();
   await expect(page.getByTestId('timer')).toBeVisible();
@@ -159,7 +159,7 @@ test('a freelancer runs a project with a timer, and bills it', async ({ page, co
 
   // projects do not show up among legal matters, and the other way round
   await page.goto('/app/matters');
-  await expect(page.getByRole('heading', { name: 'No matters here.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No matters here.', exact: true })).toBeVisible();
   await page.goto('/app/projects');
   await expect(page.getByRole('link', { name: 'Website redesign' })).toBeVisible();
 });

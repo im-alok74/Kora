@@ -1,10 +1,13 @@
 import { isValidationError, publicAnswerEstimate } from '@kora/core';
 import { services } from '../../../../lib/server';
+import { publicLimit } from '../../../../lib/publicLimit';
 
 export const runtime = 'nodejs';
 
 /** The customer's answer from the public quote page: a plain form post, so it works with no scripts. */
 export async function POST(req: Request, ctx: { params: Promise<{ token: string }> }) {
+  const limited = await publicLimit('quote-answer', 20, 'text');
+  if (limited) return limited;
   const { token } = await ctx.params;
   const back = (q: string) => new Response(null, { status: 303, headers: { location: `/i/${token}?${q}`, 'cache-control': 'no-store' } });
   try {

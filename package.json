@@ -14,6 +14,7 @@
     "dev:all": "pnpm -r --parallel --filter @kora/web --filter @kora/worker --filter @kora/mock-gsp dev",
     "e2e": "pnpm --filter @kora/e2e e2e"
   },
+  "pnpm": { "onlyBuiltDependencies": ["esbuild"] },
   "devDependencies": {
     "typescript": "^5.6.0",
     "vitest": "^2.1.0",

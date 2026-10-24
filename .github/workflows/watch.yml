@@ -1,0 +1,34 @@
+name: watch
+# Every 15 minutes: is the site up, and is any background job stuck? Read only.
+# A failed run makes GitHub email the repository owner, which is the alert until a proper monitor exists.
+# It fails when /api/health does not answer ok, when the oldest queued job has waited more than 15 minutes, or when any job has
+# failed for good. It does nothing until the two secrets below exist.
+#
+# Secrets (the same two that tick.yml uses; never put values in the repository):
+#   KORA_SITE_URL   the public address of the site, starting with https://
+#   CRON_SECRET     the same value as the CRON_SECRET environment variable on the site
+on:
+  schedule: [{ cron: '7,22,37,52 * * * *' }]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with: { sparse-checkout: .github/scripts, sparse-checkout-cone-mode: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Check the site and the queue
+        env:
+          KORA_SITE_URL: ${{ secrets.KORA_SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          MAX_WAIT_MIN: '15'
+        run: |
+          set +e
+          node .github/scripts/queue-watch.mjs
+          code=$?
+          if [ "$code" = "78" ]; then echo "::notice::The secrets are not set yet, so nothing was checked."; exit 0; fi
+          exit $code

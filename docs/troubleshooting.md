@@ -124,7 +124,7 @@ Each test file creates its own database named `kora_t_` plus random letters and 
 | Message | Fix |
 |---|---|
 | `DATABASE_URL is not set (see .env.example)` | Set it. Locally, check `.env` in the repository root |
-| `GSP_URL is not set` | Required by the web app and the worker even if e-invoicing is off. Locally it is `http://127.0.0.1:3202` |
+| `The GST partner is not connected yet ... Set GSP_URL` | Only shown when someone uses e-invoice or e-way bill. Locally `GSP_URL` is `http://127.0.0.1:3202` |
 | `OTP_HMAC_SECRET must be at least 32 characters` | Use a longer random value |
 | `The mock payment gateway is not allowed in production` | Set `GATEWAY=razorpay` and its keys. Do not set `KORA_ALLOW_MOCKS` in production |
 | `The mock messenger is not allowed in production` | Set `MESSENGER=live` and the provider keys |

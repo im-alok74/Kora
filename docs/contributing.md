@@ -65,7 +65,7 @@ Fix a failing test by fixing the cause. Do not delete a test or loosen an assert
 ## When you change the public API or the docs
 
 - Adding, removing or renaming a route under `apps/web/app/api/v1`: update `apps/web/public/openapi.json` and the endpoint table in `docs/api.md` in the same change. `apps/web/test/apiDocs.test.ts` fails otherwise. A new webhook event goes in `WEBHOOK_EVENTS` and in the table in `docs/api.md`.
-- Changing what a screen does: update the help article in `apps/web/lib/help.ts` (steps use the real button names). Do not claim something the product does not do yet; say "early access" or "not built yet".
+- Changing what a screen does: update the help article in `apps/web/lib/help.ts` (steps use the real button names). `apps/web/test/helpLabels.test.ts` lists every button an article quotes and fails when a screen no longer contains it; add a row when you quote a new one. Do not claim something the product does not do yet; say "early access" or "not built yet".
 - Changing a limit, a default or a role: search the README, `docs/` and `help.ts` for the old value.
 - Docs are plain Markdown, no em dashes, no secrets, links relative. Use placeholders such as `<project-ref>` for anything that would identify an account or a credential.
 
