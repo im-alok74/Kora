@@ -27,6 +27,8 @@ export default {
   // The real folder in the workspace store, not apps/web/node_modules/@sparticuz/chromium, which is a symlink: Vercel refuses a
   // function package that carries files through a symlinked directory ("invalid deployment package for a Serverless Function").
   outputFileTracingIncludes: {
+    // The health route compares these with the migrations the database has recorded.
+    '/api/health': ['../../packages/db/migrations/*.sql'],
     '/api/documents/[id]/pdf': ['../../node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**'],
     '/i/[token]/pdf': ['../../node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**'],
   },

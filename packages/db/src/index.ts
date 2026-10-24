@@ -4,6 +4,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export type Sql = postgres.Sql;
+export { schemaStatus, mockFlagsInProduction, migrationDirs, type SchemaStatus } from './health.js';
 export type Tx = postgres.TransactionSql;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -50,7 +51,12 @@ export async function withTenant<T>(sql: Sql, ctx: TenantContext, fn: (tx: Tx) =
 
 export const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
-/** Applies pending SQL files in name order, each in its own transaction, under an advisory lock. */
+/**
+ * Applies pending SQL files in name order, under an advisory lock, all in ONE transaction: a failing file rolls back the
+ * whole batch, and the schema_migration rows are written in the same transaction. A file added out of order (a lower number
+ * than one already applied) is still applied, because the check is by name. Statements that cannot run in a transaction,
+ * such as create index concurrently, do not belong in a migration.
+ */
 export async function runMigrations(sql: Sql, dir = MIGRATIONS_DIR): Promise<string[]> {
   const applied: string[] = [];
   await sql.begin(async (tx) => {
