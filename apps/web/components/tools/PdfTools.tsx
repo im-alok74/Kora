@@ -1,7 +1,9 @@
 'use client';
 import { useRef, useState } from 'react';
-import { baseName, downloadBlob, LIMITS, loadPicture, makeZip, nextFrame, pictureProblem, readBytes, renderPicture } from '../../lib/browserFiles';
-import { extractPages, imagesToPdf, mergePdfs, pageCountOf, parsePageGroups, parsePageList, PdfProblem, rotatePages, type PageImage, type PageSize } from '../../lib/pdfOps';
+import { baseName, downloadBlob, LIMITS, makeZip, nextFrame, pictureProblem, readBytes } from '../../lib/browserFiles';
+import { parsePageGroups, parsePageList, PdfProblem } from '../../lib/pdfPages';
+import type { PageImage, PageSize } from '../../lib/pdfOps';
+import { runTask } from '../../lib/runTask';
 import { formatBytes } from '../../lib/sizeTarget';
 import { FileDrop, PRIVATE_NOTE, Status } from './ToolBits';
 
@@ -68,18 +70,10 @@ export function ImagesToPdf() {
         const f = pics[i]!;
         setBusy(`Adding ${f.name} (${i + 1} of ${pics.length})`);
         await nextFrame();
-        let p;
-        try { p = await loadPicture(f.file); } catch { throw new Error(`${f.name} could not be read. It may be damaged. Remove it and try again.`); }
-        try {
-          if (p.width * p.height > LIMITS.imagePixels) throw new Error(`${f.name} is larger than 50 megapixels. Shrink it first.`);
-          const k = Math.min(1, q.side / Math.max(p.width, p.height));
-          const w = Math.max(1, Math.round(p.width * k)), h = Math.max(1, Math.round(p.height * k));
-          const blob = await renderPicture(p, { type: 'image/jpeg', quality: q.q, width: w, height: h });
-          pages.push({ bytes: await readBytes(blob), type: 'jpg', width: w, height: h });
-        } finally { p.close(); }
+        const pic = await runTask('pictureForPdf', [f.file, f.name, { side: q.side, quality: q.q, maxPixels: LIMITS.imagePixels }]);
+        pages.push({ bytes: pic.bytes, type: 'jpg', width: pic.width, height: pic.height });
       }
-      setBusy('Building the PDF'); await nextFrame();
-      const pdf = await imagesToPdf(pages, { size, margin });
+      setBusy('Building the PDF'); const pdf = await runTask('imagesToPdf', [pages, { size, margin }]);
       setResult({ blob: bytesOf(pdf), pages: pages.length });
     } catch (e) { setError((e as Error).message || 'The PDF could not be made. Try fewer or smaller pictures.'); } finally { setBusy(''); }
   }
@@ -151,7 +145,7 @@ export function MergeSplitPdf() {
       if (total.current + f.size > LIMITS.totalBytes) { bad.push(`${f.name} was left out: the PDFs together are over 300 MB.`); continue; }
       try {
         const bytes = await readBytes(f);
-        const pages = await pageCountOf(bytes, f.name);
+        const pages = await runTask('pageCountOf', [bytes, f.name]);
         ok.push({ id: nid(), name: f.name, size: f.size, bytes, pages, extra: `${pages} page${pages === 1 ? '' : 's'}` });
         total.current += f.size;
       } catch (e) { bad.push(e instanceof PdfProblem ? e.message : `${f.name} could not be read.`); }
@@ -164,7 +158,7 @@ export function MergeSplitPdf() {
     try {
       if (mode === 'merge') {
         setBusy(`Joining ${docs.length} PDFs`); await nextFrame();
-        const pdf = await mergePdfs(docs);
+        const pdf = await runTask('mergePdfs', [docs.map((d) => ({ name: d.name, bytes: d.bytes }))]);
         setOut([{ blob: bytesOf(pdf), name: 'merged.pdf' }]);
         setNote(`${docs.reduce((s, d) => s + d.pages, 0)} pages in all.`);
       } else {
@@ -174,11 +168,11 @@ export function MergeSplitPdf() {
         const pad = (n: number) => String(n).padStart(String(d.pages).length, '0');
         if (mode === 'rotate') {
           const pages = spec.trim() ? parsePageList(spec, d.pages) : Array.from({ length: d.pages }, (_, i) => i);
-          const pdf = await rotatePages(d.bytes, [...new Set(pages)], angle, d.name);
+          const pdf = await runTask('rotatePages', [d.bytes, [...new Set(pages)], angle, d.name]);
           setOut([{ blob: bytesOf(pdf), name: `${base}-rotated.pdf` }]);
           setNote(`${new Set(pages).size} page${new Set(pages).size === 1 ? '' : 's'} turned ${angle} degrees clockwise.`);
         } else if (how === 'extract') {
-          const pdf = await extractPages(d.bytes, parsePageList(spec, d.pages), d.name);
+          const pdf = await runTask('extractPages', [d.bytes, parsePageList(spec, d.pages), d.name]);
           setOut([{ blob: bytesOf(pdf), name: `${base}-extract.pdf` }]);
         } else {
           const groups = how === 'every' ? Array.from({ length: d.pages }, (_, i) => [i]) : parsePageGroups(spec, d.pages);
@@ -187,7 +181,7 @@ export function MergeSplitPdf() {
             setBusy(`Making file ${i + 1} of ${groups.length}`); await nextFrame();
             const g = groups[i]!;
             const label = g.length === 1 ? `page-${pad(g[0]! + 1)}` : `pages-${pad(g[0]! + 1)}-${pad(g[g.length - 1]! + 1)}`;
-            files.push({ name: `${base}-${label}.pdf`, blob: bytesOf(await extractPages(d.bytes, g, d.name)) });
+            files.push({ name: `${base}-${label}.pdf`, blob: bytesOf(await runTask('extractPages', [d.bytes, g, d.name])) });
           }
           setOut(files);
           setNote(`${files.length} PDF${files.length === 1 ? '' : 's'} made.`);
