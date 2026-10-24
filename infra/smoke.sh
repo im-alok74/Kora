@@ -3,7 +3,7 @@
 # Needs the compose Postgres (pnpm db:up). Prints SMOKE OK or fails.
 set -euo pipefail
 export MSYS_NO_PATHCONV=1
-C=$(docker compose ps -q db)
+C=$(docker compose -p kora ps -q db)
 docker cp replica/schema.sql "$C":/schema.sql
 docker cp replica/schema-smoke.sql "$C":/smoke.sql
 docker exec "$C" psql -U postgres -q -c "drop database if exists smoke" -c "create database smoke"
