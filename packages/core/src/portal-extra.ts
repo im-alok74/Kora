@@ -7,6 +7,7 @@ import { resolvePortal } from './portal.js';
 import { customerStatement } from './registers.js';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { str, todayIn, ValidationError } from './validation.js';
+import { PAYMENT_LINK_DAYS } from './payments.js';
 
 /** Everything the customer can do beyond viewing: pay several invoices at once, comment, attach a purchase order, download a statement. */
 const RECEIVABLE = ['tax_invoice', 'bill_of_supply', 'debit_note'];
@@ -41,6 +42,7 @@ export async function portalBulkPaymentLink(sql: Sql, token: string, gateway: Pa
     const [existing] = await tx`
       select l.id, l.url, l.amount_paise from payment_link l
        where l.gateway = ${gateway.name} and l.status = 'created' and l.amount_paise = ${total.toString()}
+         and l.created_at > now() - make_interval(days => ${PAYMENT_LINK_DAYS - 5})
          and (select array_agg(i.document_id::text order by i.document_id::text) from payment_link_item i where i.link_id = l.id) = ${sorted}::text[]
        order by l.created_at desc limit 1`;
     return { docs, total, existing };
@@ -49,7 +51,7 @@ export async function portalBulkPaymentLink(sql: Sql, token: string, gateway: Pa
 
   const first = ctx.docs[0]!;
   const link = await gateway.createPaymentLink({
-    amountPaise: ctx.total, referenceId: first.id as string, description: `Invoices ${ctx.docs.map((d) => d.number).join(', ')}`.slice(0, 250),
+    amountPaise: ctx.total, referenceId: first.id as string, description: `Invoices ${ctx.docs.map((d) => d.number).join(', ')}`.slice(0, 250), expiresAt: new Date(Date.now() + PAYMENT_LINK_DAYS * 86_400_000),
     customer: { name: first.name as string | null, phone: first.phone as string | null, email: first.email as string | null },
   });
   await withTenant(sql, system(who.businessId), async (tx) => {
