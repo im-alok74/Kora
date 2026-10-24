@@ -1,6 +1,6 @@
 # Kora end-to-end system design
 
-Design review: 24 October 2026. Repository baseline: 9fadb70. This is an implementation-grounded design and execution plan, not a certification of production readiness. Hosting accounts, production traffic, credentials, backups and provider contracts were not inspected. Existing behavior, proposed changes and operational requirements are distinguished below.
+Design review: 24 October 2026. Repository baseline: d8aa1d2. This is an implementation-grounded design and execution plan, not a certification of production readiness. Hosting accounts, production traffic, credentials, backups and provider contracts were not inspected. Existing behavior, proposed changes and operational requirements are distinguished below.
 
 ## 1. Product boundary and architecture decision
 
@@ -134,7 +134,7 @@ Test gates: crash after send, crash before acknowledgement, expired worker compl
 
 ## 6. Deployment and operating model
 
-Current repository: web cron in `apps/web/vercel.json` runs daily at `30 4 * * *`; worker implementation exists separately. This is evidence of configuration, not evidence that a live worker is or is not deployed.
+Current repository: web cron in `apps/web/vercel.json` runs daily at `30 4 * * *`; `.github/workflows/tick.yml` additionally calls the tick every five minutes when its secrets are configured. A continuous worker exists separately. Scheduled Actions may start late, so this fallback does not establish a 60-second job-start objective. Workflow existence does not prove activation or a live worker deployment.
 
 Target: web process + continuously running worker + managed PostgreSQL + private object storage. Keep web/worker near the database. Use separate runtime and migration credentials; runtime must not bypass RLS. A scheduler can be a fallback only when cadence, execution budget and host limits satisfy delivery targets. Do not change hosted schedules or provision paid infrastructure as part of this document.
 
@@ -178,7 +178,7 @@ Scale in order: measure slow queries and queue age; add evidence-based composite
 | Backup freshness | Older than 26 hours | Alert operator and inspect backup workflow/storage |
 | Restore drill | No successful drill in 30 days | Restore into isolated DB and reconcile ledger totals |
 
-Current worker health measures loop progress, not full dependency readiness. Do not present a healthy loop as proof that messages are delivered. Add low-cardinality metrics for retries, permanent failures, queue age, PDF memory/duration, DB pool wait and sync conflicts.
+Current worker health measures loop progress, not full dependency readiness. The web health route checks database reachability, unsafe production mock flags and schema status; missing migration files produce `schema: unknown`, which is not rejected. `.github/workflows/watch.yml` checks health and queue state every 15 minutes when configured; missing secrets skip the check. Its evaluator catches failed jobs and old queued jobs, but does not detect expired running leases. Workflow-failure notification delivery must be verified. Do not present a healthy loop as proof that messages are delivered. Add low-cardinality metrics for retries, permanent failures, queue age, PDF memory/duration, DB pool wait and sync conflicts.
 
 Proposed recovery targets: RPO <=15 minutes and RTO <=4 hours only after point-in-time recovery and rehearsals support them. Daily logical backups alone imply up to roughly 24 hours of data loss and cannot satisfy that RPO. The repository backup workflow is gated by `BACKUPS_ENABLED`; its actual activation and restore history are unknown.
 
@@ -188,6 +188,14 @@ Runbooks:
 - Database outage: fail financial writes clearly, keep local drafts, do not number or mark paid client-side. After recovery reconcile webhook retries and due schedules.
 - Bad deployment: roll back compatible app, retain additive schema and queued jobs, inspect any partially completed external operations.
 - Restore: isolate a fresh database, restore DB plus referenced blobs, check tenant isolation and ledger totals, reconcile provider payments since the recovery point, approve cutover, resume workers last to avoid duplicate sends.
+
+### Current operational additions
+
+- Migration `0170_retention_prune.sql` deletes done jobs after 30 days, failed jobs after 90 days, processed gateway events after 180 days and finished webhook deliveries after 90 days. Expired auth records have separate windows. Issued documents, payments and audit records are excluded.
+- Tick cleanup runs during the 21:00 UTC hour; multiple calls can occur in that hour. Verify an active scheduler reaches that hour, and monitor pruning failures and lock duration.
+- Before relying on the 180-day event window, test replay of an old gateway payment after event cleanup against durable payment uniqueness. Do not interpret operational retention as a financial-record retention policy.
+- Shared request limiting has a PostgreSQL fallback when the optional external limiter fails. Verify failure behavior under concurrent traffic and database pressure.
+- GST partner construction is lazy, so missing GST configuration no longer needs to block unrelated app operations. Provider-backed actions still require valid configuration.
 
 ## 10. Prioritized implementation plan
 
@@ -203,6 +211,8 @@ Runbooks:
 | P1 | Provider readiness and accurate public claims | Live sandbox reconciliation and owner-approved availability copy | Provider accounts |
 | P2 | Reporting projections and query tuning | Explain plans and before/after workload measurements | Production query profile |
 | P2 | Desktop/mobile release assurance | Signed builds, tested update path, permissions and installation evidence | Release credentials |
+
+Execute these gates through the bounded PRs in [system-design-phases.md](system-design-phases.md). Phase 1 is this design refresh; implementation phases remain pending.
 
 Do not start all rows concurrently. Finish P0 delivery correctness and recovery before expanding feature breadth. Each implementation PR needs tests for its own failure modes and a rollback note. Existing CI is broad, but a green suite does not establish hosting configuration or real-provider readiness.
 
