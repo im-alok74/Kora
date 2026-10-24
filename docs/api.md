@@ -61,7 +61,7 @@ Authorization: Bearer kora_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 | `POST /invoices` | write | Make a draft, or issue it straight away with `"issue": true` |
 
 | `POST /invoices/{id}/issue` | write | Issue a draft: gives it its number and locks it |
-| `POST /invoices/{id}/payments` | write | Record a payment: `{ amount: "500.00", method, receivedOn?, note? }` |
+| `POST /invoices/{id}/payments` | write | Record a payment: `{ amount: "500.00", method, receivedOn?, note? }`. Send an `Idempotency-Key` header so a retry never records the money twice (the retry answers 200 with the first payment) |
 | `GET /invoices/{id}/payments` | read | Payments on a document |
 | `POST /invoices/{id}/share` | write | A public link the customer can open (valid 30 days) |
 | `GET /payments?from=&to=` | read | Payments received in a period (this month by default) |
