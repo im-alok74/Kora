@@ -2,7 +2,7 @@
 try { process.loadEnvFile?.(new URL('../../.env', import.meta.url)); } catch { /* no .env file */ }
 
 // Not a full script policy (Next.js inlines its bootstrap), but it shuts the frame, base and plugin routes.
-// The public invoice route (/i/) sets its own, much stricter policy, so it is left out here.
+// The public invoice route (/i/) and the landing page's sample invoices (/samples/) set their own, much stricter policy, so they are left out here.
 const APP_CSP = { key: 'Content-Security-Policy', value: "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'" };
 
 // The two scanner tools open the camera, so they alone may use it (on this origin only). Every other route keeps it shut.
@@ -36,7 +36,7 @@ export default {
   async headers() {
     return [
       { source: '/:path*', headers: SECURITY_HEADERS },
-      { source: '/((?!i/).*)', headers: [APP_CSP] },
+      { source: '/((?!i/|samples/).*)', headers: [APP_CSP] },
       // Listed last: when two rules set the same header on one path, the later one wins.
       { source: CAMERA_PAGES, headers: [PERMISSIONS_POLICY('(self)')] },
     ];
