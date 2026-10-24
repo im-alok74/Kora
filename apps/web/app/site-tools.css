@@ -20,6 +20,8 @@
 .kora-home .k-toolstrip h2 { text-align: center; margin: 0 0 8px; font-size: clamp(26px, 3.2vw, 36px); line-height: 1.15; font-weight: 700; letter-spacing: -1px; color: var(--text, #161819); }
 .kora-home .k-toolstrip h2 span { color: var(--accent, #106cd9); }
 .kora-home .k-toolstrip p { text-align: center; margin: 0 0 34px; color: var(--text-muted, #62686d); font-size: 16px; }
+.kora-home .k-toolstrip-group { margin-top: 26px; }
+.kora-home .k-toolstrip-group h3 { margin: 0 0 12px; color: var(--text-muted, #62686d); font-size: 12.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
 .k-toolstrip-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .kora-home .k-toolstrip-grid a { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid var(--border, #e6e9ed); border-radius: 14px; background: var(--surface-raised, #fff); color: var(--text, #161819); font-size: 15px; font-weight: 500; text-decoration: none; transition: border-color .15s, box-shadow .15s, transform .15s; }
 .kora-home .k-toolstrip-grid a:hover { border-color: var(--accent, #106cd9); color: var(--accent, #106cd9); box-shadow: 0 8px 22px rgba(20, 30, 40, .08); transform: translateY(-1px); }

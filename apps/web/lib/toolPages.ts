@@ -464,6 +464,9 @@ const BY_SLUG: Record<string, ToolPageInfo> = {
   ...NEW_PAGES, ...CALC_PAGES,
 };
 
+/** True when a tool has its own page copy. Every tool must: the generic text below is only a safety net. */
+export const hasOwnCopy = (slug: string) => slug in BY_SLUG;
+
 /** Tools without their own page copy get a plain version built from their title and summary. */
 export function toolPageInfo(t: Tool): ToolPageInfo {
   const own = BY_SLUG[t.slug];

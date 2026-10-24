@@ -29,6 +29,9 @@ export const TOOLS: Tool[] = [
 ];
 
 
+/** Bump when a tool's behaviour or copy changes; the sitemap reports it as the last change. */
+export const TOOLS_UPDATED = '2026-10-24';
+
 export const TOOL_GROUPS: Tool['group'][] = ['Documents', 'PDF and images', 'Text and numbers', 'Calculators, codes and logos'];
 export const toolBySlug = (s: string) => TOOLS.find((t) => t.slug === s);
 

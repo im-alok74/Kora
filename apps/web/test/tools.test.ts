@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { code128Modules, code128Svg, code128Values } from '../lib/code128';
 import { calcGst } from '../lib/gstCalc';
-import { TOOLS } from '../lib/tools';
+import { TOOLS, TOOL_GROUPS, toolIcon } from '../lib/tools';
+import { hasOwnCopy } from '../lib/toolPages';
 
 describe('GST calculator', () => {
   it('adds GST to an amount and splits it in state', () => {
@@ -45,9 +46,13 @@ describe('Code 128', () => {
 });
 
 describe('tool list', () => {
-  it('has the nineteen tools with unique addresses', () => {
-    expect(TOOLS).toHaveLength(19);
-    expect(new Set(TOOLS.map((t) => t.slug)).size).toBe(19);
+  it('has unique addresses, a known group for each, and a summary', () => {
+    expect(new Set(TOOLS.map((t) => t.slug)).size).toBe(TOOLS.length);
+    for (const t of TOOLS) { expect(TOOL_GROUPS, t.slug).toContain(t.group); expect(t.summary.length, t.slug).toBeGreaterThan(20); }
+    for (const g of TOOL_GROUPS) expect(TOOLS.some((t) => t.group === g), g).toBe(true);
+  });
+  it('gives every tool its own page copy and an icon', () => {
+    for (const t of TOOLS) { expect(hasOwnCopy(t.slug), `${t.slug} has no copy of its own`).toBe(true); expect(toolIcon(t.slug), t.slug).toBeTruthy(); }
   });
 });
 
