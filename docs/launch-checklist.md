@@ -292,6 +292,8 @@ Alternatives that were considered and not chosen: calling `/api/cron/tick` every
 
 These are the owner's and a lawyer's decisions. Nothing in this repository changed them.
 
+`node scripts/launch-check.mjs` lists every placeholder still on a public page (file and line). It prints warnings and exits 0, so it is a checklist helper and not a CI gate. Add `--strict` to make it exit 1 for a final release check. It is clean when this section is done.
+
 ## 13. Rollback plan
 
 | Situation | What to do |
