@@ -43,48 +43,11 @@ export function makeZip(files: { name: string; data: Uint8Array }[]): Promise<Bl
   return new Promise((resolve, reject) => zip(input, (err, data) => (err ? reject(err) : resolve(new Blob([data as BlobPart], { type: 'application/zip' })))));
 }
 
-export type Picture = { bitmap: ImageBitmap | HTMLImageElement; width: number; height: number; close: () => void };
-
-/** Decodes a picture the way a person sees it (phone photos are turned upright using their EXIF note). */
-export async function loadPicture(file: Blob): Promise<Picture> {
-  try {
-    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-    return { bitmap, width: bitmap.width, height: bitmap.height, close: () => bitmap.close() };
-  } catch {
-    const url = URL.createObjectURL(file);
-    try {
-      const img = new Image();
-      img.src = url;
-      await img.decode();
-      return { bitmap: img, width: img.naturalWidth, height: img.naturalHeight, close: () => {} };
-    } finally { URL.revokeObjectURL(url); }
-  }
-}
-
 export const canvasToBlob = (c: HTMLCanvasElement, type: string, quality?: number) =>
   new Promise<Blob>((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('The browser could not save the picture.'))), type, quality));
 
 export type ImageFormat = 'image/jpeg' | 'image/png' | 'image/webp';
 export const EXT: Record<ImageFormat, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
-
-/**
- * Draws a picture at a scale and saves it. JPEG has no transparency, so the picture is put on white first.
- * A browser that cannot save WebP quietly returns PNG, which we catch and report.
- */
-export async function renderPicture(p: Picture, o: { type: ImageFormat; quality?: number; width?: number; height?: number; scale?: number }): Promise<Blob> {
-  const w = Math.max(1, Math.round(o.width ?? p.width * (o.scale ?? 1))), h = Math.max(1, Math.round(o.height ?? p.height * (o.scale ?? 1)));
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const g = c.getContext('2d');
-  if (!g) throw new Error('The browser could not prepare the picture. Try a smaller one.');
-  if (o.type === 'image/jpeg') { g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); }
-  g.imageSmoothingQuality = 'high';
-  g.drawImage(p.bitmap, 0, 0, w, h);
-  const blob = await canvasToBlob(c, o.type, o.quality);
-  c.width = c.height = 0;
-  if (blob.type !== o.type) throw new Error(`This browser cannot save ${EXT[o.type].toUpperCase()} pictures. Choose another format.`);
-  return blob;
-}
 
 /** A plain check of a chosen picture before it is decoded. Returns a message, or '' when it is fine. */
 export function pictureProblem(f: File): string {

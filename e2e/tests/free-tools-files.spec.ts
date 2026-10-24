@@ -330,4 +330,17 @@ test('tool pages show six related tools, the footer strip is grouped, and the si
   await expect(strip.locator('a')).toHaveCount(19);
   const map = await (await request.get('/sitemap.xml')).text();
   expect(map).toMatch(/\/tools\/gstin-validator<\/loc>\s*<lastmod>2026-10-24/);
+test('a tool page does not download the PDF engine until a PDF is processed, and stays inside a script budget', async ({ page }) => {
+  // Budget in decoded KB of JavaScript, measured on a production build (tool pages about 480 KB, the hub about 350 KB), with headroom.
+  const BUDGET: Record<string, number> = { '/tools': 480, '/tools/gst-calculator': 650, '/tools/word-counter': 650, '/tools/merge-split-pdf': 650, '/tools/image-compressor': 650 };
+  for (const [path, kb] of Object.entries(BUDGET)) {
+    let total = 0, pdfLib = false;
+    const jobs: Promise<void>[] = [];
+    page.removeAllListeners('response');
+    page.on('response', (r) => { if (r.request().resourceType() === 'script') jobs.push(r.body().then((b) => { total += b.length; if (b.includes('PDFDocument') && b.includes('copyPages')) pdfLib = true; }).catch(() => {})); });
+    await page.goto(path, { waitUntil: 'networkidle' });
+    await Promise.all(jobs);
+    expect(pdfLib, `${path} loaded pdf-lib up front`).toBe(false);
+    expect(total / 1024, `${path} script size in KB`).toBeLessThan(kb);
+  }
 });
