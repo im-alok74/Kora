@@ -319,6 +319,19 @@ for (const theme of ['light', 'dark'] as const) {
   });
 }
 
+test('tool pages show six related tools, the footer strip is grouped, and the sitemap dates the tools', async ({ page, request }) => {
+  await page.goto('/tools/pdf-to-image');
+  const more = page.locator('#more .vt-more a');
+  await expect(more).toHaveCount(6);
+  await expect(more.first()).toContainText(/Image Converter|Image Compressor|Images to PDF|Merge and Split PDF/);   // same group first
+  await page.goto('/pricing');
+  const strip = page.locator('.k-toolstrip');
+  for (const g of ['Documents', 'PDF and images', 'Text and numbers', 'Calculators, codes and logos']) await expect(strip.getByRole('group', { name: g })).toBeVisible();
+  await expect(strip.locator('a')).toHaveCount(19);
+  const map = await (await request.get('/sitemap.xml')).text();
+  expect(map).toMatch(/\/tools\/gstin-validator<\/loc>\s*<lastmod>2026-10-24/);
+});
+
 test('a tool page does not download the PDF engine until a PDF is processed, and stays inside a script budget', async ({ page }) => {
   // Budget in decoded KB of JavaScript, measured on a production build (tool pages about 480 KB, the hub about 350 KB), with headroom.
   const BUDGET: Record<string, number> = { '/tools': 480, '/tools/gst-calculator': 650, '/tools/word-counter': 650, '/tools/merge-split-pdf': 650, '/tools/image-compressor': 650 };

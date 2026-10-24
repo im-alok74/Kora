@@ -13,7 +13,6 @@ import '../../landing.css';
 import '../../landing-dark.css';
 import '../../site.css';
 import '../../tools.css';
-import '../../tools-more.css';
 
 // Each group of tools is its own chunk, so a page only downloads the code of the tool it shows (pdf-lib is large).
 const tool = <K extends string>(load: () => Promise<Record<K, React.ComponentType<any>>>, name: K) => dynamic(() => load().then((m) => m[name]));
