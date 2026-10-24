@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { createSql, type Sql } from '@kora/db';
-import { createHttpGsp, createMockGateway, createRazorpayGateway, createMockGstinLookup, otpSenderFromEnv, type GspClient, type GstinLookup, type PaymentGateway } from '@kora/adapters';
+import { createLazyGsp, createMockGateway, createRazorpayGateway, createMockGstinLookup, otpSenderFromEnv, type GspClient, type GstinLookup, type PaymentGateway } from '@kora/adapters';
 import {
   createAuth, rateLimiterFromEnv, reportError, type RequestInfo, getEinvoice, getTemplate, getBusiness, getDocument, getParty, isAuthError, isConflictError, isForbidden, isValidationError, listBusinesses, resolveTenant,
   type Auth, type TenantSession,
@@ -50,7 +50,8 @@ export function services(): Services {
       throw new Error(`Unknown GATEWAY "${gatewayName}". Use mock or razorpay.`);
     }
     g.__kora = { sql, auth, limiter, gateway, gstin: createMockGstinLookup(), appUrl, gatewaySecret,
-      gsp: createHttpGsp({ baseUrl: need('GSP_URL'), token: process.env.GSP_TOKEN, timeoutMs: Number(process.env.GSP_TIMEOUT_MS ?? 15_000) }) };
+      // Built on first use, so a missing GSP_URL only affects e-invoice and e-way bill calls.
+      gsp: createLazyGsp() };
   }
   return g.__kora;
 }

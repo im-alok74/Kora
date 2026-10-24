@@ -25,7 +25,7 @@ test('a CA with two clients sees both on one screen, with what is overdue, and c
   await db`alter table document enable trigger user`;
 
   await page.goto('/app/firm');
-  await expect(page.getByRole('heading', { name: 'Clients' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Clients', exact: true })).toBeVisible();
   await expect(page.getByTestId('firm-clients')).toHaveText('2');
   await expect(page.getByTestId('firm-attention')).toHaveText('1');
   await expect(page.getByTestId('firm-overdue')).toContainText('1,180.00');
@@ -38,7 +38,7 @@ test('a CA with two clients sees both on one screen, with what is overdue, and c
   await expect(page.getByRole('table', { name: 'Clients' }).getByRole('row')).toHaveCount(2);
   await page.getByRole('button', { name: 'Open Alpha Textiles' }).click();
   await expect(page).toHaveURL(/\/app$/);
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
   await expect(page.getByLabel('Business')).toHaveValue(b.businessId);
 });
 
@@ -46,7 +46,7 @@ test('the Clients link only shows for someone with more than one business', asyn
   const u = await signedIn(context);
   await makeBusiness(u.userId, 'Only Co');
   await page.goto('/app');
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Clients' })).toHaveCount(0);
   await makeBusiness(u.userId, 'Second Co');
   await page.reload();
@@ -60,8 +60,8 @@ test('a business sends a bill, and the accountant marks one done and sends anoth
   const pdf = Buffer.from('%PDF-1.4 e2e bill');
 
   await page.goto('/app/inbox');
-  await expect(page.getByRole('heading', { name: 'Inbox' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Nothing here.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Inbox', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Nothing here.', exact: true })).toBeVisible();
   for (const [title, name] of [['September rent', 'rent.pdf'], ['Blurry fuel slip', 'fuel.pdf']]) {
     await page.getByLabel('What is it?').fill(title!);
     await page.getByLabel('Photo or PDF').setInputFiles({ name: name!, mimeType: 'application/pdf', buffer: pdf });
@@ -81,7 +81,7 @@ test('a business sends a bill, and the accountant marks one done and sends anoth
   await sessionFor(ctx2, caId);
   const p2 = await ctx2.newPage();
   await p2.goto('/app/inbox');
-  await expect(p2.getByRole('heading', { name: 'Inbox' })).toBeVisible();
+  await expect(p2.getByRole('heading', { name: 'Inbox', exact: true })).toBeVisible();
   await expect(p2.getByLabel('What is it?')).toHaveCount(0);   // an accountant does not send
   const rent = p2.getByRole('article', { name: 'September rent' });
   await expect(rent).toBeVisible();

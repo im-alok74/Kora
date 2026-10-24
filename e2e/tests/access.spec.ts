@@ -12,7 +12,7 @@ test('an accountant can read but the app offers no way to write, and the API ref
   await db`insert into app_session (user_id, token_hash, expires_at) values (${accountant}, ${createHash('sha256').update(token).digest()}, now() + interval '1 day')`;
   await context.addCookies([{ name: 'kora_session', value: token, domain: 'localhost', path: '/', httpOnly: true, sameSite: 'Lax' }]);
   await page.goto('/app/invoices');
-  await expect(page.getByRole('heading', { name: 'Documents' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Documents', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'New invoice' })).toHaveCount(0);
   const w = await page.request.post('/api/documents', { data: { docType: 'tax_invoice', lines: [{ name: 'x', hsnSac: '998313', quantity: '1', rate: '1', taxRateBp: 0 }] } });
   expect(w.status()).toBe(403);
@@ -76,7 +76,7 @@ test('on a phone the list fits the screen', async ({ page, context }) => {
   await makeBusiness(u.userId);
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto('/app/invoices');
-  await expect(page.getByRole('heading', { name: 'Documents' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Documents', exact: true })).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });

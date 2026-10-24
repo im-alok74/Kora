@@ -3,10 +3,23 @@ import { runJobsOnce, type Handlers } from './jobs.js';
 import { processDueReminders } from './reminders.js';
 import { processDueRecurring } from './recurring.js';
 
+/** The nightly clean-up of finished jobs, old events and expired sessions runs in the 21:00 UTC hour (02:30 IST), once per day in effect. */
+export const shouldPrune = (now: Date = new Date()) => now.getUTCHours() === 21;
+
+/** Calls the database function from migration 0170. Never throws: before that migration is applied it just reports why it did nothing. */
+export async function pruneOperationalData(sql: Sql): Promise<Record<string, unknown>> {
+  try {
+    const [r] = await sql`select prune_operational_data() as r`;
+    return (r?.r ?? {}) as Record<string, unknown>;
+  } catch (e) {
+    return { skipped: (e as Error).message.slice(0, 120) };
+  }
+}
+
 /**
  * One pass of the background work, for hosts that cannot keep a worker process running: queue due reminders and recurring
- * invoices, then run ready jobs until none are left or the time budget is used. Every step is safe to run twice, so an
- * overlapping call, or the long-running worker running at the same time, does no harm.
+ * invoices, then run ready jobs until none are left or the time budget is used. The budget is checked between batches;
+ * an in-progress handler can exceed it. Claims coordinate concurrent runners, but external side effects remain at least once.
  */
 export async function runTick(sql: Sql, handlers: Handlers, o: { worker?: string; budgetMs?: number } = {}) {
   const started = Date.now();
@@ -19,5 +32,6 @@ export async function runTick(sql: Sql, handlers: Handlers, o: { worker?: string
     jobs.claimed += r.claimed; jobs.done += r.done; jobs.retried += r.retried; jobs.failed += r.failed;
     if (r.claimed === 0) break;
   }
-  return { reminders, recurring, jobs, ms: Date.now() - started };
+  const pruned = shouldPrune() ? await pruneOperationalData(sql) : null;
+  return { reminders, recurring, jobs, pruned, ms: Date.now() - started };
 }

@@ -34,7 +34,7 @@ test('an owner adds an accountant, who can read and export but not change anythi
   await sessionFor(ctx2, inv!.id as string);
   const p2 = await ctx2.newPage();
   await p2.goto('/app/invoices');
-  await expect(p2.getByRole('heading', { name: 'Documents' })).toBeVisible();
+  await expect(p2.getByRole('heading', { name: 'Documents', exact: true })).toBeVisible();
   await expect(p2.getByRole('link', { name: 'New invoice' })).toHaveCount(0);
   await expect(p2.getByRole('link', { name: 'Team' })).toHaveCount(0);
   await expect(p2.getByRole('link', { name: 'Reports' })).toBeVisible();
@@ -84,7 +84,7 @@ test('reports: the register, who owes you, a customer statement and GST summary 
   await page.request.post(`/api/documents/${id1}/payments`, { data: { amount: '300', method: 'upi' } });
 
   await page.goto('/app/reports');
-  await expect(page.getByRole('heading', { name: 'Reports' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Reports', exact: true })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'Verma Stores' }).first()).toBeVisible();
   await expect(page.getByText('2 documents')).toBeVisible();
   await page.getByRole('tab', { name: 'Who owes you' }).click();
@@ -105,7 +105,7 @@ test('the activity log shows what happened and who did it', async ({ page, conte
   const o = await owner(context);
   await page.request.post('/api/parties', { data: { kind: 'customer', name: 'Logged Co', stateCode: '27' } });
   await page.goto('/app/activity');
-  await expect(page.getByRole('heading', { name: 'Activity' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Activity', exact: true })).toBeVisible();
   await expect(page.getByRole('row', { name: /Customer created/ }).first()).toContainText(o.email);
   await page.getByRole('button', { name: 'Details' }).first().click();
   await expect(page.locator('pre').first()).toBeVisible();

@@ -70,7 +70,7 @@ For production, use [docs/launch-checklist.md](docs/launch-checklist.md), which 
 | `SESSION_TTL_DAYS` | web | Sign-in lifetime, default 30. |
 | `KORA_ALLOW_MOCKS` | web, worker | Set to `1` only for a staging demo. In production every mock adapter refuses to start without it. |
 | `DEMO_FIXED_OTP` | web | Staging demos only; needs `KORA_ALLOW_MOCKS=1`. Never use it with real customers. |
-| `API_RATE_LIMIT` | web | Requests a minute for each API key (default 120), counted in each server process. |
+| `API_RATE_LIMIT` | web | Requests a minute for each API key (default 120), counted in the shared limiter (Upstash if set, otherwise Postgres). |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `API_RATE_PER_MINUTE` | web | Request limits shared by every server instance. The per-address limit across `/api` is on only when Upstash is set (default 300 a minute). |
 | `BLOB_S3_*` | web, worker | Files in object storage instead of the database. |
 | `SENTRY_DSN`, `LOG_LEVEL` | web, worker | Error reporting and log detail. |
@@ -134,8 +134,10 @@ The longer version, with a diagram of an invoice from draft to paid, is in [docs
 | `infra` | Local database roles, SQL smoke test, backup and restore-check scripts |
 | `e2e` | Playwright suite |
 | `replica/` | Research, plan, schema record, tax cases, design tokens, brand, final report |
-| `docs/` | [Architecture](docs/architecture.md), [launch checklist](docs/launch-checklist.md), [deployment](docs/deploy.md), [troubleshooting](docs/troubleshooting.md), [contributing](docs/contributing.md), [compliance](docs/compliance.md), [database](docs/database.md) and the [API and webhooks guide](docs/api.md) |
+| `docs/` | [Architecture](docs/architecture.md), [launch checklist](docs/launch-checklist.md), [deployment](docs/deploy.md), [troubleshooting](docs/troubleshooting.md), [contributing](docs/contributing.md), [compliance](docs/compliance.md), [database](docs/database.md) and the [API and webhooks guide](docs/api.md), and the [October 2026 audit](docs/audit-2026-10.md) |
 
 ## Licence and clean-room note
 
 Kora reproduces what invoicing apps do, not how they look or sound. No code, templates, copy, icons or brand from any competitor is used; `replica/brand.json` lists the names the sweep checks for.
+
+For the end-to-end design, reliability gaps, operating model and prioritized implementation gates, read [the system design](docs/system-design.md).

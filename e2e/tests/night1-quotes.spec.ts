@@ -20,14 +20,14 @@ test('the customer answers a quote from the shared link with a comment, and the 
   const visitor = await browser.newContext();
   const v = await visitor.newPage();
   await v.goto(url);
-  await expect(v.getByRole('heading', { name: 'Your answer' })).toBeVisible();
+  await expect(v.getByRole('heading', { name: 'Your answer', exact: true })).toBeVisible();
   await v.getByLabel('Your name').fill('Anita');
   await v.getByRole('button', { name: 'Decline' }).click();
   await expect(v.getByRole('alert')).toContainText('briefly why');
   await v.getByLabel('Your name').fill('Anita');
   await v.getByLabel(/Comment/).fill('Please bring the price down');
   await v.getByRole('button', { name: 'Decline' }).click();
-  await expect(v.getByRole('heading', { name: 'You declined this quote' })).toBeVisible();
+  await expect(v.getByRole('heading', { name: 'You declined this quote', exact: true })).toBeVisible();
   await visitor.close();
 
   await page.goto(`/app/invoices/${est.id}`);
@@ -45,7 +45,7 @@ test('a quote is revised, the old version is withdrawn, and the accepted version
 
   await page.goto(`/app/invoices/${est.id}`);
   await page.getByRole('button', { name: 'Revise (new version)' }).click();
-  await expect(page.getByRole('heading', { name: 'Edit draft' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Edit draft', exact: true })).toBeVisible();
   await page.getByLabel('Line 1 rate').fill('3500');
   await page.getByRole('button', { name: 'Issue estimate' }).click();
   await expect(page.getByTestId('quote-versions')).toContainText('v2');

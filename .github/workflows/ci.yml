@@ -1,7 +1,19 @@
 name: ci
-on: [push, pull_request]
+
+# One run per change: pull requests, and main after a merge. (A branch with an open pull request used to run twice.)
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same branch or pull request replaces the run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  # Everything that does not need a browser against the built site. Fast feedback on type errors and the unit tests.
+  static:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -12,11 +24,87 @@ jobs:
       - run: pnpm db:up
       - run: pnpm db:smoke
       - run: pnpm typecheck
-      - name: Install Chromium for PDF and end-to-end tests
+      - name: Playwright browsers (cached)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Install Chromium for the PDF tests
         run: pnpm --filter @kora/pdf exec playwright install --with-deps chromium
+      # Lets the migration guard compare this branch's migrations with main's (a pull request may add, never reuse or edit).
+      - name: Fetch main for the migration guard
+        if: github.event_name == 'pull_request'
+        run: git fetch --depth=1 origin main:refs/remotes/origin/main
       - run: pnpm test
-      - run: pnpm build
         env:
-          DATABASE_URL: postgres://kora_web:kora_web_dev@localhost:54329/kora
-          OTP_HMAC_SECRET: ci-only-secret-ci-only-secret-ci-only-1234
-      - run: pnpm e2e
+          MIGRATION_BASE: ${{ github.event_name == 'pull_request' && 'origin/main' || '' }}
+      # Known advisories are reported, not blocking; a new high one shows up in this step's log.
+      - name: Dependency audit (does not fail the run)
+        run: pnpm audit --prod --audit-level=high
+        continue-on-error: true
+
+  # The production build is made once and handed to the browser tests, so each shard starts at once instead of building again.
+  build:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_DIST_DIR: .next-e2e
+      DATABASE_URL: postgres://kora_web:kora_web_dev@localhost:54329/kora_e2e
+      OTP_HMAC_SECRET: e2e-secret-e2e-secret-e2e-secret-123456
+      APP_URL: http://localhost:3200
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Next build cache
+        uses: actions/cache@v4
+        with:
+          path: apps/web/.next-e2e/cache
+          key: next-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/**/*.ts', 'apps/web/**/*.tsx', 'apps/web/**/*.css', 'packages/**/*.ts') }}
+          restore-keys: next-${{ hashFiles('pnpm-lock.yaml') }}-
+      - run: pnpm build
+      - name: Pack the build
+        run: tar -czf next-e2e.tgz --exclude='.next-e2e/cache' -C apps/web .next-e2e
+      - uses: actions/upload-artifact@v4
+        with:
+          name: next-e2e
+          path: next-e2e.tgz
+          retention-days: 1
+
+  # The browser tests, in three parallel parts. Each part has its own database. One retry in CI: a test that needed it is
+  # reported as flaky in the log instead of failing the run.
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with: { name: next-e2e }
+      - run: tar -xzf next-e2e.tgz -C apps/web
+      - run: pnpm db:up
+      - name: Playwright browsers (cached)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - run: pnpm --filter @kora/pdf exec playwright install --with-deps chromium
+      - name: Browser tests, part ${{ matrix.shard }} of 3
+        run: pnpm --filter @kora/e2e exec playwright test --shard=${{ matrix.shard }}/3
+        env:
+          E2E_PREBUILT: '1'
+      - name: Keep the failure screenshots and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failures-${{ matrix.shard }}
+          path: e2e/test-results
+          retention-days: 3

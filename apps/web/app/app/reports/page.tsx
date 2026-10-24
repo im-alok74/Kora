@@ -98,6 +98,7 @@ export default function Reports() {
           {tab === 'gstr3b' && canExport && <a className="btn secondary" href={`/api/reports/gstr3b?period=${month}&download=1`}>Download GSTR-3B JSON</a>}
         </div>
       </div>
+      {(tab === 'gstr1' || tab === 'gstr3b') && canExport && <p className="muted" role="note">Early access: the layout of this file has not yet been checked against the government offline tool. Ask your CA to look at it before you upload it.</p>}
       <div className="row no-print" style={{ marginBottom: 12, justifyContent: 'flex-start', alignItems: 'flex-end' }} aria-label="Saved views">
         {views.length > 0 && (<div><label htmlFor="rv">Saved views</label>
           <select id="rv" value="" onChange={(e) => { const v = views.find((x) => x.name === e.target.value); if (v) { setTab(v.tab); setFrom(v.from); setTo(v.to); setParty(v.party); } }}>

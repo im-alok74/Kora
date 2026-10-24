@@ -9,8 +9,8 @@ test('a bill is recorded from a vendor in another state, paid in parts, and show
   expect(v.id).toBeTruthy();
 
   await page.goto('/app/purchases');
-  await expect(page.getByRole('heading', { name: 'Purchases' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'No bills here.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Purchases', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No bills here.', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'New bill' }).click();
   await page.getByLabel('Vendor', { exact: true }).selectOption({ label: 'Gujarat Steel' });
   await page.getByLabel("Vendor's bill number").fill('GS/0042');
@@ -18,7 +18,7 @@ test('a bill is recorded from a vendor in another state, paid in parts, and show
   await page.getByLabel('Line 1 HSN or SAC').fill('7214');
   await page.getByLabel('Line 1 rate').fill('10000');
   await page.getByRole('button', { name: 'Record bill' }).click();
-  await expect(page.getByRole('heading', { name: 'Bill GS/0042' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Bill GS/0042', exact: true })).toBeVisible();
   await expect(page.getByTestId('bill-total')).toHaveText('Rs 11,800.00');
   await expect(page.getByRole('table', { name: 'Bill lines' })).toContainText('Steel rods');
   await expect(page.getByLabel('Totals')).toContainText('IGST');
@@ -50,7 +50,7 @@ test('a bill is recorded from a vendor in another state, paid in parts, and show
   await expect(page.getByTestId('rc-only2b')).toHaveText('1');
   await expect(page.getByTestId('rc-onlybooks')).toHaveText('0');
   await page.getByRole('button', { name: 'Add as a bill' }).click();
-  await expect(page.getByRole('heading', { name: 'Bill GS-0099' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Bill GS-0099', exact: true })).toBeVisible();
   await expect(page.getByText(/Found in the supplier.s GSTR-2B/)).toBeVisible();
 
   // blocked credit needs a reason

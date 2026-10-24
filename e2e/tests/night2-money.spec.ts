@@ -117,7 +117,7 @@ test('a customer signs in to the portal with a code, pays two invoices together,
   const cust = await browser.newContext({ baseURL: test.info().project.use.baseURL });
   const p = await cust.newPage();
   await p.goto(`/portal/${link.token}`);
-  await expect(p.getByRole('heading', { name: 'Open your account' })).toBeVisible();
+  await expect(p.getByRole('heading', { name: 'Open your account', exact: true })).toBeVisible();
   await p.getByRole('button', { name: /Email a code to as\*\*@stores.test/ }).click();
   await expect(p.getByText('We sent a 6 digit code to')).toBeVisible();
   await p.getByLabel('Code').fill('000000');

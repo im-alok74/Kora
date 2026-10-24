@@ -8,6 +8,15 @@ import { NextResponse, type NextRequest } from 'next/server';
  */
 const PER_MINUTE = Number(process.env.API_RATE_PER_MINUTE ?? 300);
 
+let lastReport = 0;
+/** One error line a minute for each instance, so a limiter outage is visible in the logs and any log alert without a flood. */
+function reportProblem(e: unknown) {
+  const now = Date.now();
+  if (now - lastReport < 60_000) return;
+  lastReport = now;
+  console.error(JSON.stringify({ t: new Date().toISOString(), level: 'error', event: 'ratelimit_unavailable', where: 'middleware', message: String((e as Error)?.message ?? e).slice(0, 200) }));
+}
+
 export async function middleware(req: NextRequest) {
   const url = process.env.UPSTASH_REDIS_REST_URL, token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return NextResponse.next();
@@ -20,11 +29,15 @@ export async function middleware(req: NextRequest) {
       method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
       body: JSON.stringify([['INCR', key], ['EXPIRE', key, '70']]), signal: AbortSignal.timeout(800),
     });
+    if (!res.ok) reportProblem(new Error(`Upstash answered ${res.status}`));
     if (res.ok) {
       const n = Number(((await res.json()) as { result?: number }[])[0]?.result ?? 0);
       if (n > PER_MINUTE) return NextResponse.json({ error: 'Too many requests. Slow down and try again in a minute.' }, { status: 429, headers: { 'retry-after': '60' } });
     }
-  } catch { /* let the request through */ }
+  } catch (e) {
+    reportProblem(e);
+    /* let the request through */
+  }
   return NextResponse.next();
 }
 
