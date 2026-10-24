@@ -3,6 +3,7 @@ import { code128Modules, code128Svg, code128Values } from '../lib/code128';
 import { calcGst } from '../lib/gstCalc';
 import { TOOLS, TOOL_GROUPS, toolIcon } from '../lib/tools';
 import { hasOwnCopy } from '../lib/toolPages';
+import { RELATED } from '../lib/toolPagesCalc';
 
 describe('GST calculator', () => {
   it('adds GST to an amount and splits it in state', () => {
@@ -53,5 +54,15 @@ describe('tool list', () => {
   });
   it('gives every tool its own page copy and an icon', () => {
     for (const t of TOOLS) { expect(hasOwnCopy(t.slug), `${t.slug} has no copy of its own`).toBe(true); expect(toolIcon(t.slug), t.slug).toBeTruthy(); }
+  });
+});
+
+describe('related links', () => {
+  it('only point at tools that exist, never at the tool itself', () => {
+    for (const [slug, list] of Object.entries(RELATED)) {
+      expect(TOOLS.some((t) => t.slug === slug), slug).toBe(true);
+      for (const r of list) { expect(TOOLS.some((t) => t.slug === r), `${slug} -> ${r}`).toBe(true); expect(r).not.toBe(slug); }
+    }
+    for (const t of TOOLS) expect(RELATED[t.slug]?.length ?? 0, `${t.slug} has related tools`).toBeGreaterThan(0);
   });
 });

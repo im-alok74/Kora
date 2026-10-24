@@ -227,6 +227,8 @@
 /* Print: A4 with even margins, so a saved PDF is not flush with the paper edge. */
 @page { size: A4; margin: 14mm; }
 
+.vt-related { max-width: 860px; margin: 34px auto 0; text-align: center; color: var(--text-muted); font-size: 16px; line-height: 1.7; }
+.tl-sub { margin: 18px 0 8px; font-size: 15px; }
 /* The file, PDF and text tools. Built on the same tokens as tools.css, so dark mode follows. */
 .tl-drop { border: 2px dashed var(--border-strong); border-radius: 14px; padding: 16px; background: var(--surface); transition: border-color .12s, background .12s; }
 .tl-drop.over { border-color: var(--accent); background: var(--accent-soft); }

@@ -15,6 +15,9 @@ export const TOOLS: Tool[] = [
   { slug: 'qr-code-scanner', title: 'QR Code Scanner from Image', summary: 'Read a QR code from a photo or a screenshot.', group: 'Calculators, codes and logos' },
   { slug: 'barcode-scanner', title: 'Online Barcode Scanner', summary: 'Read a barcode from a photo, or live with your camera.', group: 'Calculators, codes and logos' },
   { slug: 'logo-maker', title: 'Logo Maker', summary: 'Make a simple logo with your initials or name and download it.', group: 'Calculators, codes and logos' },
+  { slug: 'profit-margin-calculator', title: 'Profit Margin and Markup Calculator', summary: 'Work out profit, margin and markup, or the price that gives the margin you want.', group: 'Calculators, codes and logos' },
+  { slug: 'emi-calculator', title: 'EMI Calculator', summary: 'Find the monthly instalment, total interest and first months of a loan.', group: 'Calculators, codes and logos' },
+  { slug: 'interest-calculator', title: 'Simple and Compound Interest Calculator', summary: 'Work out simple or compound interest on an amount over time.', group: 'Calculators, codes and logos' },
   { slug: 'pdf-to-image', title: 'PDF to Image Converter', summary: 'Turn every page of a PDF into a PNG or JPG picture. Download one, or all as a ZIP.', group: 'PDF and images' },
   { slug: 'image-converter', title: 'Image Converter', summary: 'Change JPG, PNG and WebP pictures from one to another, one at a time or in a batch.', group: 'PDF and images' },
   { slug: 'image-compressor', title: 'Image Compressor and Resizer', summary: 'Shrink a picture to a size in KB or to exact dimensions, and see before and after.', group: 'PDF and images' },
@@ -27,7 +30,7 @@ export const TOOLS: Tool[] = [
 
 
 /** Bump when a tool's behaviour or copy changes; the sitemap reports it as the last change. */
-export const TOOLS_UPDATED = '2026-10-24';
+export const TOOLS_UPDATED = '2026-10-25';
 
 export const TOOL_GROUPS: Tool['group'][] = ['Documents', 'PDF and images', 'Text and numbers', 'Calculators, codes and logos'];
 export const toolBySlug = (s: string) => TOOLS.find((t) => t.slug === s);
@@ -38,6 +41,6 @@ const ICONS: Record<string, IconName> = {
   'purchase-order-generator': 'cart', 'receipt-maker': 'receipt', 'qr-code-generator': 'qr', 'barcode-generator': 'database',
   'qr-code-scanner': 'search', 'barcode-scanner': 'search', 'logo-maker': 'home',
   'pdf-to-image': 'documents', 'image-converter': 'repeat', 'image-compressor': 'box', 'images-to-pdf': 'invoice', 'merge-split-pdf': 'documents',
-  'gstin-validator': 'shield', 'amount-in-words': 'rupee', 'word-counter': 'chat',
+  'profit-margin-calculator': 'chart', 'emi-calculator': 'rupee', 'interest-calculator': 'percent', 'gstin-validator': 'shield', 'amount-in-words': 'rupee', 'word-counter': 'chat',
 };
 export const toolIcon = (slug: string): IconName => ICONS[slug] ?? 'invoice';

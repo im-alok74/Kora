@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 // The PDF, picture and text tools. Every input is made inside the test, so nothing depends on files from outside.
-const NEW_TOOLS = ['pdf-to-image', 'image-converter', 'image-compressor', 'images-to-pdf', 'merge-split-pdf', 'gstin-validator', 'amount-in-words', 'word-counter'];
+const NEW_TOOLS = ['pdf-to-image', 'image-converter', 'image-compressor', 'images-to-pdf', 'merge-split-pdf', 'gstin-validator', 'amount-in-words', 'word-counter', 'profit-margin-calculator', 'emi-calculator', 'interest-calculator'];
 
 async function pdf(pages: number): Promise<Buffer> {
   const d = await PDFDocument.create();
@@ -327,9 +327,9 @@ test('tool pages show six related tools, the footer strip is grouped, and the si
   await page.goto('/pricing');
   const strip = page.locator('.k-toolstrip');
   for (const g of ['Documents', 'PDF and images', 'Text and numbers', 'Calculators, codes and logos']) await expect(strip.getByRole('group', { name: g })).toBeVisible();
-  await expect(strip.locator('a')).toHaveCount(19);
+  await expect(strip.locator('a')).toHaveCount(22);
   const map = await (await request.get('/sitemap.xml')).text();
-  expect(map).toMatch(/\/tools\/gstin-validator<\/loc>\s*<lastmod>2026-10-24/);
+  expect(map).toMatch(/\/tools\/gstin-validator<\/loc>\s*<lastmod>2026-10-25/);
 });
 
 test('a tool page does not download the PDF engine until a PDF is processed, and stays inside a script budget', async ({ page }) => {
@@ -345,4 +345,48 @@ test('a tool page does not download the PDF engine until a PDF is processed, and
     expect(pdfLib, `${path} loaded pdf-lib up front`).toBe(false);
     expect(total / 1024, `${path} script size in KB`).toBeLessThan(kb);
   }
+});
+
+test('the calculators: margin and markup, EMI and interest give the known answers', async ({ page }) => {
+  await page.goto('/tools/profit-margin-calculator');
+  await page.getByLabel('Cost price (Rs)').fill('80');
+  await page.getByLabel('Selling price (Rs)').fill('100');
+  const out = page.getByRole('status').filter({ hasText: 'Markup (profit on cost)' });
+  await expect(out).toContainText('25%');
+  await expect(out).toContainText('20%');
+  await page.getByLabel(/The price for a margin on the price/).check();
+  await page.getByLabel('Margin on price (%)').fill('20');
+  await expect(page.getByRole('status').filter({ hasText: 'Selling price' })).toContainText('100.00');
+  await page.getByLabel('Margin on price (%)').fill('100');
+  await expect(page.getByText('A margin of 100% or more is not possible.')).toBeVisible();
+
+  await page.goto('/tools/emi-calculator');
+  await page.getByLabel('Loan amount (Rs)').fill('10,00,000');
+  await page.getByLabel('Interest rate (% a year)').fill('9');
+  await page.getByLabel('Time', { exact: true }).fill('20');
+  await expect(page.getByRole('status').filter({ hasText: 'a month for 240 months' })).toContainText('8,997.26');
+  await expect(page.getByRole('row')).toHaveCount(13);   // header and the first twelve months
+  await page.getByLabel('Time', { exact: true }).fill('0');
+  await expect(page.getByText(/Check the amount, the rate/)).toBeVisible();
+
+  await page.goto('/tools/interest-calculator');
+  await page.getByLabel('Amount (Rs)').fill('100000');
+  await page.getByLabel('Interest rate (% a year)').fill('8');
+  await page.getByLabel('Time (years)').fill('3');
+  await expect(page.getByRole('status').filter({ hasText: 'Total' })).toContainText('1,24,000.00');
+  await page.getByRole('radio', { name: 'Compound' }).check();
+  await page.getByLabel('Interest rate (% a year)').fill('12');
+  await page.getByLabel('Time (years)').fill('1');
+  await page.getByLabel('Compounded').selectOption('4');
+  await expect(page.getByRole('status').filter({ hasText: 'Total' })).toContainText('1,12,550.88');
+});
+
+test('tool pages link their related tools in the text and have their own share card', async ({ page, request }) => {
+  await page.goto('/tools/emi-calculator');
+  await expect(page.locator('.vt-related a').first()).toHaveAttribute('href', /\/tools\//);
+  const og = await page.locator('meta[property="og:image"]').first().getAttribute('content');
+  expect(og).toContain('/tools/emi-calculator/opengraph-image');
+  const res = await request.get(new URL(og!).pathname);
+  expect(res.status()).toBe(200);
+  expect(res.headers()['content-type']).toContain('image/png');
 });
