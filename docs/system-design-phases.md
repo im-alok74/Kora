@@ -4,7 +4,7 @@
 
 ## Status and operating rule
 
-Phase 1 is complete in this PR: current-state review, corrected architecture and the implementation plan below. Phases 2 through 6 are pending, not implemented by this documentation change. Existing code and tests are evidence of implementation, not of live provider configuration or production capacity.
+Phase 1 is complete. The follow-up reliability implementation covers queue fencing, serial claim deadlines, the payment operation contract, gateway replay identity, monitor checks and scoped offline draft stores. See [implementation evidence and rollout](reliability-rollout.md) for delivered scope, measurements, migration ordering and remaining limits. The phase specifications below remain the full acceptance criteria; partial implementation does not mark a whole phase complete.
 
 At the start of each phase: fetch main, inspect status, preserve unrelated work, check whether another PR already solved the problem, and choose one bounded deliverable. Reserve time for failure-mode tests, diff review and the PR. If a phase is too large, split at the listed boundary; never ship half a financial transaction or mark tests passed without running them. Record completed scope, remaining scope, test results, migration ordering and rollback limitations in every PR.
 
@@ -85,13 +85,13 @@ Completion: before/after results, correctness checks and rollback procedure for 
 | Phase | Depends on | Done when | Current status |
 |---|---|---|---|
 | 1 | Latest-main pull | Evidence refreshed and design PR ready | Complete |
-| 2A | 1 | Lease races pass and rollout is documented | Pending |
-| 2B | 2A | Deadline/slot/timeout tests pass | Pending |
-| 3A | 1 | Concurrent replay produces one financial result | Pending |
-| 3B | 3A | All manual-payment clients adopt retry keys | Pending |
-| 4A | 1; use 2A fields when available | Monitor failure fixtures pass | Pending |
+| 2A | 1 | Lease races pass and rollout is documented | Implemented; core tests passed |
+| 2B | 2A | Deadline/slot/timeout tests pass | Claim deadlines tested; provider/shutdown evidence remains |
+| 3A | 1 | Concurrent replay produces one financial result | Implemented; core tests passed |
+| 3B | 3A | All manual-payment clients adopt retry keys | Invoice form and gateway replay covered; other clients remain |
+| 4A | 1; use 2A fields when available | Monitor failure fixtures pass | Implemented; 10 unit tests passed |
 | 4B | Environment access | Dated delivery, alert and restore evidence | Unverified |
-| 5 | 1 | Shared-device and conflict tests pass | Pending |
-| 6 | Correctness gates and measured workload | Capacity evidence and release checks | Pending |
+| 5 | 1 | Shared-device and conflict tests pass | Scoped draft storage implemented; full lifecycle audit remains |
+| 6 | Correctness gates and measured workload | Capacity evidence and release checks | Local benchmark measured; staging capacity/native release remain |
 
-The next coding phase is 2A. Its smallest complete unit is schema + ownership checks + race tests + deployment ordering, in one PR. Financial replay work follows in a separate PR so queue failures and payment behavior can be reviewed independently.
+The remaining work and operational blockers are recorded in the rollout document. Do not enable production workflows without their credentials or treat local benchmark timings as capacity evidence.

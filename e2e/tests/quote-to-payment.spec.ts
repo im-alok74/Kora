@@ -2,6 +2,34 @@ import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { makeBusiness, signedIn } from '../helpers';
 
+test('payment retry after a lost response and reload does not collect twice', async ({ page, context }) => {
+  const user = await signedIn(context);
+  await makeBusiness(user.userId, 'Payment replay test');
+  const created = await page.request.post('/api/documents', { data: { docType: 'tax_invoice',
+    lines: [{ name: 'Consultation', hsnSac: '998313', quantity: '1', rate: '1000', taxRateBp: 1800 }] } });
+  expect(created.ok()).toBeTruthy();
+  const { id } = await created.json();
+  expect((await page.request.post(`/api/documents/${id}/issue`, { data: {} })).ok()).toBeTruthy();
+  await page.goto(`/app/invoices/${id}`);
+  await page.getByLabel('Amount received (Rs)').fill('100');
+  await page.route(`**/api/documents/${id}/payments`, async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    const response = await route.fetch();
+    expect(response.ok()).toBeTruthy();
+    await route.abort('failed');
+  });
+  await page.getByRole('button', { name: 'Record payment' }).click();
+  await expect(page.getByRole('button', { name: 'Record payment' })).toBeEnabled();
+  await page.unroute(`**/api/documents/${id}/payments`);
+  await page.reload();
+  await expect(page.getByLabel('Amount received (Rs)')).toHaveValue('100');
+  await page.getByRole('button', { name: 'Record payment' }).click();
+  await expect(page.getByText('Payment recorded.', { exact: true })).toBeVisible();
+  const payments = await (await page.request.get(`/api/documents/${id}/payments`)).json();
+  expect(payments.payments).toHaveLength(1);
+  expect(payments.payments[0].payment_paise).toBe('10000');
+});
+
 test('quotation details survive conversion, PDF and two payments with receipts', async ({ page, context }) => {
   const faults: string[] = [];
   page.on('pageerror', e => faults.push(e.message));

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { emitEvent } from './webhooks.js';
 import { parseRupees } from '@kora/tax';
 import { SYSTEM_USER, setTenant, type Sql } from '@kora/db';
@@ -20,7 +21,7 @@ async function assertNotWrittenOff(tx: import('@kora/db').Tx, documentId: string
 /** Records money received against one issued invoice. The amount cannot exceed what is outstanding. */
 export async function recordPayment(
   sql: Sql, t: TenantSession,
-  i: { documentId: string; amount: string; method: string; receivedOn?: string; note?: string | null },
+  i: { documentId: string; amount: string; method: string; receivedOn?: string; note?: string | null; operationKey?: string },
 ) {
   if (!PAYMENT_METHODS.includes(i.method as never)) throw new ValidationError('Choose how the money was received.', 'method');
   let amount: bigint;
@@ -28,7 +29,19 @@ export async function recordPayment(
   if (amount <= 0n) throw new ValidationError('The amount must be more than zero.', 'amount');
   const note = str(i.note, 'Note', { max: 300 });
 
+  const key = i.operationKey;
+  if (key !== undefined && (typeof key !== 'string' || !/^[a-zA-Z0-9_-]{16,100}$/.test(key))) throw new ValidationError('Payment operation key must contain 16 to 100 letters, digits, underscores or hyphens.');
+  const requestHash = createHash('sha256').update(JSON.stringify([i.documentId, amount.toString(), i.method, i.receivedOn || null, note])).digest('hex');
   return inTenant(sql, t, 'payment.write', async (tx) => {
+    if (key) {
+      // Serialize retries before checking the invoice balance, including after a lost HTTP response.
+      await tx`select pg_advisory_xact_lock(hashtextextended(${t.businessId + ':' + key}, 0))`;
+      const [previous] = await tx`select request_hash, result from payment_operation where business_id = ${t.businessId} and operation_key = ${key}`;
+      if (previous) {
+        if (previous.request_hash !== requestHash) throw new ValidationError('This payment operation was already used with different details. Refresh the payment list before recording another payment.');
+        return previous.result as { paymentId: string; paymentStatus: string; settledPaise: string };
+      }
+    }
     const [d] = await tx`select id, party_id, status, doc_type, grand_total_paise, amount_settled_paise from document where id = ${i.documentId} for update`;
     if (!d) throw new ValidationError('Invoice not found.');
     if (d.status !== 'issued' || !RECEIVABLE_TYPES.includes(d.doc_type as string)) throw new ValidationError('Payments can only be recorded against an issued invoice.');
@@ -46,7 +59,9 @@ export async function recordPayment(
     const [after] = await tx`select amount_settled_paise, payment_status from document where id = ${i.documentId}`;
     const [num] = await tx`select number from document where id = ${i.documentId}`;
     await emitEvent(tx, t.businessId, 'payment.received', { payment_id: p!.id, document_id: i.documentId, number: num!.number, amount_paise: amount.toString(), method: i.method, status: after!.payment_status });
-    return { paymentId: p!.id as string, paymentStatus: after!.payment_status as string, settledPaise: after!.amount_settled_paise as string };
+    const result = { paymentId: p!.id as string, paymentStatus: after!.payment_status as string, settledPaise: after!.amount_settled_paise as string };
+    if (key) await tx`insert into payment_operation (business_id, operation_key, request_hash, result) values (${t.businessId}, ${key}, ${requestHash}, ${tx.json(result)})`;
+    return result;
   });
 }
 
@@ -156,7 +171,8 @@ export async function applyGatewayEvent(sql: Sql, gateway: string, evt: GatewayE
 
     const [p] = await tx`insert into payment (business_id, party_id, amount_paise, method, gateway, gateway_event_id, gateway_payment_id, received_on)
                          values (${link.business_id}, ${plan[0]!.party}, ${amount.toString()}, ${evt.method}, ${gateway}, ${evt.eventId}, ${evt.gatewayPaymentId},
-                                 ${todayIn(b!.timezone as string)}) returning id`;
+                                 ${todayIn(b!.timezone as string)}) on conflict do nothing returning id`;
+    if (!p) { await done(); return { duplicate: true } as GatewayResult; }
     for (const x of plan) {
       if (x.pay > 0n) {
         await tx`insert into payment_allocation (business_id, payment_id, document_id, amount_paise)

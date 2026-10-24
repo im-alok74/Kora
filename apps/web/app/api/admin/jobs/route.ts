@@ -19,7 +19,7 @@ export async function GET(req: Request) {
   if (denied) return denied;
   try {
     const { sql } = services();
-    const counts = await sql`select queue, status, count(*)::int as n, min(run_at) filter (where status = 'queued') as oldest_waiting from job group by queue, status order by queue, status`;
+    const counts = await sql`select queue, status, count(*)::int as n, min(run_at) filter (where status = 'queued') as oldest_waiting, min(locked_at) filter (where status = 'running') as oldest_running from job group by queue, status order by queue, status`;
     const failed = await sql`select id, queue, business_id, attempts, last_error, updated_at from job where status = 'failed' order by updated_at desc limit 25`;
     return json({ counts, failed });
   } catch (e) {
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   try {
     const { sql } = services();
     const body = (await req.json().catch(() => ({}))) as { queue?: string };
-    const rows = await sql`update job set status = 'queued', attempts = 0, run_at = now(), locked_at = null, locked_by = null, updated_at = now()
+    const rows = await sql`update job set status = 'queued', attempts = 0, lease_token = null, run_at = now(), locked_at = null, locked_by = null, updated_at = now()
       where status = 'failed' and (${body.queue ?? null}::text is null or queue = ${body.queue ?? null}) returning id`;
     return json({ requeued: rows.length });
   } catch (e) {
