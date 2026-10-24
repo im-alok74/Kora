@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import DocGenerator, { type DocKind } from '../../../components/tools/DocGenerator';
 import GstCalculator from '../../../components/tools/GstCalculator';
 import { BarcodeGenerator, QrGenerator, ScanTool } from '../../../components/tools/CodeTools';
+import { EmiCalculator, InterestCalculator, ProfitMargin } from '../../../components/tools/CalcTools';
 import LogoMaker from '../../../components/tools/LogoMaker';
 import { ImageCompressor, ImageConverter } from '../../../components/tools/ImageTools';
 import PdfToImage from '../../../components/tools/PdfToImage';
@@ -11,6 +12,7 @@ import { AmountInWords, GstinValidator, WordCounter } from '../../../components/
 import { Band, Cards, Cross, Faq, MoreTools, Steps, ToolHero, ToolsShell } from '../../../components/tools/ToolShell';
 import { TOOLS, toolBySlug } from '../../../lib/tools';
 import { GST_SLABS, toolPageInfo } from '../../../lib/toolPages';
+import { RELATED } from '../../../lib/toolPagesCalc';
 import { SITE_URL } from '../../../lib/site';
 import '../../landing.css';
 import '../../landing-dark.css';
@@ -47,6 +49,9 @@ function Body({ slug }: { slug: string }) {
     case 'gstin-validator': return <GstinValidator />;
     case 'amount-in-words': return <AmountInWords />;
     case 'word-counter': return <WordCounter />;
+    case 'profit-margin-calculator': return <ProfitMargin />;
+    case 'emi-calculator': return <EmiCalculator />;
+    case 'interest-calculator': return <InterestCalculator />;
     default: return null;
   }
 }
@@ -80,6 +85,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
   const t = toolBySlug((await params).slug);
   if (!t) notFound();
   const info = toolPageInfo(t);
+  const related = (RELATED[t.slug] ?? []).map(toolBySlug).filter((x): x is NonNullable<typeof x> => !!x);
   const url = `${SITE_URL}/tools/${t.slug}`;
   const ld = [
     { '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: t.title, description: t.summary, url, applicationCategory: 'BusinessApplication', operatingSystem: 'Any (web browser)', inLanguage: 'en-IN', isAccessibleForFree: true, offers: { '@type': 'Offer', price: '0', priceCurrency: 'INR' }, publisher: { '@type': 'Organization', name: 'Kora', url: SITE_URL } },
@@ -106,7 +112,10 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         </Band>
       )}
       {t.slug === 'gst-calculator' && <GstFacts />}
-      <Band id="how" title={`How to use the ${t.title}`}><Steps steps={info.steps} /></Band>
+      <Band id="how" title={`How to use the ${t.title}`}>
+        <Steps steps={info.steps} />
+        {related.length > 0 && <p className="vt-related">Often used with: {related.map((r, i) => <span key={r.slug}>{i > 0 && ', '}<a href={`/tools/${r.slug}`}>{r.title}</a></span>)}.</p>}
+      </Band>
       <Band id="why" title="Why use this" accent="tool" tone="alt"><Cards items={info.features} /></Band>
       <Cross title={info.crossTitle} text={info.crossText} />
       <Band id="faq" title="Frequently asked" accent="questions"><Faq items={info.faq} /></Band>

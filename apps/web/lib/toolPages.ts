@@ -1,5 +1,6 @@
 import type { Tool } from './tools';
 import { NEW_PAGES } from './toolPagesMore';
+import { CALC_PAGES } from './toolPagesCalc';
 
 /** The words around each free tool: the headline, the explainer, steps and questions. Plain facts only, no made-up numbers. */
 export type ToolPageInfo = {
@@ -460,7 +461,7 @@ const BARSCAN: ToolPageInfo = {
 const BY_SLUG: Record<string, ToolPageInfo> = {
   'gst-calculator': GST, 'invoice-generator': INVOICE, 'logo-maker': LOGO, 'quotation-maker': QUOTE, 'proforma-invoice-generator': PROFORMA,
   'purchase-order-generator': PO, 'receipt-maker': RECEIPT, 'qr-code-generator': QR, 'barcode-generator': BARCODE, 'qr-code-scanner': QRSCAN, 'barcode-scanner': BARSCAN,
-  ...NEW_PAGES,
+  ...NEW_PAGES, ...CALC_PAGES,
 };
 
 /** Tools without their own page copy get a plain version built from their title and summary. */
