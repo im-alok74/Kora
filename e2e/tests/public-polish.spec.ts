@@ -110,6 +110,7 @@ test('the sample invoices load on demand from /samples, with a locked-down polic
   await expect.poll(() => page.frames().filter((f) => /\/samples\/classic$/.test(f.url())).length).toBeGreaterThan(0);
   await page.locator('.tpl-card').first().click();
   await expect(page.getByRole('dialog').locator('iframe')).toHaveAttribute('src', '/samples/classic');
+});
 
 // B-2: the form no longer waits for the session check, and signed-out visits leave no 401 in the console.
 test('the sign-in form shows at once, even when the session check is slow, and logs no errors', async ({ page }) => {
