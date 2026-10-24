@@ -1,6 +1,6 @@
 # System design review and handoff
 
-24 October 2026. Reviewed local commit 9fadb70. Scope: end-to-end design and repository evidence, not a production security or compliance certification.
+24 October 2026. Original review: 9fadb70. Refreshed against d8aa1d2 after pulling latest main. Scope: end-to-end design and repository evidence, not a production security or compliance certification.
 
 ## Completed in this pass
 
@@ -15,7 +15,7 @@
 
 | Finding | Evidence | Effect | Required next implementation |
 |---|---|---|---|
-| Daily configured cron | `apps/web/vercel.json` | Without a separately deployed worker, background delivery can wait until the next daily tick | Verify continuous worker and alert on oldest due job |
+| Scheduler activation unverified | `apps/web/vercel.json`, `.github/workflows/tick.yml` | Daily host cron plus five-minute Actions fallback exist; activation and execution timing are unknown | Verify secrets, successful ticks and measured delivery latency |
 | Stale claim completion | `packages/core/src/jobs.ts`, `packages/db/migrations/0004_collections.sql` | Ten-minute requeue plus ID-only updates allows an old worker to overwrite a newer claim | Lease token + conditional acknowledgement + race tests |
 | Ambiguous provider outcome | `packages/core/src/delivery.ts` | Provider accepts a message before sent status commits; crash can lead to repeat delivery | Stable provider operation key or reconciliation of uncertain sends |
 | Cooperative tick budget | `packages/core/src/tick.ts` | A serial batch can outlive the remaining request budget | Claim by execution capacity/deadline; bound provider calls |
@@ -37,3 +37,7 @@ No new queue lease, payment idempotency feature, monitoring service or infrastru
 5. Instrument latency/queue age and use measurements to size PDF/export workers.
 
 Complete one change with its tests and rollback plan before starting the next. Financial correctness and recoverability take priority over adding more product sections.
+
+## Latest-main refresh
+
+Five-minute tick and 15-minute watch workflows, schema/config health checks, shared limiter fallback, lazy GST setup and operational retention now exist in source. This supersedes any earlier implication that only daily execution or no monitoring implementation exists. Queue lease fencing and manual-payment operation keys remain pending. See [system-design-phases.md](system-design-phases.md) for bounded deliverables and verification gates. Runtime behavior is unchanged by this refresh.
