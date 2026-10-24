@@ -79,7 +79,7 @@ test('an offline draft can be reopened and changed before it syncs', async ({ pa
   await expect(page.getByTestId('saved-locally')).toBeVisible();
   await page.goto('/app/invoices');
   await page.getByRole('link', { name: 'Open' }).click();
-  await expect(page.getByRole('heading', { name: 'Edit draft' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Edit draft', exact: true })).toBeVisible();
   await expect(page.getByLabel('Line 1 description')).toHaveValue('First version');
   await page.getByLabel('Line 1 rate').fill('800');
   await page.getByRole('button', { name: 'Save draft' }).click();

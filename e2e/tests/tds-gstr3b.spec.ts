@@ -24,7 +24,7 @@ test('TCS and TDS are entered as percentages, shown in the totals, and come back
   await page.getByLabel('TDS rate (%)').fill('1.234');
   await expect(page.locator('p[role="alert"]')).toContainText('percentage between 0 and 100');
   await page.getByRole('button', { name: 'Save draft' }).click();
-  await expect(page.getByRole('heading', { name: 'New tax invoice' })).toBeVisible();   // still on the editor
+  await expect(page.getByRole('heading', { name: 'New tax invoice', exact: true })).toBeVisible();   // still on the editor
   await page.getByLabel('TDS rate (%)').fill('10');
 
   await page.getByRole('button', { name: 'Save draft' }).click();

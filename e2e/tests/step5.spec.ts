@@ -20,7 +20,7 @@ test('data can be exported to Excel, a backup and Tally, and customers imported 
   const issued = await (await page.request.post(`/api/documents/${d.id}/issue`, { data: {} })).json();
 
   await page.goto('/app/data');
-  await expect(page.getByRole('heading', { name: 'Your data' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your data', exact: true })).toBeVisible();
 
   // Excel: a real workbook (a ZIP whose parts are stored, so the sheet names are readable in the bytes)
   const xlsx = await page.request.get(await page.getByRole('link', { name: 'Download Excel file' }).evaluate((a) => (a as HTMLAnchorElement).href));
@@ -212,7 +212,7 @@ test('a webhook is signed, delivered when an invoice is issued, and shows its hi
 test('only the owner sees Developers, and API keys and webhooks are owner-only on the server too', async ({ page, context, browser }) => {
   await owner(context);
   await page.goto('/app/developers');
-  await expect(page.getByRole('heading', { name: 'API keys' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'API keys', exact: true })).toBeVisible();
   const staff = await page.request.post('/api/team', { data: { identifier: '9811100001', role: 'staff' } });
   expect(staff.status()).toBe(200);
   const { createHash, randomBytes } = await import('node:crypto');

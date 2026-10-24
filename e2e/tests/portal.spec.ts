@@ -40,7 +40,7 @@ test('a customer opens their private portal, answers an estimate, pays, and read
   const p = await customer.newPage();
   const res = await p.goto(url);
   expect(res!.headers()['x-robots-tag'] ?? '').toBe('');                                  // the page itself carries robots meta, set below
-  await expect(p.getByRole('heading', { name: 'Acme Traders' })).toBeVisible();
+  await expect(p.getByRole('heading', { name: 'Acme Traders', exact: true })).toBeVisible();
   await expect(p.getByText('For Asha Stores')).toBeVisible();
   await expect(p.getByTestId('portal-owing')).toHaveText('Rs 2,360.00');
   await expect(p.getByTestId('portal-overdue')).toHaveText('Rs 1,180.00');
@@ -49,10 +49,10 @@ test('a customer opens their private portal, answers an estimate, pays, and read
   expect(await p.locator('meta[name="robots"]').getAttribute('content')).toContain('noindex');
 
   // answer the estimate
-  await expect(p.getByRole('heading', { name: 'Estimates waiting for you' })).toBeVisible();
+  await expect(p.getByRole('heading', { name: 'Estimates waiting for you', exact: true })).toBeVisible();
   await p.getByRole('button', { name: 'Accept' }).click();
   await expect(p.getByText(/is accepted\./)).toBeVisible();
-  await expect(p.getByRole('heading', { name: 'Estimates waiting for you' })).toHaveCount(0);
+  await expect(p.getByRole('heading', { name: 'Estimates waiting for you', exact: true })).toHaveCount(0);
   await expect(p.getByText('Accepted', { exact: true })).toBeVisible();
 
   // the statement shows what was billed
@@ -69,7 +69,7 @@ test('a customer opens their private portal, answers an estimate, pays, and read
   await p.goto(url);
   await expect(p.getByTestId('portal-owing')).toHaveText('Rs 1,180.00');
   await expect(p.getByTestId('portal-overdue')).toHaveText('Rs 0.00');
-  await expect(p.getByRole('heading', { name: 'Payments we have received' })).toBeVisible();
+  await expect(p.getByRole('heading', { name: 'Payments we have received', exact: true })).toBeVisible();
 
   // opening a document page goes through a short-lived public link
   const [popup] = await Promise.all([p.waitForEvent('popup'), p.getByRole('link', { name: /INV\/.*0001/ }).first().click()]);
@@ -82,7 +82,7 @@ test('a customer opens their private portal, answers an estimate, pays, and read
   await page.getByTestId('portal-panel').getByRole('button', { name: 'Stop this link' }).click();
   await expect(page.getByTestId('portal-panel').getByRole('button', { name: 'Make a link' })).toBeVisible();
   await p.goto(url);
-  await expect(p.getByRole('heading', { name: 'This link is not valid' })).toBeVisible();
+  await expect(p.getByRole('heading', { name: 'This link is not valid', exact: true })).toBeVisible();
   expect((await p.request.get(url.replace('/portal/', '/api/portal/'))).status()).toBe(404);
   await customer.close();
 });
@@ -95,7 +95,7 @@ test('a guessed or malformed portal link opens nothing, and portal actions need 
   expect((await request.post('/api/portal/aaaaaaaaaaaaaaaaaaaaaaaa/pay/00000000-0000-0000-0000-000000000000', { data: {} })).status()).toBe(404);
   expect((await request.get('/portal/aaaaaaaaaaaaaaaaaaaaaaaa/open/00000000-0000-0000-0000-000000000000', { maxRedirects: 0 })).status()).toBe(404);
   await page.goto('/portal/aaaaaaaaaaaaaaaaaaaaaaaa');
-  await expect(page.getByRole('heading', { name: 'This link is not valid' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'This link is not valid', exact: true })).toBeVisible();
   // writes must be JSON, like everywhere else
   expect((await request.post('/api/portal/aaaaaaaaaaaaaaaaaaaaaaaa/pay/00000000-0000-0000-0000-000000000000', { form: { a: 'b' } })).status()).toBe(415);
 });

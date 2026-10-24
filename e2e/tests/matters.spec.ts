@@ -7,15 +7,15 @@ test('a lawyer opens a matter, records time and expenses, and bills them on one 
   await page.request.post('/api/parties', { data: { kind: 'customer', name: 'Mehta Exports', stateCode: '27' } });
 
   await page.goto('/app/matters');
-  await expect(page.getByRole('heading', { name: 'Matters' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'No matters here.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Matters', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No matters here.', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'New matter' }).click();
   await page.getByLabel('Client', { exact: true }).selectOption({ label: 'Mehta Exports' });
   await page.getByLabel('Matter title').fill('Recovery suit against Delta Ltd');
   await page.getByLabel('Case or file number (optional)').fill('CS-102/2026');
   await page.getByLabel('Hourly rate (Rs)').fill('3000');
   await page.getByRole('button', { name: 'Create matter' }).click();
-  await expect(page.getByRole('heading', { name: 'Recovery suit against Delta Ltd' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recovery suit against Delta Ltd', exact: true })).toBeVisible();
 
   // time: three ways of writing a duration, and a bad one
   await page.getByLabel('Time', { exact: true }).fill('1:30');
@@ -72,7 +72,7 @@ test('a lawyer opens a matter, records time and expenses, and bills them on one 
 
   await page.getByRole('button', { name: 'Close matter' }).click();
   await page.goto('/app/matters');
-  await expect(page.getByRole('heading', { name: 'No matters here.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No matters here.', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Closed' }).click();
   await expect(page.getByRole('link', { name: 'Recovery suit against Delta Ltd' })).toBeVisible();
 });
@@ -94,7 +94,7 @@ test('an accountant sees matters but cannot record time, and another business se
   await ctx2.addCookies([{ name: 'kora_session', value: token, domain: 'localhost', path: '/', httpOnly: true, sameSite: 'Lax' }]);
   const p2 = await ctx2.newPage();
   await p2.goto(`/app/matters/${m.id}`);
-  await expect(p2.getByRole('heading', { name: 'Private matter' })).toBeVisible();
+  await expect(p2.getByRole('heading', { name: 'Private matter', exact: true })).toBeVisible();
   await expect(p2.getByRole('button', { name: 'Add time' })).toHaveCount(0);
   await expect(p2.getByRole('button', { name: 'Create draft invoice' })).toHaveCount(0);
   expect((await p2.request.post(`/api/matters/${m.id}/time`, { data: { duration: '1', description: 'x' } })).status()).toBe(403);
@@ -190,7 +190,7 @@ test('hearing dates show on the matters list, and a private matter is hidden fro
   await expect(page.getByLabel('Only the people I choose can see this matter')).toBeChecked();
   expect((await p2.request.get(`/api/matters/${m.id}`)).status()).toBe(404);
   await p2.goto('/app/matters');
-  await expect(p2.getByRole('heading', { name: 'No matters here.' })).toBeVisible();
+  await expect(p2.getByRole('heading', { name: 'No matters here.', exact: true })).toBeVisible();
   expect((await p2.request.put(`/api/matters/${m.id}/access`, { data: { restricted: false } })).status()).toBe(403);
 
   // listing the person lets them in

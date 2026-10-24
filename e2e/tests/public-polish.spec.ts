@@ -8,7 +8,7 @@ const setTheme = async (page: Page, theme: 'light' | 'dark') => { await page.add
 test('sign-in: split layout on a desktop, one column on a phone, password toggle inside the field', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/login');
-  await expect(page.getByRole('heading', { name: 'Sign in to Kora' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sign in to Kora', exact: true })).toBeVisible();
   await expect(page.getByLabel('About Kora')).toBeVisible();
   const pw = page.getByLabel('Password', { exact: true });
   await expect(pw).toHaveAttribute('type', 'password');
@@ -24,7 +24,7 @@ test('sign-in: split layout on a desktop, one column on a phone, password toggle
 
 test('create-account mode opens from the link and has the strength note and no stray toggle', async ({ page }) => {
   await page.goto('/login?signup=1');
-  await expect(page.getByRole('heading', { name: 'Create your Kora account' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Create your Kora account', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Show' })).toHaveCount(1);
   await page.getByLabel(/^Password/).fill('abc');
   await expect(page.locator('#pw-note')).not.toBeEmpty();
@@ -33,7 +33,7 @@ test('create-account mode opens from the link and has the strength note and no s
 test('the 404 page keeps the site header and offers ways out', async ({ page }) => {
   const r = await page.goto('/no-such-page-here');
   expect(r?.status()).toBe(404);
-  await expect(page.getByRole('heading', { name: 'We could not find that page' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'We could not find that page', exact: true })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Go to the home page' })).toBeVisible();
 });
@@ -99,7 +99,7 @@ test('the sign-in form shows at once, even when the session check is slow, and l
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await page.route('**/api/auth/session', async (route) => { await new Promise((r) => setTimeout(r, 4000)); await route.continue(); });
   await page.goto('/login');
-  await expect(page.getByRole('heading', { name: 'Sign in to Kora' })).toBeVisible({ timeout: 2500 });
+  await expect(page.getByRole('heading', { name: 'Sign in to Kora', exact: true })).toBeVisible({ timeout: 2500 });
   await expect(page.getByLabel('Mobile number or email')).toBeVisible();
   await page.waitForTimeout(4500);
   expect(errors.filter((e) => /401|Unauthorized/.test(e))).toEqual([]);

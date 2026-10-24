@@ -49,7 +49,7 @@ test('duplicating an invoice opens a new draft with the same lines', async ({ pa
   await expect(page.getByRole('heading', { name: /Tax invoice INV/ })).toBeVisible();
   await page.getByRole('button', { name: 'Duplicate' }).click();
   await expect(page).toHaveURL(/\/app\/invoices\/[0-9a-f-]+\/edit/);
-  await expect(page.getByRole('heading', { name: 'Edit draft' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Edit draft', exact: true })).toBeVisible();
   await expect(page.getByLabel('Line 1 description')).toHaveValue('Monthly retainer');
   await expect(page.getByLabel('Line 1 rate')).toHaveValue('5000.00');
   await expect(page.getByLabel('Order or PO number')).toHaveValue('RET-1');
