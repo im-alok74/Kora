@@ -22,9 +22,9 @@ test.describe('public pages', () => {
 
   test('pricing shows three plans, says the prices are placeholders, and has a comparison table', async ({ page }) => {
     await page.goto('/pricing');
-    await expect(page.getByRole('heading', { name: 'Starter' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Starter', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Business', exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Firm' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Firm', exact: true })).toBeVisible();
     await expect(page.getByText('Placeholder prices.')).toBeVisible();
     await expect(page.getByRole('table')).toContainText('Payment reminders');
   });
@@ -36,7 +36,7 @@ test.describe('public pages', () => {
     await expect(page.getByRole('link', { name: /Payment reminders/ })).toBeVisible();
     await page.goto('/help/first-invoice');
     await expect(page.getByRole('heading', { name: 'Make your first invoice', level: 1 })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Steps' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Steps', exact: true })).toBeVisible();
     await page.goto('/help?q=zzzzqq');
     await expect(page.getByText(/Nothing found/)).toBeVisible();
   });
@@ -51,7 +51,7 @@ test.describe('public pages', () => {
     await expect(page.getByRole('heading', { name: /could not find that page/ })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Search the help centre' })).toBeVisible();
     await page.goto('/import-guide');
-    await expect(page.getByRole('heading', { name: 'Zoho Invoice or Zoho Books' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Zoho Invoice or Zoho Books', exact: true })).toBeVisible();
   });
 
   test('the landing page and the pricing page do not scroll sideways at 375px', async ({ page }) => {
@@ -90,25 +90,25 @@ test.describe('welcome wizard and sample data', () => {
     const { userId } = await signedIn(context);
     await makeBusiness(userId, 'Wizard Traders');
     await page.goto('/app/welcome');
-    await expect(page.getByRole('heading', { name: 'Welcome to Kora' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Welcome to Kora', exact: true })).toBeVisible();
     await page.getByLabel('Address').fill('12 Main Road');
     await page.getByLabel('City').fill('Pune');
     await page.getByRole('button', { name: 'Save and continue' }).click();
-    await expect(page.getByRole('heading', { name: 'Your logo' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your logo', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Skip for now' }).click();
-    await expect(page.getByRole('heading', { name: 'Invoice look' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Invoice look', exact: true })).toBeVisible();
     await page.locator('label.look', { hasText: 'Modern' }).click();
     await page.getByRole('button', { name: 'Save and continue' }).click();
-    await expect(page.getByRole('heading', { name: 'First customer' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'First customer', exact: true })).toBeVisible();
     await page.getByLabel('Customer name').fill('Verma Stores');
     await page.getByLabel('State').selectOption('27');
     await page.getByRole('button', { name: 'Add customer and continue' }).click();
-    await expect(page.getByRole('heading', { name: 'First invoice' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'First invoice', exact: true })).toBeVisible();
     // leave and come back: the choices are still there, and the wizard opens on what is left
     await page.reload();
     await expect(page.getByRole('button', { name: /Your logo \(skipped\)|2\. Your logo/ })).toBeVisible();
     await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '4');
-    await expect(page.getByRole('heading', { name: 'First invoice' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'First invoice', exact: true })).toBeVisible();
     await page.getByRole('link', { name: 'Skip to my dashboard' }).or(page.getByRole('link', { name: 'Go to your dashboard' })).click();
     await expect(page).toHaveURL(/\/app$/);
     // the Help button is on every screen, and it opens a tour
@@ -145,7 +145,7 @@ test.describe('welcome wizard and sample data', () => {
     await page.goto('/app/recurring');
     await expect(page.getByText('No recurring invoices yet')).toBeVisible();
     await page.goto('/app/import');
-    await expect(page.getByRole('heading', { name: 'Move to Kora' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Move to Kora', exact: true })).toBeVisible();
     await page.getByRole('radio', { name: 'Tally' }).click();
     await expect(page.getByText('Customer ledgers with GSTIN')).toBeVisible();
   });

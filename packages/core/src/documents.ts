@@ -211,7 +211,9 @@ async function build(tx: Tx, t: TenantSession, input: DocIn): Promise<Built> {
 }
 
 async function creditHeadroom(tx: Tx, originalId: string, excludeId: string | null) {
-  const [o] = await tx`select taxable_paise, status, doc_type from document where id = ${originalId}`;
+  // Locking the original makes credit notes for one invoice take turns: the second waits here, then sums what the first committed
+  // (READ COMMITTED sees it on the next statement). Without it two notes issued at once could both fit and credit the invoice twice.
+  const [o] = await tx`select taxable_paise, status, doc_type from document where id = ${originalId} for update`;
   if (!o || o.status !== 'issued' || !['tax_invoice', 'bill_of_supply'].includes(o.doc_type as string)) {
     throw new ValidationError('Credit and debit notes must point at an issued invoice.', 'originalDocumentId');
   }

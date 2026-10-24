@@ -20,8 +20,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-IN" suppressHydrationWarning>
       <head>
-        {/* Sets the theme before the first paint, from the saved choice, defaulting to light, so there is no flash of the wrong one. */}
-        <script dangerouslySetInnerHTML={{ __html: "try{document.documentElement.dataset.theme=localStorage.getItem('kora-theme')==='dark'?'dark':'light'}catch(e){document.documentElement.dataset.theme='light'}" }} />
+        {/* Sets the theme before the first paint, from the saved choice, else from the device setting, so there is no flash of the wrong one. */}
+        <script dangerouslySetInnerHTML={{ __html: "try{var t=localStorage.getItem('kora-theme');document.documentElement.dataset.theme=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light'}catch(e){document.documentElement.dataset.theme='light'}" }} />
       </head>
       <body>{children}</body>
     </html>

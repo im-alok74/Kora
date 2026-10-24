@@ -25,10 +25,6 @@
 :root[data-theme="dark"] .kora-home .l-faq details { border-color: var(--border); }
 :root[data-theme="dark"] .kora-home .l-faq summary { color: var(--text); }
 :root[data-theme="dark"] .kora-home .l-close { background: var(--surface); }
-:root[data-theme="dark"] .kora-home .l-footer { background: var(--surface); border-color: var(--border); color: var(--text-muted); }
-:root[data-theme="dark"] .kora-home .l-footer .l-brand { color: #7db3f2; }
-:root[data-theme="dark"] .kora-home .l-footer a { color: var(--text-muted); }
-:root[data-theme="dark"] .kora-home .l-footer h3 { color: var(--text); }
 /* tinted tiles and paper sheets stay light, with dark ink, so they read as paper and coloured cards */
 :root[data-theme="dark"] .kora-home .k-benefit, :root[data-theme="dark"] .kora-home .k-benefit h3, :root[data-theme="dark"] .kora-home .k-benefit p { color: #171b20; }
 :root[data-theme="dark"] .kora-home .tpl-thumb { background: #3a3430; }
@@ -43,7 +39,7 @@
 :root[data-theme="dark"] .kora-home .site-main .btn.secondary { color: var(--text); }
 :root[data-theme="dark"] .kora-home .plan .ph, :root[data-theme="dark"] .kora-home .draft-banner { color: #f3c969; }
 :root[data-theme="dark"] .kora-home .k-product-icon, :root[data-theme="dark"] .kora-home .l-brand svg { color: #7db3f2; }
-:root[data-theme="dark"] .k-topbar > a:first-child span, :root[data-theme="dark"] .kora-home .l-legal { color: var(--text-muted); }
+:root[data-theme="dark"] .k-topbar > a:first-child span { color: var(--text-muted); }
 :root[data-theme="dark"] .k-preview-copy > a { color: #7db3f2; }
 
 /* The preview tabs under the hero were drawn with fixed light greys (#62686d on white), which fail contrast on the dark page. */

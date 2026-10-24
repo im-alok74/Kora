@@ -4,6 +4,7 @@ import { PDFDocument } from 'pdf-lib';
 import { gstinCheckChar } from '@kora/tax';
 import { amountToWords, hindiNumber } from '../lib/amountWords';
 import { inspectGstin } from '../lib/gstinInfo';
+import { runTask } from '../lib/runTask';
 import { extractPages, imagesToPdf, mergePdfs, parsePageGroups, parsePageList, PdfProblem, rotatePages } from '../lib/pdfOps';
 import { fitToSize, formatBytes } from '../lib/sizeTarget';
 import { analyseText, minutesLabel, tokenize } from '../lib/textStats';
@@ -211,6 +212,16 @@ describe('PDF operations', () => {
     const fit = await PDFDocument.load(await imagesToPdf([wide], { size: 'fit', margin: 10 }));
     expect([fit.getPage(0).getWidth(), fit.getPage(0).getHeight()]).toEqual([420, 220]);
     await expect(imagesToPdf([], { size: 'a4', margin: 0 })).rejects.toMatchObject({ reason: 'empty' });
+  });
+});
+
+describe('runTask without a Web Worker', () => {
+  it('runs the same task on the page and keeps the typed error', async () => {
+    const d = await PDFDocument.create(); d.addPage([100, 100]);
+    const bytes = new Uint8Array(await d.save());
+    const merged = await runTask('mergePdfs', [[{ name: 'a.pdf', bytes }, { name: 'b.pdf', bytes }]]);
+    expect(await runTask('pageCountOf', [merged, 'm.pdf'])).toBe(2);
+    await expect(runTask('pageCountOf', [new TextEncoder().encode('nope'), 'x.pdf'])).rejects.toMatchObject({ reason: 'broken' });
   });
 });
 

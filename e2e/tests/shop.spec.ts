@@ -32,7 +32,7 @@ test('a shopkeeper adds an MRP item with a barcode and stock, scans it at the ti
 
   // the till: scan twice, the total is exactly the prices shown
   await page.goto('/app/pos');
-  await expect(page.getByRole('heading', { name: 'Till' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Till', exact: true })).toBeVisible();
   const scan = page.getByLabel('Scan a barcode, or type an item name');
   await scan.fill('8901234567890');
   await scan.press('Enter');

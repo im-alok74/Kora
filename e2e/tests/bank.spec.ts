@@ -23,7 +23,7 @@ test('a bank statement is matched to open invoices, recorded on confirmation, an
   ].join('\n');
 
   await page.goto('/app/bank');
-  await expect(page.getByRole('heading', { name: 'Bank statement' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Bank statement', exact: true })).toBeVisible();
   const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
   expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
 
