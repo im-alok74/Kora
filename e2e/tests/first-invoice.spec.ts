@@ -16,12 +16,12 @@ test('a new user signs up, issues an invoice and sends it on WhatsApp in under 6
   await page.getByLabel(/Six-digit code/).fill(code); step();
   await page.locator('form').getByRole('button', { name: 'Sign in' }).click(); step();
 
-  await expect(page.getByRole('heading', { name: 'Set up your business' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Set up your business', exact: true })).toBeVisible();
   await page.getByLabel('Legal name of the business').fill('Sharma Traders'); step();
   await page.getByLabel('GSTIN').fill(gstin('27')); step();
   await page.getByRole('button', { name: 'Create business' }).click(); step();
 
-  await expect(page.getByRole('heading', { name: 'Welcome to Kora' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Welcome to Kora', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Skip setup and make an invoice now' }).click(); step();
   await expect(page.getByRole('heading', { name: /New tax invoice/ })).toBeVisible();
   await page.getByLabel('Customer', { exact: true }).selectOption('__new'); step();
@@ -83,5 +83,5 @@ test('the home page explains the product and leads to sign-in', async ({ page })
   await expect(page.getByRole('heading', { name: /From first login to first payment/ })).toBeVisible();
   await page.getByRole('link', { name: /^Sign in/ }).first().click();
   await expect(page).toHaveURL(/\/login$/);
-  await expect(page.getByRole('heading', { name: 'Sign in to Kora' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sign in to Kora', exact: true })).toBeVisible();
 });
