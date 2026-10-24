@@ -1,5 +1,7 @@
 # Architecture
 
+For the implementation-grounded target design, failure modes, capacity assumptions and prioritized release gates, see [system-design.md](system-design.md).
+
 Kora is a pnpm monorepo. A Next.js app serves the screens and the API, a small worker (or a scheduler calling one route) does background work, and one PostgreSQL database enforces the rules that make an invoice legal. This page is the map. Details live next to the code, and the table list is in [database.md](database.md).
 
 ## Packages
@@ -134,7 +136,7 @@ Work that must happen because something changed is put in the `job` table **in t
 | `einvoice.register` | Registers an e-invoice with the GST partner |
 | `webhook.deliver` | Posts a signed event to a customer's address |
 
-A job is claimed with `claim_jobs()` (`FOR UPDATE SKIP LOCKED`), so any number of workers can run at once without doing the same job twice. A failing job goes back to `queued` with a delay of 30 seconds, doubling, up to an hour, with a little jitter. After 8 tries, or on a permanent error, it becomes `failed`. `POST /api/admin/jobs` puts failed jobs back.
+A job is claimed with `claim_jobs()` (`FOR UPDATE SKIP LOCKED`), so concurrent workers can claim different available jobs. This is an at-least-once queue: expired leases can be reclaimed and external side effects may repeat after a crash. Current completion updates are not lease-fenced; see the queue-hardening plan in [system-design.md](system-design.md). A failing job goes back to `queued` with a delay of 30 seconds, doubling, up to an hour, with a little jitter. After 8 tries, or on a permanent error, it becomes `failed`. `POST /api/admin/jobs` puts failed jobs back.
 
 Two ways to run the queue:
 

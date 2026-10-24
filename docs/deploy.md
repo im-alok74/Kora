@@ -138,7 +138,7 @@ reminders and recurring invoices, then runs ready jobs (messages, e-invoices, we
   Vercel plan allows nothing more often. Queued messages, e-invoices and webhooks then wait until the next pass.
 - For near-real-time sending, call it every minute or two from any scheduler with `Authorization: Bearer <CRON_SECRET>`: a paid Vercel
   plan, an external cron service, or a GitHub Actions schedule. Overlapping calls and a running worker are safe (jobs use `SKIP LOCKED`).
-- The better answer is a real worker. `Dockerfile` builds an image for both: run the web command and, as a second service, the worker command
+- The better answer is a real worker. `Dockerfile` has two targets that run as a normal user, not root: `docker build --target web` (also the default) and `docker build --target worker`. Run the web image and, as a second service, the worker image
   (`pnpm --filter @kora/worker start`) on Fly.io, Render, Railway or any container host.
 
 ## PDFs on Vercel

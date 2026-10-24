@@ -1,13 +1,10 @@
 import type { Metadata } from 'next';
+import dynamic from 'next/dynamic';
 import { notFound } from 'next/navigation';
 import DocGenerator, { type DocKind } from '../../../components/tools/DocGenerator';
 import GstCalculator from '../../../components/tools/GstCalculator';
 import { BarcodeGenerator, QrGenerator, ScanTool } from '../../../components/tools/CodeTools';
 import LogoMaker from '../../../components/tools/LogoMaker';
-import { ImageCompressor, ImageConverter } from '../../../components/tools/ImageTools';
-import PdfToImage from '../../../components/tools/PdfToImage';
-import { ImagesToPdf, MergeSplitPdf } from '../../../components/tools/PdfTools';
-import { AmountInWords, GstinValidator, WordCounter } from '../../../components/tools/TextTools';
 import { Band, Cards, Cross, Faq, MoreTools, Steps, ToolHero, ToolsShell } from '../../../components/tools/ToolShell';
 import { TOOLS, toolBySlug } from '../../../lib/tools';
 import { GST_SLABS, toolPageInfo } from '../../../lib/toolPages';
@@ -16,7 +13,17 @@ import '../../landing.css';
 import '../../landing-dark.css';
 import '../../site.css';
 import '../../tools.css';
-import '../../tools-more.css';
+
+// Each group of tools is its own chunk, so a page only downloads the code of the tool it shows (pdf-lib is large).
+const tool = <K extends string>(load: () => Promise<Record<K, React.ComponentType<any>>>, name: K) => dynamic(() => load().then((m) => m[name]));
+const ImageConverter = tool(() => import('../../../components/tools/ImageTools'), 'ImageConverter');
+const ImageCompressor = tool(() => import('../../../components/tools/ImageTools'), 'ImageCompressor');
+const PdfToImage = dynamic(() => import('../../../components/tools/PdfToImage'));
+const ImagesToPdf = tool(() => import('../../../components/tools/PdfTools'), 'ImagesToPdf');
+const MergeSplitPdf = tool(() => import('../../../components/tools/PdfTools'), 'MergeSplitPdf');
+const AmountInWords = tool(() => import('../../../components/tools/TextTools'), 'AmountInWords');
+const GstinValidator = tool(() => import('../../../components/tools/TextTools'), 'GstinValidator');
+const WordCounter = tool(() => import('../../../components/tools/TextTools'), 'WordCounter');
 
 export const dynamicParams = false;
 export const generateStaticParams = () => TOOLS.map((t) => ({ slug: t.slug }));

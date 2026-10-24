@@ -19,9 +19,9 @@ for (const width of [390, 1440]) {
   test(`download navigation and layout at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Your business goes with you.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your business goes with you.', exact: true })).toBeVisible();
     await page.getByRole('link', { name: 'Get Kora for your device' }).click();
-    await expect(page.getByRole('heading', { name: 'Kora on every device' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Kora on every device', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: /Open Kora in your browser/ })).toHaveAttribute('href', '/app');
     for (const theme of ['light', 'dark']) {
       await page.evaluate((theme) => { document.documentElement.dataset.theme = theme; }, theme);

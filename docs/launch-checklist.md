@@ -8,7 +8,7 @@ Written on 23 October 2026 from the repository only. Nobody looked at Vercel, Su
 
 | # | Item | Status | Evidence |
 |---|---|---|---|
-| 1 | Background work only runs once a day. Sending an invoice, e-invoice registration and webhooks wait for the next pass | **Not done** | `apps/web/vercel.json` has one cron, `30 4 * * *` (10:00 IST). Nothing runs jobs inside a web request (`runTick` is called only from `apps/web/app/api/cron/tick/route.ts`). See section 11 |
+| 1 | Background work only runs once a day. Sending an invoice, e-invoice registration and webhooks wait for the next pass | **Not done** | `apps/web/vercel.json` has one cron, `30 4 * * *` (10:00 IST). Nothing runs jobs inside a web request (`runTick` is called only from `apps/web/app/api/cron/tick/route.ts`). The worker service is the chosen fix, see section 11 |
 | 2 | Legal pages still carry placeholder text | **Not done** | `support@kora.example` in `apps/web/app/terms/page.tsx` and `refunds/page.tsx`, `privacy@kora.example` in `privacy/page.tsx`, "[number of days to be decided]" twice in `refunds/page.tsx`. Pricing says "Placeholder price" in `pricing/page.tsx` |
 | 3 | Real sign-in codes (SMS and email) | **Unknown** | Code is ready (`packages/adapters/src/live.ts`). Needs `OTP_PROVIDER=live` and provider keys in Vercel. Production refuses the mock sender unless `KORA_ALLOW_MOCKS=1` |
 | 4 | Real WhatsApp, SMS and email for invoices | **Unknown** | Code is ready. Needs `MESSENGER=live`, an approved WhatsApp template and an approved SMS template |
@@ -29,7 +29,7 @@ Names only. Set them in the host (Vercel: Project, Settings, Environment Variabl
 |---|---|---|
 | `DATABASE_URL` | Database connection as the `kora_web` role | Use the Supabase pooler in transaction mode (port 6543). The user name on the pooler has the project reference after a dot: `kora_web.<project-ref>`. `createSql` turns off prepared statements for port 6543 automatically |
 | `OTP_HMAC_SECRET` | Signs stored sign-in codes | 32 or more characters, random, different from every other environment. The web app refuses to start with a shorter one |
-| `GSP_URL` | GST partner base address | **The web app and the worker throw at start-up if this is empty**, even when no business uses e-invoicing (`need('GSP_URL')` in `apps/web/lib/server.ts` and `apps/worker/src/index.ts`). Until a partner exists it must still hold some address. Do not point production at the mock partner |
+| `GSP_URL` | GST partner base address | Optional until a partner is chosen. The client is built on first use (`createLazyGsp` in `packages/adapters/src/gsp-lazy.ts`), so an empty value only makes e-invoice and e-way bill calls fail with "The GST partner is not connected yet". Do not point production at the mock partner |
 | `APP_URL` | Public address used in messages, payment links and share links | Falls back to Vercel's production host name. Set it once a custom domain is attached |
 | `CRON_SECRET` | Lets the scheduler call `/api/cron/tick`, and the operator call `/api/admin/jobs` | 16 or more characters. Without it both routes answer 503 |
 
@@ -164,7 +164,7 @@ A backup holds the database only. It does not hold the code (Git), the environme
 | Web is up and the database answers | `GET /api/health` returns `{"status":"ok"}` or 503 | **Not done**: no uptime monitor is configured in the repository. Point any uptime service at it |
 | Worker is alive (if a worker is used) | `GET /healthz` on `WORKER_HEALTH_PORT`, 503 when stalled for a minute | **Not done** (no worker deployed, see section 11) |
 | Application errors | One JSON log line per event on stdout; plus Sentry when `SENTRY_DSN` is set (`packages/core/src/observe.ts`, `apps/web/instrumentation.ts`) | **Unknown** (DSN) |
-| Queue health | `GET /api/admin/jobs` with `Authorization: Bearer <CRON_SECRET>`: counts by queue and status, the oldest waiting job, the 25 latest failures | **Done** (route exists). **Not done**: nobody calls it on a schedule |
+| Queue health | `GET /api/admin/jobs` with `Authorization: Bearer <CRON_SECRET>`: counts by queue and status, the oldest waiting job, the 25 latest failures | **Done** (route exists, and `.github/workflows/watch.yml` polls it every 15 minutes). **Not done** until the two repository secrets are added (section 11) |
 | Failed work | The SQL list in [deploy.md](deploy.md) under Monitoring (jobs, e-invoices, unprocessed payment webhooks, failed webhook deliveries, failed recurring runs) | **Done** as queries (checked against a migrated database). **Not done** as alerts |
 
 Minimum alerts to set up before launch: uptime of `/api/health`; Sentry alert on new issues; a daily check that `/api/admin/jobs` shows no job older than a day; Razorpay's own email for failed webhooks; Supabase's disk and connection alerts.
@@ -173,9 +173,12 @@ Minimum alerts to set up before launch: uptime of `/api/health`; Sentry alert on
 
 | Limit | Where | Value | Notes |
 |---|---|---|---|
-| API key | `apps/web/lib/apiV1.ts` | 120 a minute for each key (`API_RATE_LIMIT`) | Counted in each server process, so it is a runaway-loop guard. On Vercel each function instance counts separately |
+| API key | `apps/web/lib/apiV1.ts` | 120 a minute for each key (`API_RATE_LIMIT`) | Counted in the shared limiter (Upstash if configured, otherwise Postgres), so every instance sees the same number. If the shared limiter fails it falls back to a per-process count and reports the fault |
 | Address across `/api` | `apps/web/middleware.ts` | 300 a minute for each address (`API_RATE_PER_MINUTE`) | **Only when Upstash is configured.** Webhooks, `/api/cron/*` and `/api/health` are exempt. If Upstash is down the request goes through |
 | Sign-in codes and attempts | `packages/core/src/auth.ts` with `ratelimit.ts` | 20 code requests from one network address in 15 minutes, and per-address limits on wrong guesses, plus limits kept with each code | Uses Upstash when set, and falls back to Postgres (`rate_event` table) if Upstash errors or is not set |
+| Public pages and checks | `apps/web/lib/publicLimit.ts` | Per address and minute: invoice page 120, invoice PDF 20, quote answer 20, customer portal 240, GSTIN checks 120 | Works without Upstash (Postgres is the default). Fails open and reports the fault |
+| Sign-up | `packages/core/src/auth.ts` | 10 sign-ups from one network address and 5 attempts for one number or email in 15 minutes | Shared with the limiter above |
+| Limiter faults | `reportLimiterProblem` in `packages/core/src/ratelimit.ts`, `apps/web/middleware.ts` | One error log line (event `ratelimit_unavailable`) and one Sentry event a minute for each process | Set a log alert on that event name |
 | Outgoing webhooks | `packages/core/src/webhooks.ts` | 10 second timeout, retries with growing delay, switched off after 20 failures in a row | |
 
 Status: **Done** in code. **Unknown** whether Upstash is configured in production. Put a rate limit at the edge (Vercel Firewall) as well if the API is exposed widely.
@@ -190,6 +193,20 @@ Status: **Done** in code. **Unknown** whether Upstash is configured in productio
 | A real support address and a grievance officer address | **Not done** | Placeholders listed in section 1, item 2 |
 | `robots.txt` and sitemap | **Done** | `apps/web/app/robots.ts`, `sitemap.ts` |
 | Security headers (HSTS in production, no framing, no sniffing) | **Done** | `apps/web/next.config.mjs` |
+
+### Where the final address has to be written
+
+When the domain exists, the same address appears in several places. Missing one gives a quiet fault, not an error.
+
+| Where | Name or file | What goes wrong if it is missed |
+|---|---|---|
+| Vercel environment | `APP_URL` | Message links, payment links and share links point at the old host |
+| Vercel environment | `NEXT_PUBLIC_SITE_URL` | Sitemap, canonical links and structured data name the old host (falls back to `APP_URL`, then `https://kora-invoice.vercel.app`) |
+| GitHub repository secret | `KORA_SITE_URL` | The 5 minute tick and the queue watch call the old host |
+| Razorpay dashboard (live) | Webhook URL `<address>/api/webhooks/razorpay` | Payments are not matched |
+| Resend | Verified sending domain, `EMAIL_FROM` | Email lands in spam or is refused |
+| `apps/desktop/src/app-config.json`, `apps/mobile/capacitor.config.json` | `url` | Installed apps open a deployment alias. Publish a new app version afterwards |
+| Privacy, terms and refunds pages | Support and grievance addresses | Placeholders stay public (section 12) |
 
 ## 8. Sign-in codes (MSG91, Resend) and WhatsApp
 
@@ -241,21 +258,25 @@ Money is not auto-reconciled for QR scans that go straight to a bank account. Th
 
 Until a partner is chosen, keep `einvoice_enabled` off for real businesses. If it is on and the partner address is wrong, invoices show as failed and the owner can press Resubmit later.
 
-## 11. Background work: the worker or a frequent scheduler
+## 11. Background work: the worker (chosen path)
 
-Status: **Not done**. This is the item most likely to surprise a first customer.
+Decision (owner, 23 October 2026): run the worker as a second service built from the `Dockerfile`. Status: **Not done** until the service is deployed and a test invoice is delivered within minutes. This is the item most likely to surprise a first customer.
 
-What runs in the background: sending an invoice or reminder (`delivery.send`), statements (`statement.send`), e-invoice registration (`einvoice.register`) and webhook delivery (`webhook.deliver`). Web requests only put a job in the queue (in the same transaction as the change). Nothing runs it until a worker or `GET /api/cron/tick` does.
+What runs in the background: sending an invoice or reminder (`delivery.send`), statements (`statement.send`), e-invoice registration (`einvoice.register`) and webhook delivery (`webhook.deliver`), plus due reminders and recurring invoices. Web requests only put a job in the queue. Today `apps/web/vercel.json` calls `/api/cron/tick` once a day at 10:00 IST, so without a worker a WhatsApp send can wait until the next morning.
 
-Today `apps/web/vercel.json` calls the tick once a day at 10:00 IST. So a WhatsApp send can wait until the next morning. Pick one:
+Steps:
 
-| Option | Cost | Notes |
-|---|---|---|
-| Run the worker (`pnpm --filter @kora/worker start`) as a second service from the `Dockerfile` on Fly.io, Render, Railway or similar. Run two for availability | A small always-on container | Best answer. Needs the same environment as the web app |
-| Call `/api/cron/tick` every minute or two from an external scheduler with `Authorization: Bearer <CRON_SECRET>` | Free to cheap | Overlapping calls and a running worker are safe (jobs use `SKIP LOCKED`) |
-| Vercel Pro cron (up to once a minute) | Paid Vercel plan | Change `schedule` in `apps/web/vercel.json` |
+1. Pick a container host that can run an always-on service from a Dockerfile (Fly.io, Render, Railway or similar). The web app stays on Vercel.
+2. Build from the repository `Dockerfile`. The image default is the web command, so set the service command to `pnpm --filter @kora/worker start`.
+3. Give it the same environment names as the web app (section 2): `DATABASE_URL` (the `kora_web` role), `GSP_URL`, `APP_URL`, `MESSENGER=live` with the `WHATSAPP_*`, `MSG91_SMS_TEMPLATE_ID`, `RESEND_API_KEY` and `EMAIL_FROM` names, `BLOB_S3_*`, `SENTRY_DSN`. Do not set `KORA_ALLOW_MOCKS`. For the worker, `DATABASE_URL` may use the session pooler (port 5432) or the transaction pooler (6543).
+4. Set `WORKER_HEALTH_PORT` (for example `8081`) and point the host's health check at `/healthz`. The image's own `HEALTHCHECK` already uses it when set. It answers 503 when the loop has stalled for a minute.
+5. Run two instances for availability. Jobs use `SKIP LOCKED`, so they never double-run work.
+6. **Until the worker runs, use the interim scheduler in this repository.** `.github/workflows/tick.yml` calls `/api/cron/tick` every 5 minutes, and `.github/workflows/watch.yml` checks `/api/health` and the age of the oldest queued job every 15 minutes and fails (GitHub emails the repository owner) when something is stuck or has failed for good. Both stay idle until the owner adds two repository secrets (Settings, Secrets and variables, Actions): `KORA_SITE_URL` (the public address, starting with `https://`) and `CRON_SECRET` (the same value as the site's `CRON_SECRET`). GitHub can start a run a few minutes late, so this gives delivery within minutes, not seconds. Status: **Not done** until the secrets are added; check that the Actions tab shows green runs.
+7. Keep the daily Vercel cron as a safety net. It is harmless alongside a worker.
+8. Test: issue an invoice in a test business, press Send to your own number, and check Send history shows delivered within a couple of minutes. Check `GET /api/admin/jobs` shows nothing waiting.
+9. Decide who watches `/api/admin/jobs` and the worker health check (section 5).
 
-Also decide who watches `/api/admin/jobs`.
+Alternatives that were considered and not chosen: calling `/api/cron/tick` every minute or two from an external scheduler, or per-minute cron on a paid Vercel plan.
 
 ## 12. Legal pages
 
@@ -270,6 +291,8 @@ Also decide who watches `/api/admin/jobs`.
 | CA has reviewed the tax rules and returns data | **Not done** | `docs/compliance.md`, "What a CA must confirm before beta" |
 
 These are the owner's and a lawyer's decisions. Nothing in this repository changed them.
+
+`node scripts/launch-check.mjs` lists every placeholder still on a public page (file and line). It prints warnings and exits 0, so it is a checklist helper and not a CI gate. Add `--strict` to make it exit 1 for a final release check. It is clean when this section is done.
 
 ## 13. Rollback plan
 

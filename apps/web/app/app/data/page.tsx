@@ -119,6 +119,7 @@ export default function Data() {
               </div>
             </details>
             <a className="btn secondary" href={tally}>Download Tally file</a>
+            <p className="muted" role="note">Early access: this file has not been tried against a live Tally yet. Import it into a test company first and ask your accountant to check it.</p>
           </>)}
       </section>
 

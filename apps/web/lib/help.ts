@@ -222,7 +222,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     summary: 'Record what you buy, see the credit you can claim, and check it against GSTR-2B.',
     body: [
       'Record your purchase bills under Purchases, with the vendor, bill number, date and lines. Each bill carries the GST you paid. Input GST then shows the credit you can claim, the credit at risk because your supplier has not filed it, and credit that is blocked.',
-      'To check against what your suppliers filed, load your GSTR-2B file on the Input GST page. Kora marks each bill as matched, different in amount, only in 2B or only in your books. A bill that is only in 2B can be added as a bill with one click.',
+      'To check against what your suppliers filed, load your GSTR-2B file on the Input GST page. Kora marks each bill as matched, different in amount, only in 2B or only in your books. A bill that is only in 2B can be added to your books with the Add as a bill button.',
       'The GSTR-3B summary on the Reports page uses these figures. They are for your CA to confirm before filing. Kora does not file anything and does not decide whether a credit is allowed in your case.',
       'Expenses are a separate, simpler list for your own records. They do not feed input GST.',
     ],
