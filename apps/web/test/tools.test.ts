@@ -3,6 +3,7 @@ import { code128Modules, code128Svg, code128Values } from '../lib/code128';
 import { calcGst } from '../lib/gstCalc';
 import { TOOLS, TOOL_GROUPS, toolIcon } from '../lib/tools';
 import { hasOwnCopy } from '../lib/toolPages';
+import { RELATED } from '../lib/toolPagesCalc';
 
 describe('GST calculator', () => {
   it('adds GST to an amount and splits it in state', () => {
