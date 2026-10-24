@@ -1,4 +1,5 @@
 'use client';
+import { getOfflineScope, offlineDatabaseName } from './offlineScope';
 
 /**
  * Drafts and reference data kept on this device, in IndexedDB. Everything here fails soft: in a private window or
@@ -21,11 +22,15 @@ export interface LocalDraft {
   updatedAt: number;
 }
 
-const DB = 'kora-offline';
+let activeDB: string | null = null;
 const CHANGED = 'kora-drafts-changed';
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 
 function open(): Promise<IDBDatabase | null> {
+  const scope = getOfflineScope();
+  if (!scope) return Promise.resolve(null);
+  const DB = offlineDatabaseName(scope);
+  if (activeDB !== DB) { void dbPromise?.then(db => db?.close()); dbPromise = null; activeDB = DB; }
   if (!dbPromise) {
     dbPromise = new Promise((resolve) => {
       try {
@@ -96,9 +101,13 @@ export function isNetworkError(e: unknown): boolean {
   return e instanceof TypeError || (typeof navigator !== 'undefined' && navigator.onLine === false);
 }
 
-/** Wipes everything stored on this device. Used on sign out so the next person on a shared phone sees nothing. */
+/** Clears the active business's drafts/reference data and private page caches on sign out.
+ * Other scoped business drafts are preserved and can only be opened under their original user/business scope.
+ * Legacy unscoped databases are deliberately not imported: their owner cannot be established safely.
+ */
 export async function clearLocalData(): Promise<void> {
   await run('drafts', 'readwrite', (s) => s.clear());
   await run('cache', 'readwrite', (s) => s.clear());
+  try { for (const key of Object.keys(sessionStorage)) if (key.startsWith('kora-offline:')) sessionStorage.removeItem(key); } catch { /* Storage can be disabled. */ }
   try { if ('caches' in window) await Promise.all((await caches.keys()).filter((k) => k.startsWith('kora-')).map((k) => caches.delete(k))); } catch { /* ignore */ }
 }

@@ -2,7 +2,7 @@ import type { Sql, Tx } from '@kora/db';
 
 export interface JobRow {
   id: string; queue: string; business_id: string | null; payload: Record<string, any>;
-  attempts: number; max_attempts: number;
+  attempts: number; max_attempts: number; lease_token?: string;
 }
 
 /** Thrown by a handler when retrying cannot help (bad data, a rule that will not change). */
@@ -36,25 +36,29 @@ export function retryDelaySeconds(attempt: number, rnd: () => number = Math.rand
 export type Handlers = Record<string, (job: JobRow) => Promise<void>>;
 
 /** Claims and runs ready jobs once. Returns what happened, so a worker loop knows whether to sleep. */
-export async function runJobsOnce(sql: Sql, handlers: Handlers, o: { worker?: string; limit?: number } = {}) {
-  const jobs = (await sql`select * from claim_jobs(${Object.keys(handlers)}, ${o.limit ?? 10}, ${o.worker ?? 'worker'})`) as unknown as JobRow[];
-  const out = { claimed: jobs.length, done: 0, retried: 0, failed: 0 };
-  for (const job of jobs) {
+export async function runJobsOnce(sql: Sql, handlers: Handlers, o: { worker?: string; limit?: number; deadline?: number } = {}) {
+  const out = { claimed: 0, done: 0, retried: 0, failed: 0 };
+  const limit = Math.max(0, Math.min(o.limit ?? 10, 100));
+  // Claim only the slot we can execute now. The deadline prevents new work, not an in-flight provider call.
+  while (out.claimed < limit && Date.now() < (o.deadline ?? Infinity)) {
+    const [job] = (await sql`select * from claim_jobs(${Object.keys(handlers)}, 1, ${o.worker ?? 'worker'})`) as unknown as JobRow[];
+    if (!job) break;
+    out.claimed++;
     const handler = handlers[job.queue]!;
     try {
       await handler(job);
-      await sql`update job set status = 'done', finished_at = now(), locked_at = null, locked_by = null, last_error = null, updated_at = now() where id = ${job.id}`;
-      out.done++;
+      const result = await sql`update job set status = 'done', finished_at = now(), locked_at = null, locked_by = null, last_error = null, updated_at = now() where id = ${job.id} and status = 'running' and lease_token = ${job.lease_token ?? null}::uuid returning id`;
+      out.done += result.length;
     } catch (e) {
       const msg = ((e as Error).message ?? String(e)).slice(0, 500);
       const dead = isPermanentJobError(e) || job.attempts >= job.max_attempts;
       if (dead) {
-        await sql`update job set status = 'failed', finished_at = now(), locked_at = null, locked_by = null, last_error = ${msg}, updated_at = now() where id = ${job.id}`;
-        out.failed++;
+        const result = await sql`update job set status = 'failed', finished_at = now(), locked_at = null, locked_by = null, last_error = ${msg}, updated_at = now() where id = ${job.id} and status = 'running' and lease_token = ${job.lease_token ?? null}::uuid returning id`;
+        out.failed += result.length;
       } else {
-        await sql`update job set status = 'queued', run_at = now() + ${retryDelaySeconds(job.attempts) + ' seconds'}::interval,
-                                 locked_at = null, locked_by = null, last_error = ${msg}, updated_at = now() where id = ${job.id}`;
-        out.retried++;
+        const result = await sql`update job set status = 'queued', run_at = now() + ${retryDelaySeconds(job.attempts) + ' seconds'}::interval,
+                                 locked_at = null, locked_by = null, last_error = ${msg}, updated_at = now() where id = ${job.id} and status = 'running' and lease_token = ${job.lease_token ?? null}::uuid returning id`;
+        out.retried += result.length;
       }
     }
   }

@@ -359,6 +359,11 @@
           "method"
         ],
         "properties": {
+          "operationKey": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]{16,100}$",
+            "description": "Reuse one key for retries of the same payment. Scoped to the business. Same key and canonical payload return the original result; changed payload returns 400. Optional for legacy clients; requests without a key are not replay protected."
+          },
           "amount": {
             "type": "string",
             "example": "500.00"

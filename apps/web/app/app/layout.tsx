@@ -29,7 +29,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <span className="role">{active.role}</span>
         <SignOut />
       </SideNav>
-      <div className="content"><ClientOnly><DemoBanner /><TopBar /><Shortcuts /><SyncStatus /><ProductSurface>{children}</ProductSurface><HelpLauncher /></ClientOnly></div>
+      <div className="content"><ClientOnly offlineScope={{ userId, businessId: active.businessId }}><DemoBanner /><TopBar /><Shortcuts /><SyncStatus /><ProductSurface>{children}</ProductSurface><HelpLauncher /></ClientOnly></div>
     </div>
   );
 }

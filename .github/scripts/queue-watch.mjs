@@ -14,12 +14,14 @@
  */
 export function evaluate({ health, jobs, now = Date.now(), maxWaitMin = 15 }) {
   const problems = [];
+  if (health?.schema === 'unknown') problems.push('Schema readiness is unknown; verify migration files are included in the deployment.');
   if (!health || health.status !== 'ok') problems.push(`The health check did not answer ok (${health ? JSON.stringify(health) : 'no answer'}).`);
   if (!jobs || !Array.isArray(jobs.counts)) {
     problems.push('The queue route did not return counts.');
     return problems;
   }
   for (const row of jobs.counts) {
+    if (row.status === 'running' && row.oldest_running && now - Date.parse(row.oldest_running) > 10 * 60000) problems.push(`Queue ${row.queue}: a running lease has expired. Investigate before replay.`);
     if (row.status === 'queued' && row.oldest_waiting) {
       const waitedMin = (now - new Date(row.oldest_waiting).getTime()) / 60000;
       if (Number.isFinite(waitedMin) && waitedMin > maxWaitMin) {

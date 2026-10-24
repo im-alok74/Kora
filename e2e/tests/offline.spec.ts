@@ -17,11 +17,16 @@ async function warm(page: Page) {
     const c = await caches.open('kora-pages-v1');
     return (await Promise.all(names.map((n) => c.match(n)))).every(Boolean);
   }), { timeout: 30_000 }).toBe(true);
-  await expect.poll(() => page.evaluate(() => new Promise<boolean>((res) => {
-    const r = indexedDB.open('kora-offline', 1);
-    r.onsuccess = () => { const t = r.result.transaction('cache'); const g = t.objectStore('cache').get('business'); g.onsuccess = () => res(!!g.result); g.onerror = () => res(false); };
+  await expect.poll(() => page.evaluate(async () => {
+    const names = await indexedDB.databases();
+    const name = names.find(d => d.name?.startsWith('kora-offline:'))?.name;
+    if (!name) return false;
+    return new Promise<boolean>((res) => {
+    const r = indexedDB.open(name, 1);
+    r.onsuccess = () => { const t = r.result.transaction('cache'); const g = t.objectStore('cache').get('business'); g.onsuccess = () => { r.result.close(); res(!!g.result); }; g.onerror = () => res(false); };
     r.onerror = () => res(false);
-  })), { timeout: 15_000 }).toBe(true);
+    });
+  }), { timeout: 15_000 }).toBe(true);
 }
 
 test('the app is installable: manifest, icons and service worker are served', async ({ page, request }) => {
@@ -133,12 +138,42 @@ test('signing out clears what was kept on the device', async ({ page, context })
     const names = (await caches.keys()).filter((k) => k.startsWith('kora-pages')); // built scripts are public and not personal
     let cached = 0;
     for (const n of names) cached += (await (await caches.open(n)).keys()).length;
+    const databases = await indexedDB.databases();
     const rows = await new Promise<number>((res) => {
-      const r = indexedDB.open('kora-offline', 1);
+    const name = databases.find(d => d.name?.startsWith('kora-offline:'))?.name;
+    if (!name) { res(0); return; }
+    const r = indexedDB.open(name, 1);
       r.onsuccess = () => { const g = r.result.transaction('cache').objectStore('cache').count(); g.onsuccess = () => res(g.result); g.onerror = () => res(-1); };
       r.onerror = () => res(-1);
     });
     return { cached, rows };
   });
   expect(left).toEqual({ cached: 0, rows: 0 });
+});
+
+test('business switching preserves separate draft stores and rejects stale-tab writes', async ({ page, context }) => {
+  const u = await owner(context);
+  const second = await makeBusiness(u.userId, 'Second business');
+  await page.request.post('/api/business/select', { data: { businessId: u.businessId } });
+  await warm(page);
+  const firstStore = `kora-offline:${u.userId}:${u.businessId}`;
+  await page.evaluate(async (name) => {
+    await new Promise<void>((resolve, reject) => {
+      const r = indexedDB.open(name, 1);
+      r.onsuccess = () => {
+        const t = r.result.transaction('drafts', 'readwrite');
+        t.objectStore('drafts').put({ localId: 'scope-only', clientRef: 'scope-only', serverId: null, baseRev: null, payload: {}, summary: { customer: 'Private first business draft', total: null }, status: 'error', updatedAt: Date.now() });
+        t.oncomplete = () => { r.result.close(); resolve(); }; t.onerror = () => reject(t.error);
+      }; r.onerror = () => reject(r.error);
+    });
+  }, firstStore);
+  await page.request.post('/api/business/select', { data: { businessId: second.businessId } });
+  const stale = await page.request.post('/api/documents', { headers: { 'x-kora-business': u.businessId, 'x-kora-user': u.userId }, data: { docType: 'tax_invoice', lines: [] } });
+  expect(stale.status()).toBe(409);
+  expect((await stale.json()).code).toBe('tenant_changed');
+  await page.goto('/app/invoices');
+  await expect(page.getByText('Private first business draft')).toHaveCount(0);
+  await page.request.post('/api/business/select', { data: { businessId: u.businessId } });
+  await page.goto('/app/invoices');
+  await expect(page.getByTestId('local-drafts')).toContainText('Private first business draft');
 });

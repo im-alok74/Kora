@@ -4,6 +4,8 @@ Design review: 24 October 2026. Repository baseline: d8aa1d2. This is an impleme
 
 ## 1. Product boundary and architecture decision
 
+Implementation update, 25 October: the baseline description below predates the reliability changes. See [reliability rollout](reliability-rollout.md) for queue fencing, payment replay, scoped draft storage, benchmark evidence and remaining deployment gates.
+
 Keep Kora a modular monolith with independently deployed web and worker processes. PostgreSQL remains the source of truth for business records, money, authorization and queued work. Browser, PWA, Electron and Capacitor clients use the same server contracts. Desktop/mobile packaging does not create an independent accounting engine.
 
 The critical journey is: sign in, select business, create customer/items, quote, accept/convert, draft invoice, issue, render/share, collect payment, reconcile and report. Retail stock, projects, purchases, CA workflows and customer portals extend this journey through core services. They must not implement separate numbering, payment or tax engines.

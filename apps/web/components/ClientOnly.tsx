@@ -1,4 +1,5 @@
 'use client';
+import { setOfflineScope, type OfflineScope } from '../lib/offlineScope';
 import KoraLoader from './KoraLoader';
 import { useEffect, useState, type ReactNode } from 'react';
 
@@ -7,8 +8,8 @@ import { useEffect, useState, type ReactNode } from 'react';
  * anything typed before hydration would be wiped, and the browser would submit the form natively.
  * On a slow phone that window is long enough to matter.
  */
-export default function ClientOnly({ children }: { children: ReactNode }) {
+export default function ClientOnly({ children, offlineScope }: { children: ReactNode; offlineScope?: OfflineScope }) {
   const [ready, setReady] = useState(false);
-  useEffect(() => setReady(true), []);
+  useEffect(() => { if (offlineScope) setOfflineScope(offlineScope); setReady(true); }, [offlineScope]);
   return ready ? <>{children}</> : <KoraLoader />;
 }

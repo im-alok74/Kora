@@ -1,4 +1,5 @@
 'use client';
+import { tenantHeaders } from './offlineScope';
 import { allowedRatesOn, formatRupees } from '@kora/tax';
 
 export class ApiError extends Error {
@@ -9,7 +10,7 @@ export class ApiError extends Error {
 export async function api<T = any>(url: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
   const method = opts.method ?? (opts.body !== undefined ? 'POST' : 'GET');
   const r = await fetch(url, {
-    method, headers: method === 'GET' ? undefined : { 'content-type': 'application/json' },
+    method, headers: { ...tenantHeaders(), ...(method === 'GET' ? {} : { 'content-type': 'application/json' }) },
     body: method === 'GET' || method === 'DELETE' ? undefined : JSON.stringify(opts.body ?? {}),
   });
   const data = await r.json().catch(() => ({}));

@@ -5,6 +5,7 @@ import EwayPanel from '../../../../components/EwayPanel';
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { formatMoney } from '@kora/tax';
 import { api, DOC_LABEL, NOTE_REASON_TEXT, rupees } from '../../../../lib/client';
+import { getOfflineScope, offlineDatabaseName } from '../../../../lib/offlineScope';
 
 type Doc = Record<string, any>;
 const RECEIVABLE = ['tax_invoice', 'bill_of_supply', 'debit_note'];
@@ -37,6 +38,8 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
   const [held, setHeld] = useState('0');
   const [notes, setNotes] = useState<{ id: string; body: string; createdAt: string; author: string; mine: boolean }[]>([]);
   const [note, setNote] = useState('');
+  const paymentOperation = useRef<string | null>(null);
+  const paymentStorageKey = () => { const scope = getOfflineScope(); return scope ? `${offlineDatabaseName(scope)}:payment:${id}` : null; };
   const [pay, setPay] = useState({ amount: '', method: 'cash', receivedOn: '', note: '' });
   const toTyped = useRef(false);
   const amountTyped = useRef(false); // a refresh must never overwrite what the user is typing
@@ -68,6 +71,16 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
   }, [id]);
 
   useEffect(() => {
+    try {
+      const key = paymentStorageKey();
+      const pending = key ? JSON.parse(sessionStorage.getItem(key) || 'null') : null;
+      if (pending?.operationKey && pending?.pay) {
+        paymentOperation.current = pending.operationKey;
+        amountTyped.current = true;
+        setPay(pending.pay);
+        setMsg('A previous payment attempt needs confirmation. Check the payments below; retrying with the same details will not record it twice.');
+      }
+    } catch { /* Blocked browser storage still has in-memory retry protection. */ }
     load().then(async (d) => {
       if (d.document.party_id) {
         const p = (await api(`/api/parties/${d.document.party_id}`)).party;
@@ -323,7 +336,14 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
                 <p><button className="secondary" style={{ marginTop: 0 }} disabled={busy} onClick={() => run(async () => { const r = await api(`/api/documents/${id}/apply-credit`, { body: {} }); await load(); setMsg(`Applied Rs ${r.applied} held for this customer.`); })}>
                   Apply {rupees(BigInt(held) < outstanding ? held : outstanding)} held for this customer</button></p>)}
               {canIssue && (
-                <form onSubmit={(e) => { e.preventDefault(); void run(async () => { await api(`/api/documents/${id}/payments`, { body: { amount: pay.amount, method: pay.method, receivedOn: pay.receivedOn || undefined, note: pay.note || undefined } }); amountTyped.current = false; await load(); setMsg('Payment recorded.'); }); }}>
+                <form onSubmit={(e) => { e.preventDefault(); void run(async () => {
+                  paymentOperation.current ??= crypto.randomUUID();
+                  const key = paymentStorageKey();
+                  try { if (key) sessionStorage.setItem(key, JSON.stringify({ operationKey: paymentOperation.current, pay })); } catch { /* Storage can be disabled. */ }
+                  await api(`/api/documents/${id}/payments`, { body: { operationKey: paymentOperation.current, amount: pay.amount, method: pay.method, receivedOn: pay.receivedOn || undefined, note: pay.note || undefined } });
+                  try { if (key) sessionStorage.removeItem(key); } catch { /* Storage can be disabled. */ }
+                  paymentOperation.current = null; amountTyped.current = false; await load(); setMsg('Payment recorded.');
+                }); }}>
                   <div className="row">
                     <div><label htmlFor="pa">Amount received (Rs)</label><input id="pa" inputMode="decimal" value={pay.amount} onChange={(e) => { amountTyped.current = true; setPay({ ...pay, amount: e.target.value }); }} required /></div>
                     <div><label htmlFor="pm">Method</label><select id="pm" value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value })}>{METHODS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>

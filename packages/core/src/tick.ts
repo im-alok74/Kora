@@ -18,7 +18,7 @@ export async function pruneOperationalData(sql: Sql): Promise<Record<string, unk
 
 /**
  * One pass of the background work, for hosts that cannot keep a worker process running: queue due reminders and recurring
- * invoices, then run ready jobs until none are left or the time budget is used. The budget is checked between batches;
+ * invoices, then run ready jobs until none are left or the time budget is used. The budget is checked before each claim;
  * an in-progress handler can exceed it. Claims coordinate concurrent runners, but external side effects remain at least once.
  */
 export async function runTick(sql: Sql, handlers: Handlers, o: { worker?: string; budgetMs?: number } = {}) {
@@ -28,7 +28,7 @@ export async function runTick(sql: Sql, handlers: Handlers, o: { worker?: string
   const recurring = await processDueRecurring(sql);
   const jobs = { claimed: 0, done: 0, retried: 0, failed: 0 };
   while (Date.now() - started < budget) {
-    const r = await runJobsOnce(sql, handlers, { worker: o.worker ?? 'cron', limit: 10 });
+    const r = await runJobsOnce(sql, handlers, { worker: o.worker ?? 'cron', limit: 10, deadline: started + budget });
     jobs.claimed += r.claimed; jobs.done += r.done; jobs.retried += r.retried; jobs.failed += r.failed;
     if (r.claimed === 0) break;
   }

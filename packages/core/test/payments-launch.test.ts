@@ -67,6 +67,17 @@ describe('P-5: a payment link expires, so an old one cannot be paid months after
 });
 
 describe('P-3: money that arrives through the gateway for a written-off invoice', () => {
+  it('does not undo a later write-off when an old partial payment is replayed', async () => {
+    const d = await issueNew();
+    const { evt, body } = await paid(d, 'upi');
+    if (evt.kind !== 'payment_link.paid') throw new Error('expected payment event');
+    const partial = { ...evt, amountPaise: 10000n };
+    await applyGatewayEvent(db.web, 'mock', partial, JSON.parse(body));
+    await writeOffInvoice(db.web, owner, d.id as string, 'Remaining balance uncollectable');
+    expect(await applyGatewayEvent(db.web, 'mock', { ...partial, eventId: partial.eventId + '-replay' }, JSON.parse(body))).toMatchObject({ duplicate: true });
+    expect(await db.owner`select id from document_write_off where document_id = ${d.id as string} and cancelled_at is null`).toHaveLength(1);
+    expect((await doc(d.id as string)).amount_settled_paise).toBe('10000');
+  });
   it('takes the write-off back in the same step, so the bad debt and the receipt are not both on the books', async () => {
     const d = await issueNew();
     const { evt, body } = await paid(d, 'upi');
