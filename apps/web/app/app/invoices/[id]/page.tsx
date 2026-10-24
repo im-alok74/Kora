@@ -5,6 +5,7 @@ import EwayPanel from '../../../../components/EwayPanel';
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { formatMoney } from '@kora/tax';
 import { api, DOC_LABEL, NOTE_REASON_TEXT, rupees } from '../../../../lib/client';
+import PreviewFrame from '../../../../components/PreviewFrame';
 
 type Doc = Record<string, any>;
 const RECEIVABLE = ['tax_invoice', 'bill_of_supply', 'debit_note'];
@@ -234,7 +235,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
 
       <div className="doc-layout">
         <div className="paper-stage">
-  <iframe className="preview" title="Document preview" sandbox="" srcDoc={html} />
+  <PreviewFrame title="Document preview" srcDoc={html} />
         </div>
         <div className="doc-side">
       {isIssued && ['tax_invoice', 'bill_of_supply'].includes(d.doc_type) && outstanding > 0n && <LateFeePanel invoiceId={id} canWrite={canIssue} />}

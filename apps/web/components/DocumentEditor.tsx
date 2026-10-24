@@ -9,6 +9,7 @@ import { effectiveDiscounts, shippingRateBp } from '../lib/discounts';
 import { syncDrafts } from '../lib/sync';
 import CustomFieldInputs, { type CustomDef } from './CustomFieldInputs';
 import { HSN_LIST } from '../lib/hsn';
+import PreviewFrame from './PreviewFrame';
 
 type Line = { key: number; itemId: string | null; name: string; hsnSac: string; quantity: string; rate: string; discount: string; taxRateBp: number; kind: 'goods' | 'service'; taxInclusive: boolean };
 type Party = PartyFacts & { phone: string | null; currency?: string };
@@ -433,7 +434,7 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
       </div>
       {view === 'preview' && (
         <div className="paper-stage" role="tabpanel" aria-label="Document preview">
-          {previewHtml ? <iframe className="preview" title="Draft preview" sandbox="" srcDoc={previewHtml} /> : <p className="muted" role="status">{previewErr || 'Preparing the preview'}</p>}
+          {previewHtml ? <PreviewFrame title="Draft preview" srcDoc={previewHtml} /> : <p className="muted" role="status">{previewErr || 'Preparing the preview'}</p>}
         </div>
       )}
       <div hidden={view === 'preview'}>

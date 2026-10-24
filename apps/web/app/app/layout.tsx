@@ -11,9 +11,11 @@ import SyncStatus from '../../components/SyncStatus';
 import TopBar from '../../components/TopBar';
 import Shortcuts from '../../components/Shortcuts';
 import ProductSurface from '../../components/ProductSurface';
+import ScrollableTables from '../../components/ScrollableTables';
 import HelpLauncher, { DemoBanner } from '../../components/HelpLauncher';
 
 export const dynamic = 'force-dynamic';
+export const metadata = { title: { default: 'Dashboard', template: '%s | Kora' }, robots: { index: false, follow: false } };
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const userId = await currentUserId();
@@ -29,7 +31,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <span className="role">{active.role}</span>
         <SignOut />
       </SideNav>
-      <div className="content"><ClientOnly><DemoBanner /><TopBar /><Shortcuts /><SyncStatus /><ProductSurface>{children}</ProductSurface><HelpLauncher /></ClientOnly></div>
+      <div className="content"><ClientOnly><DemoBanner />{active.role === 'accountant' && <div className="demo-banner" role="note"><span><b>View only.</b> You are signed in as the accountant for this business. You can look at everything and download reports, but changes are not saved.</span></div>}<TopBar /><Shortcuts /><SyncStatus /><ProductSurface>{children}</ProductSurface><ScrollableTables /><HelpLauncher /></ClientOnly></div>
     </div>
   );
 }
