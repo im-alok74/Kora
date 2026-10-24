@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
-import { renderDocumentHtml, sampleInput } from '@kora/pdf';
 import Icon from '../components/Icon';
 import InvoiceShowcase from '../components/InvoiceShowcase';
 import LandingMotion from '../components/LandingMotion';
 import TemplateCarousel from '../components/TemplateCarousel';
 import { SiteFooter, SiteHeader } from '../components/SiteChrome';
+import { LOOKS } from '../lib/invoiceSamples';
 import './landing.css';
 import './landing-dark.css';
 
@@ -73,23 +73,6 @@ const DO_MORE: [string, string, string][] = [
   ['repeat', 'Manage recurring invoices', 'Billing the same customer every month or week? Set the schedule once and Kora creates each invoice for you.'],
 ];
 
-const LOOKS: [string, string][] = [
-  ['classic', 'Classic'],
-  ['modern', 'Modern'],
-  ['minimal', 'Minimal'],
-  ['compact', 'Compact'],
-];
-
-function invoiceSamples() {
-  return LOOKS.map(([key, label]) => {
-    const input = sampleInput({ legal_name: 'Studio North · Sample business', state_code: '27', address: { line1: '24 Park Road', city: 'Pune', pincode: '411001' } }, { layout: key, accent: '#1268d3', showHsn: true });
-    input.recipient = { name: 'Maple Works · Sample customer', billing_address: { line1: '18 Lake Road', city: 'Pune', pincode: '411004' } };
-    input.doc.notes = 'Demonstration invoice. No payment is due.';
-    input.doc.terms = 'Payment within 30 days of the invoice date.';
-    input.lines = [ ['Brand consultation', 100000], ['Presentation design', 60000], ['Artwork preparation', 40000] ].map(([name, amount]) => ({ ...input.lines[0], item_name: name, hsn_sac: '9983', quantity: '1.000', unit: 'service', rate_paise: String(amount), taxable_paise: String(amount), cgst_paise: String(Number(amount) * .09), sgst_paise: String(Number(amount) * .09) }));
-    return { key, label, html: renderDocumentHtml(input) };
-  });
-}
 
 function Mock({ k }: { k: string }) {
   if (k === 'send') return (
@@ -195,7 +178,7 @@ export default function Landing() {
           <section id="looks" className="l-section" aria-labelledby="l-h">
             <h2 id="l-h">Invoices that look <span className="hl">like your brand</span></h2>
             <p className="l-sub">Pick a look, add your logo and colour, and every invoice and PDF follows it.</p>
-            <TemplateCarousel templates={invoiceSamples()} />
+            <TemplateCarousel templates={LOOKS.map(([key, label]) => ({ key, label }))} />
           </section>
 
           <section className="l-section" aria-label="What Kora guarantees">

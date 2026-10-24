@@ -93,6 +93,24 @@ for (const theme of ['light', 'dark'] as const) {
   });
 }
 
+// B-10: the landing page no longer carries every sample invoice inside its own HTML.
+test('the sample invoices load on demand from /samples, with a locked-down policy', async ({ page, request }) => {
+  for (const k of ['classic', 'modern', 'minimal', 'compact']) {
+    const r = await request.get(`/samples/${k}`);
+    expect(r.status(), k).toBe(200);
+    expect(r.headers()['content-security-policy']).toContain("default-src 'none'");
+    expect(await r.text()).toContain('Maple Works');
+  }
+  expect((await request.get('/samples/nope')).status()).toBe(404);
+  const html = await (await request.get('/')).text();
+  expect(html).not.toContain('Maple Works');          // it used to be inlined eight times
+  expect(html.length).toBeLessThan(250_000);
+  await page.goto('/');
+  await page.locator('.k-template-carousel').scrollIntoViewIfNeeded();
+  await expect.poll(() => page.frames().filter((f) => /\/samples\/classic$/.test(f.url())).length).toBeGreaterThan(0);
+  await page.locator('.tpl-card').first().click();
+  await expect(page.getByRole('dialog').locator('iframe')).toHaveAttribute('src', '/samples/classic');
+
 // B-2: the form no longer waits for the session check, and signed-out visits leave no 401 in the console.
 test('the sign-in form shows at once, even when the session check is slow, and logs no errors', async ({ page }) => {
   const errors: string[] = [];

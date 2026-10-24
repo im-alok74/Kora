@@ -31,7 +31,13 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - name: Install Chromium for the PDF tests
         run: pnpm --filter @kora/pdf exec playwright install --with-deps chromium
+      # Lets the migration guard compare this branch's migrations with main's (a pull request may add, never reuse or edit).
+      - name: Fetch main for the migration guard
+        if: github.event_name == 'pull_request'
+        run: git fetch --depth=1 origin main:refs/remotes/origin/main
       - run: pnpm test
+        env:
+          MIGRATION_BASE: ${{ github.event_name == 'pull_request' && 'origin/main' || '' }}
       # Known advisories are reported, not blocking; a new high one shows up in this step's log.
       - name: Dependency audit (does not fail the run)
         run: pnpm audit --prod --audit-level=high
