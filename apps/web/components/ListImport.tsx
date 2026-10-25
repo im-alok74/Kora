@@ -58,7 +58,7 @@ export default function ListImport({ allowTally = true }: { allowTally?: boolean
           <select id="lk" value={kind} onChange={(e) => { setKind(e.target.value as 'customers' | 'items'); reset(); }}><option value="customers">Customers</option><option value="items">Items</option></select></div>
         <div><label htmlFor="lf">File</label><input id="lf" type="file" accept={allowTally ? '.csv,text/csv,.xlsx,.xml' : '.csv,text/csv,.xlsx'} onChange={(e) => void chooseFile(e.target.files?.[0] ?? null)} /></div>
       </div>
-      <p><a href={template} download={`kora_${kind}_template.csv`}>Download a template</a></p>
+      <p><a href={template} download={`kora_${kind}_template.csv`} style={{ display: 'inline-block', padding: '8px 0' }}>Download a template</a></p>
       {err && <p className="error" role="alert">{err}</p>}
       {busy && <p className="muted" role="status">Working</p>}
       {preview && (
