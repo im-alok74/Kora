@@ -163,6 +163,9 @@ export function tenantRoute(handler: Handler) {
       }
       const t = await requireTenant(req);
       if (t instanceof Response) return t;
+      if ((req.headers.get('x-kora-business') && req.headers.get('x-kora-business') !== t.businessId) ||
+          (req.headers.get('x-kora-user') && req.headers.get('x-kora-user') !== t.userId))
+        return json({ error: 'Your account or business changed in another tab. Reload this page before continuing.', code: 'tenant_changed' }, 409);
       const svc = services();
       const out = await handler({ t, req, params: await ctx.params, sql: svc.sql, svc });
       return out instanceof Response ? out : json(out ?? { ok: true });

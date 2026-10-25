@@ -1,11 +1,12 @@
 'use client';
+import { tenantHeaders, getOfflineScope, offlineDatabaseName } from './offlineScope';
 import { listDrafts, putDraft, removeDraft, type LocalDraft } from './offline';
 
 export interface SyncResult { synced: number; conflicts: number; errors: number; offline: boolean; signedOut: boolean }
 
 async function send(d: LocalDraft): Promise<Response> {
   const body = JSON.stringify({ ...d.payload, clientRef: d.clientRef, ...(d.baseRev !== null ? { baseRev: d.baseRev } : {}) });
-  const init = { headers: { 'content-type': 'application/json' }, body, credentials: 'same-origin' as const };
+  const init = { headers: { 'content-type': 'application/json', ...tenantHeaders() }, body, credentials: 'same-origin' as const };
   return d.serverId ? fetch(`/api/documents/${d.serverId}`, { method: 'PUT', ...init }) : fetch('/api/documents', { method: 'POST', ...init });
 }
 
@@ -21,7 +22,7 @@ async function syncOne(d: LocalDraft, res: SyncResult): Promise<boolean> {
     return true;
   }
   const data = await r.json().catch(() => ({}));
-  if (r.status === 401) { await putDraft({ ...d, status: 'pending' }); res.signedOut = true; return false; }
+  if (r.status === 401 || (r.status === 409 && data.code === 'tenant_changed')) { await putDraft({ ...d, status: 'pending' }); res.signedOut = true; return false; }
   if (r.status === 409 && data.code === 'conflict') {
     await putDraft({ ...d, status: 'conflict', conflict: { serverId: data.id, serverRev: data.serverRev }, serverId: data.id });
     res.conflicts++;
@@ -48,7 +49,7 @@ export async function syncDrafts(): Promise<SyncResult> {
       const pending = (await listDrafts()).filter((d) => d.status === 'pending' || d.status === 'syncing').sort((a, b) => a.updatedAt - b.updatedAt);
       for (const d of pending) { if (!(await syncOne(d, res))) break; }
     };
-    if (typeof navigator !== 'undefined' && 'locks' in navigator) await (navigator as any).locks.request('kora-sync', { ifAvailable: true }, async (lock: unknown) => { if (lock) await work(); });
+    if (typeof navigator !== 'undefined' && 'locks' in navigator) await (navigator as any).locks.request(getOfflineScope() ? offlineDatabaseName(getOfflineScope()!) : 'kora-sync', { ifAvailable: true }, async (lock: unknown) => { if (lock) await work(); });
     else await work();
   } finally { running = false; }
   return res;

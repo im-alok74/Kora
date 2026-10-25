@@ -31,7 +31,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <span className="role">{active.role}</span>
         <SignOut />
       </SideNav>
-      <div className="content"><ClientOnly><DemoBanner />{active.role === 'accountant' && <div className="demo-banner" role="note"><span><b>View only.</b> You are signed in as the accountant for this business. You can look at everything and download reports, but changes are not saved.</span></div>}<TopBar /><Shortcuts /><SyncStatus /><ProductSurface>{children}</ProductSurface><ScrollableTables /><HelpLauncher /></ClientOnly></div>
+      <div className="content"><ClientOnly offlineScope={{ userId, businessId: active.businessId }}><DemoBanner />{active.role === 'accountant' && <div className="demo-banner" role="note"><span><b>View only.</b> You are signed in as the accountant for this business. You can look at everything and download reports, but changes are not saved.</span></div>}<TopBar /><Shortcuts /><SyncStatus /><ProductSurface>{children}</ProductSurface><ScrollableTables /><HelpLauncher /></ClientOnly></div>
     </div>
   );
 }

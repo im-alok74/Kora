@@ -72,3 +72,9 @@ describe('scheduler workflows', () => {
     expect(watch).toContain('78');
   });
 });
+
+it('alerts on expired running leases and unknown schema readiness', () => {
+  expect(evaluate({ health: { status: 'ok', schema: 'unknown' }, jobs: { counts: [] }, now: NOW })).toHaveLength(1);
+  expect(evaluate({ health: ok, jobs: { counts: [{ queue: 'delivery.send', status: 'running', oldest_running: ago(11), n: 1 }] }, now: NOW })[0]).toContain('lease has expired');
+  expect(evaluate({ health: ok, jobs: { counts: [{ queue: 'delivery.send', status: 'running', oldest_running: ago(2), n: 1 }] }, now: NOW })).toEqual([]);
+});

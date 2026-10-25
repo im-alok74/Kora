@@ -4,6 +4,8 @@
 
 ## Completed in this pass
 
+This section describes the original documentation pass. The 25 October runtime follow-up is tracked in [reliability rollout](reliability-rollout.md), including tested fixes and remaining operational gates.
+
 - Wrote [system-design.md](system-design.md): context diagram, module/data ownership, request contracts, invoice/payment sequence, offline sync, PDFs/files, queue semantics, deployment, security, capacity model, observability, recovery and ordered implementation gates.
 - Linked the design from README and the existing architecture map.
 - Corrected the architecture claim that SKIP LOCKED alone prevents all duplicate execution.

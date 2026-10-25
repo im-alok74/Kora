@@ -109,6 +109,15 @@ describe('gateway payment links and webhooks', () => {
     expect(n[0]!.n).toBe(1);
     expect((await doc(d.id as string)).amount_settled_paise).toBe('118000');
   });
+  it('recognizes a provider payment after event pruning and under a new event id', async () => {
+    const d = await issueNew();
+    const { evt, body, eventId } = await paidEvent(d);
+    await applyGatewayEvent(db.web, 'mock', evt, JSON.parse(body));
+    await db.owner`delete from webhook_event where gateway = 'mock' and event_id = ${eventId}`;
+    expect(await applyGatewayEvent(db.web, 'mock', evt, JSON.parse(body))).toMatchObject({ duplicate: true });
+    expect(await applyGatewayEvent(db.web, 'mock', { ...evt, eventId: eventId + '-new' }, JSON.parse(body))).toMatchObject({ duplicate: true });
+    expect(await listPayments(db.web, owner, d.id as string)).toHaveLength(1);
+  });
   it('ten simultaneous deliveries of the same event record exactly one payment', async () => {
     const d = await issueNew();
     const { evt, body } = await paidEvent(d);
@@ -272,5 +281,61 @@ describe('job queue', () => {
   it('a job queued in a transaction that rolls back never exists', async () => {
     await db.web.begin(async (tx) => { await enqueue(tx, 'test.rollback', {}); throw new Error('rollback'); }).catch(() => {});
     expect((await db.owner`select count(*)::int as n from job where queue = 'test.rollback'`)[0]!.n).toBe(0);
+  });
+});
+
+describe('leased job ownership', () => {
+  it.each(['success', 'failure'])('ignores stale %s after another worker reclaims', async (outcome) => {
+    const queue = `test.fence.${outcome}`;
+    const id = await enqueue(db.web, queue, {});
+    let release!: () => void;
+    let entered!: () => void;
+    const started = new Promise<void>(r => { entered = r; });
+    const blocked = new Promise<void>(r => { release = r; });
+    const old = runJobsOnce(db.web, { [queue]: async () => { entered(); await blocked; if (outcome === 'failure') throw new Error('late'); } }, { limit: 1 });
+    await started;
+    await db.owner`update job set locked_at = now() - interval '11 minutes' where id = ${id}`;
+    const [fresh] = await db.web`select * from claim_jobs(${[queue]}, 1, 'new-worker')`;
+    release();
+    expect(await old).toMatchObject({ done: 0, retried: 0, failed: 0 });
+    const [row] = await db.owner`select status, lease_token from job where id = ${id}`;
+    expect(row).toMatchObject({ status: 'running', lease_token: fresh!.lease_token });
+  });
+  it('fails an expired final attempt rather than claiming forever', async () => {
+    const id = await enqueue(db.web, 'test.expiry', {}, { maxAttempts: 1 });
+    await db.web`select * from claim_jobs(${['test.expiry']}, 1, 'crashed')`;
+    await db.owner`update job set locked_at = now() - interval '11 minutes' where id = ${id}`;
+    expect(await runJobsOnce(db.web, { 'test.expiry': async () => { throw new Error('must not execute'); } })).toMatchObject({ claimed: 0 });
+    expect((await db.owner`select status from job where id = ${id}`)[0]!.status).toBe('failed');
+  });
+  it('does not reserve later jobs or claim after a deadline', async () => {
+    await enqueue(db.web, 'test.deadline', {});
+    await enqueue(db.web, 'test.deadline', {});
+    const options = { limit: 10, deadline: Infinity };
+    const result = await runJobsOnce(db.web, { 'test.deadline': async () => {
+      expect((await db.owner`select count(*)::int as n from job where queue = 'test.deadline' and status = 'running'`)[0]!.n).toBe(1);
+      options.deadline = 0;
+    } }, options);
+    expect(result).toMatchObject({ claimed: 1, done: 1 });
+    expect((await db.owner`select count(*)::int as n from job where queue = 'test.deadline' and status = 'queued'`)[0]!.n).toBe(1);
+  });
+});
+
+describe('payment operation replay', () => {
+  it('records concurrent retries once and returns the original response', async () => {
+    const d = await issueNew();
+    const input = { documentId: d.id as string, amount: '100', method: 'cash', operationKey: 'concurrent-payment-key-1' };
+    const responses = await Promise.all([recordPayment(db.web, owner, input), recordPayment(db.web, owner, input)]);
+    expect(responses[0]).toEqual(responses[1]);
+    expect(await listPayments(db.web, owner, d.id as string)).toHaveLength(1);
+    expect(await recordPayment(db.web, owner, { ...input, amount: '100.00' })).toEqual(responses[0]);
+    await expect(recordPayment(db.web, owner, { ...input, amount: '200' })).rejects.toThrow(/different details/);
+    await expect(recordPayment(db.web, accountant, input)).rejects.toBeInstanceOf(ForbiddenError);
+  });
+  it('does not reserve a key when the payment transaction fails', async () => {
+    const d = await issueNew();
+    const input = { documentId: d.id as string, amount: '2000', method: 'cash', operationKey: 'rollback-payment-key-1' };
+    await expect(recordPayment(db.web, owner, input)).rejects.toThrow(/more than/);
+    expect(await recordPayment(db.web, owner, { ...input, amount: '100' })).toHaveProperty('paymentId');
   });
 });

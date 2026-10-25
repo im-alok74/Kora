@@ -78,6 +78,12 @@ A document body may also carry `reference` (the buyer's order or PO number, up t
 
 Everything else in the app (the web screens use `/api/...` routes without the `v1`) is not part of this API. Those routes use the signed-in browser session, can change at any time, and are not described here.
 
+### Retrying a payment safely
+
+Send an `Idempotency-Key` header containing 8 to 64 letters, digits, underscores or hyphens. Persist one key before sending a payment and reuse it after a timeout or lost response. Within one business, the same key and payment details return the original result, including after the invoice is fully paid. Changed details with an already used key return HTTP 400; inspect the payment list before starting a new payment. A deliberate second payment needs a new key.
+
+Authorization is checked on every retry. Failed transactions do not reserve keys. The header remains optional for compatibility; requests without it have no replay protection. A replay returns the original response, not a fresh invoice balance.
+
 ### Making an invoice
 
 ```bash
