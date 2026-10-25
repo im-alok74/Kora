@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import LegalPage from '../../components/LegalPage';
+import { SUPPORT_EMAIL, SUPPORT_IS_PLACEHOLDER } from '../../lib/contact';
 
 export const metadata: Metadata = { title: 'Refunds and cancelling', alternates: { canonical: '/refunds' }, description: 'How cancelling a Kora plan and asking for a refund will work.' };
 
@@ -29,7 +30,7 @@ export default function Refunds() {
       <p>Our own invoices to you will show the GST charged. A refund will be matched by a credit note, as with any other invoice.</p>
 
       <h2>How to ask</h2>
-      <p>Write to <a href="mailto:support@kora.example">support@kora.example</a> (replace with your support address before launch) with your business name and the payment you want us to look at.</p>
+      <p>Write to <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>{SUPPORT_IS_PLACEHOLDER ? ' (replace with your support address before launch)' : ''} with your business name and the payment you want us to look at.</p>
     </LegalPage>
   );
 }

@@ -21,29 +21,41 @@ async function assertNotWrittenOff(tx: import('@kora/db').Tx, documentId: string
 /** Records money received against one issued invoice. The amount cannot exceed what is outstanding. */
 export async function recordPayment(
   sql: Sql, t: TenantSession,
-  i: { documentId: string; amount: string; method: string; receivedOn?: string; note?: string | null; operationKey?: string },
+  i: { documentId: string; amount: string; method: string; receivedOn?: string; note?: string | null; operationKey?: string; idempotencyKey?: string | null },
 ) {
+  const operationKey = i.operationKey;
+  if (operationKey !== undefined && (typeof operationKey !== 'string' || !/^[a-zA-Z0-9_-]{16,100}$/.test(operationKey))) throw new ValidationError('Payment operation key must contain 16 to 100 letters, digits, underscores or hyphens.');
+  const idempotencyKey = i.idempotencyKey ?? null;
+  if (idempotencyKey !== null && !/^[A-Za-z0-9_-]{8,64}$/.test(idempotencyKey)) throw new ValidationError('The Idempotency-Key must be 8 to 64 letters, digits, - or _.', 'idempotency-key');
   if (!PAYMENT_METHODS.includes(i.method as never)) throw new ValidationError('Choose how the money was received.', 'method');
   let amount: bigint;
   try { amount = parseRupees(String(i.amount)); } catch { throw new ValidationError('Enter the amount in rupees.', 'amount'); }
   if (amount <= 0n) throw new ValidationError('The amount must be more than zero.', 'amount');
   const note = str(i.note, 'Note', { max: 300 });
-
-  const key = i.operationKey;
-  if (key !== undefined && (typeof key !== 'string' || !/^[a-zA-Z0-9_-]{16,100}$/.test(key))) throw new ValidationError('Payment operation key must contain 16 to 100 letters, digits, underscores or hyphens.');
   const requestHash = createHash('sha256').update(JSON.stringify([i.documentId, amount.toString(), i.method, i.receivedOn || null, note])).digest('hex');
+
   return inTenant(sql, t, 'payment.write', async (tx) => {
-    if (key) {
-      // Serialize retries before checking the invoice balance, including after a lost HTTP response.
-      await tx`select pg_advisory_xact_lock(hashtextextended(${t.businessId + ':' + key}, 0))`;
-      const [previous] = await tx`select request_hash, result from payment_operation where business_id = ${t.businessId} and operation_key = ${key}`;
+    if (operationKey) {
+      // Serialize retries before checking invoice balance so a timeout retry cannot double-record.
+      await tx`select pg_advisory_xact_lock(hashtextextended(${t.businessId + ':' + operationKey}, 0))`;
+      const [previous] = await tx`select request_hash, result from payment_operation where business_id = ${t.businessId} and operation_key = ${operationKey}`;
       if (previous) {
         if (previous.request_hash !== requestHash) throw new ValidationError('This payment operation was already used with different details. Refresh the payment list before recording another payment.');
-        return previous.result as { paymentId: string; paymentStatus: string; settledPaise: string };
+        return previous.result as { paymentId: string; paymentStatus: string; settledPaise: string; replayed: boolean };
       }
     }
-    const [d] = await tx`select id, party_id, status, doc_type, grand_total_paise, amount_settled_paise from document where id = ${i.documentId} for update`;
+    const [d] = await tx`select id, party_id, status, doc_type, grand_total_paise, amount_settled_paise, payment_status from document where id = ${i.documentId} for update`;
     if (!d) throw new ValidationError('Invoice not found.');
+    // A retry of a request that already worked answers with the first result. This runs under the invoice lock, so two retries at the
+    // same moment are served one after the other, and it runs before the "already paid" check because the first attempt may have paid it.
+    if (idempotencyKey !== null) {
+      const [prior] = await tx`select p.id, p.amount_paise, (select a.document_id from payment_allocation a where a.payment_id = p.id limit 1) as document_id
+                                 from payment p where p.idempotency_key = ${idempotencyKey}`;
+      if (prior) {
+        if (prior.document_id !== i.documentId || BigInt(prior.amount_paise as string) !== amount) throw new ValidationError('That Idempotency-Key was already used for a different payment. Use a new key for a new payment.', 'idempotency-key');
+        return { paymentId: prior.id as string, paymentStatus: d.payment_status as string, settledPaise: d.amount_settled_paise as string, replayed: true };
+      }
+    }
     if (d.status !== 'issued' || !RECEIVABLE_TYPES.includes(d.doc_type as string)) throw new ValidationError('Payments can only be recorded against an issued invoice.');
     const outstanding = BigInt(d.grand_total_paise as string) - BigInt(d.amount_settled_paise as string);
     if (outstanding <= 0n) throw new ValidationError('This invoice is already paid.');
@@ -52,15 +64,15 @@ export async function recordPayment(
     const [b] = await tx`select timezone from business where id = ${t.businessId}`;
     const on = i.receivedOn || todayIn(b!.timezone as string);
     if (!isDate(on)) throw new ValidationError('Enter the date as YYYY-MM-DD.', 'receivedOn');
-    const [p] = await tx`insert into payment (business_id, party_id, amount_paise, method, received_on, note)
-                         values (${t.businessId}, ${d.party_id}, ${amount.toString()}, ${i.method}, ${on}, ${note}) returning id`;
+    const [p] = await tx`insert into payment (business_id, party_id, amount_paise, method, received_on, note, idempotency_key)
+                         values (${t.businessId}, ${d.party_id}, ${amount.toString()}, ${i.method}, ${on}, ${note}, ${idempotencyKey}) returning id`;
     await tx`insert into payment_allocation (business_id, payment_id, document_id, amount_paise)
              values (${t.businessId}, ${p!.id}, ${i.documentId}, ${amount.toString()})`;
     const [after] = await tx`select amount_settled_paise, payment_status from document where id = ${i.documentId}`;
     const [num] = await tx`select number from document where id = ${i.documentId}`;
     await emitEvent(tx, t.businessId, 'payment.received', { payment_id: p!.id, document_id: i.documentId, number: num!.number, amount_paise: amount.toString(), method: i.method, status: after!.payment_status });
-    const result = { paymentId: p!.id as string, paymentStatus: after!.payment_status as string, settledPaise: after!.amount_settled_paise as string };
-    if (key) await tx`insert into payment_operation (business_id, operation_key, request_hash, result) values (${t.businessId}, ${key}, ${requestHash}, ${tx.json(result)})`;
+    const result = { paymentId: p!.id as string, paymentStatus: after!.payment_status as string, settledPaise: after!.amount_settled_paise as string, replayed: false };
+    if (operationKey) await tx`insert into payment_operation (business_id, operation_key, request_hash, result) values (${t.businessId}, ${operationKey}, ${requestHash}, ${tx.json(result)})`;
     return result;
   });
 }

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import Icon from '../Icon';
 import { SiteFooter, SiteHeader } from '../SiteChrome';
 import { TOOLS, toolIcon, type Tool } from '../../lib/tools';
+import { SIGNUP_HREF, type KoraCta } from '../../lib/toolKora';
 
 type IconName = React.ComponentProps<typeof Icon>['name'];
 
@@ -107,15 +108,30 @@ const CAPS: [string, IconName][] = [
 ];
 
 /** A dark band that points from a free tool to the product. */
-export function Cross({ title, text }: { title: string; text: string }) {
+export function Cross({ title, text, cta = 'Try Kora free' }: { title: string; text: string; cta?: string }) {
   return (
     <section className="vt-cross no-print" aria-labelledby="cross-h">
       <div className="vt-wrap">
         <h2 id="cross-h">{title}</h2>
         <p>{text}</p>
         <ul>{CAPS.map(([t, ic]) => <li key={t}><Icon name={ic} size={18} />{t}</li>)}</ul>
-        <a className="btn" href="/login?signup=1">Try Kora free <Icon name="arrow" size={15} /></a>
+        <a className="btn" href={SIGNUP_HREF}>{cta} <Icon name="arrow" size={15} /></a>
       </div>
     </section>
+  );
+}
+
+/** A short note right under a tool: the one thing Kora does by itself that this tool makes you do by hand. Hidden when printing. */
+export function AutoNote({ cta }: { cta: KoraCta }) {
+  return (
+    <aside className="vt-auto no-print" aria-label="Do this automatically in Kora">
+      <div className="vt-wrap">
+        <div className="vt-auto-in">
+          <span className="vt-ico mint"><Icon name="check" size={20} /></span>
+          <div><h2>{cta.title}</h2><p>{cta.text}</p></div>
+          <a className="btn" href={SIGNUP_HREF}>{cta.button} <Icon name="arrow" size={15} /></a>
+        </div>
+      </div>
+    </aside>
   );
 }

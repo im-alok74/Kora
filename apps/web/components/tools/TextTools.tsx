@@ -1,9 +1,8 @@
 'use client';
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { gstinCheckChar } from '@kora/tax';
 import { amountToWords } from '../../lib/amountWords';
 import { inspectGstin, cleanGstin, type GstinReport } from '../../lib/gstinInfo';
-import { analyseText, minutesLabel, type Entry } from '../../lib/textStats';
 import { CopyButton } from './ToolBits';
 
 const MAX_LIST = 200;
@@ -106,52 +105,6 @@ export function AmountInWords() {
         )}
         <p className="muted">Uses the same wording as the amount in words on a Kora invoice. Check the Hindi spelling against your own style before printing it on a legal document.</p>
       </div>
-    </div>
-  );
-}
-
-function EntryTable({ title, rows, empty }: { title: string; rows: Entry[]; empty: string }) {
-  return (
-    <div className="tl-kw">
-      <h3>{title}</h3>
-      {rows.length === 0 ? <p className="muted">{empty}</p> : (
-        <div className="tl-tablewrap">
-          <table className="tl-table">
-            <thead><tr><th scope="col">Phrase</th><th scope="col" className="num">Times</th><th scope="col" className="num">Density</th></tr></thead>
-            <tbody>{rows.map((e) => <tr key={e.text}><td>{e.text}</td><td className="num">{e.count}</td><td className="num">{e.density}%</td></tr>)}</tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function WordCounter() {
-  const [text, setText] = useState('');
-  const [stop, setStop] = useState(true);
-  const deferred = useDeferredValue(text);
-  const s = useMemo(() => analyseText(deferred, { stopWords: stop }), [deferred, stop]);
-  const stat = (label: string, v: string | number) => <div><dt>{label}</dt><dd>{v}</dd></div>;
-  return (
-    <div className="tl-wc">
-      <div className="tl-form">
-        <label htmlFor="wc">Your text</label>
-        <textarea id="wc" rows={12} value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste or type your product description, blog post or page copy here." spellCheck />
-        <div className="tl-actions">
-          <label className="tl-check"><input type="checkbox" checked={stop} onChange={(e) => setStop(e.target.checked)} /> Skip common words (the, and, of)</label>
-          {text && <button type="button" className="secondary" onClick={() => setText('')}>Clear</button>}
-        </div>
-      </div>
-      <dl className="tl-stats">
-        {stat('Words', s.words)}{stat('Characters', s.characters)}{stat('Without spaces', s.charactersNoSpaces)}{stat('Sentences', s.sentences)}
-        {stat('Paragraphs', s.paragraphs)}{stat('Reading time', minutesLabel(s.readingMinutes))}{stat('Speaking time', minutesLabel(s.speakingMinutes))}{stat('Unique words', s.uniqueWords)}
-      </dl>
-      <div className="tl-kwgrid">
-        <EntryTable title="Top keywords" rows={s.keywords} empty="Words you use appear here." />
-        <EntryTable title="Two-word phrases" rows={s.twoWord} empty="Phrases used at least twice appear here." />
-        <EntryTable title="Three-word phrases" rows={s.threeWord} empty="Phrases used at least twice appear here." />
-      </div>
-      <p className="muted">Density is how many times a word or phrase appears, divided by all the words, as a percent. Reading time assumes 200 words a minute and speaking time 130. Your text is counted in this page and goes nowhere.</p>
     </div>
   );
 }

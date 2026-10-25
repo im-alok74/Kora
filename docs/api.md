@@ -61,7 +61,7 @@ Authorization: Bearer kora_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 | `POST /invoices` | write | Make a draft, or issue it straight away with `"issue": true` |
 
 | `POST /invoices/{id}/issue` | write | Issue a draft: gives it its number and locks it |
-| `POST /invoices/{id}/payments` | write | Record a payment: `{ amount: "500.00", method, receivedOn?, note?, operationKey? }` |
+| `POST /invoices/{id}/payments` | write | Record a payment: `{ amount: "500.00", method, receivedOn?, note? }`. Send an `Idempotency-Key` header so a retry never records the money twice (the retry answers 200 with the first payment) |
 | `GET /invoices/{id}/payments` | read | Payments on a document |
 | `POST /invoices/{id}/share` | write | A public link the customer can open (valid 30 days) |
 | `GET /payments?from=&to=` | read | Payments received in a period (this month by default) |
@@ -80,9 +80,9 @@ Everything else in the app (the web screens use `/api/...` routes without the `v
 
 ### Retrying a payment safely
 
-Send an `operationKey` containing 16 to 100 letters, digits, underscores or hyphens (a UUID is suitable). Persist one key before sending a payment and reuse it after a timeout or lost response. Within one business, the same key and canonical payment details return the original result, including after the invoice is fully paid. Amounts `100` and `100.00` are equivalent. Changed details with an already committed key return HTTP 400; inspect the payment list before starting a new operation. A deliberate second payment needs a new key.
+Send an `Idempotency-Key` header containing 8 to 64 letters, digits, underscores or hyphens. Persist one key before sending a payment and reuse it after a timeout or lost response. Within one business, the same key and payment details return the original result, including after the invoice is fully paid. Changed details with an already used key return HTTP 400; inspect the payment list before starting a new payment. A deliberate second payment needs a new key.
 
-Authorization is checked on every retry. Failed transactions do not reserve keys. Replay records are retained with the financial data and are not removed by operational retention cleanup. This field remains optional for compatibility; requests without it have no manual-payment replay protection. A replay returns the original response, not a fresh invoice balance.
+Authorization is checked on every retry. Failed transactions do not reserve keys. The header remains optional for compatibility; requests without it have no replay protection. A replay returns the original response, not a fresh invoice balance.
 
 ### Making an invoice
 
