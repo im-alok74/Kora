@@ -44,11 +44,11 @@ const PROFIT: ToolPageInfo = {
 
 const EMI: ToolPageInfo = {
   badge: 'Free, no signup',
-  highlight: 'Find your monthly loan instalment',
-  lead: 'Enter the loan amount, the yearly interest rate and the time to see the monthly EMI, the total interest and how the first months split between interest and principal.',
+  highlight: 'Find the monthly instalment on a business loan',
+  lead: 'Enter the loan amount, the yearly interest rate and the time to see the monthly EMI on a business or equipment loan, the total interest and how the first months split between interest and principal.',
   cta: 'Calculate my EMI',
   toolTitle: 'Calculate your',
-  toolAccent: 'EMI',
+  toolAccent: 'business loan EMI',
   stats: FACTS,
   about: {
     title: 'How an EMI is',
@@ -83,8 +83,8 @@ const EMI: ToolPageInfo = {
 
 const INTEREST: ToolPageInfo = {
   badge: 'Free, no signup',
-  highlight: 'Simple and compound interest in a click',
-  lead: 'Work out the interest on an amount over a number of years, either simple or compounded yearly, half-yearly, quarterly or monthly.',
+  highlight: 'Interest on an overdue invoice, a loan or a deposit',
+  lead: 'Work out the interest on an amount over days, months or years, either simple or compounded yearly, half-yearly, quarterly or monthly. Use days to price a late payment.',
   cta: 'Calculate interest',
   toolTitle: 'Calculate',
   toolAccent: 'interest',
@@ -95,6 +95,7 @@ const INTEREST: ToolPageInfo = {
     body: [
       'With simple interest, the interest is always worked on the original amount: amount x rate x years / 100. With compound interest, interest is added to the amount at each period and the next interest is worked on the larger sum, so it grows faster.',
       'The more often interest is compounded in a year, the higher the total. For example, Rs 1,00,000 at 12% for one year gives Rs 12,000 as simple interest, and Rs 12,550.88 compounded quarterly.',
+      'For a customer who pays late, choose days and simple interest: Rs 1,00,000 overdue for 30 days at 18% a year is Rs 1,479.45 (a year counted as 365 days). Your agreement or your terms on the invoice decide whether you can charge interest and at what rate, so settle that before you work it out. Late payment interest can attract GST, so ask your CA how to bill it.',
     ],
   },
   steps: [
@@ -112,7 +113,7 @@ const INTEREST: ToolPageInfo = {
     ['What is the formula for simple interest?', 'Simple interest = amount x rate x years / 100. For Rs 1,00,000 at 8% for 3 years that is Rs 24,000.'],
     ['What is the formula for compound interest?', 'Total = amount x (1 + rate / (100 x n)) ^ (n x years), where n is how many times a year interest is added. Interest is the total minus the amount.'],
     ['Which is better for a saver?', 'Compound, at the same rate, since interest earns interest. For a borrower it is the other way round.'],
-    ['Can I use months?', 'Yes. Type the time in years as a decimal: 6 months is 0.5 and 18 months is 1.5.'],
+    ['Can I use days or months?', 'Yes. Choose days, months or years under "Time is in". For an overdue invoice, type the days between the due date and the day it was paid.'],
     ['Is this the same as my bank deposit?', 'It is a close guide. Banks may use a different compounding or day-count rule, so check with the bank.'],
     ['Is my data sent anywhere?', 'No. Everything is worked out in your browser.'],
   ],
@@ -125,25 +126,19 @@ export const CALC_PAGES: Record<string, ToolPageInfo> = { 'profit-margin-calcula
 /** Related tools by slug: shown as links under the steps on each tool page, so the tools link to each other in the text. */
 export const RELATED: Record<string, string[]> = {
   'gst-calculator': ['invoice-generator', 'profit-margin-calculator', 'amount-in-words'],
-  'invoice-generator': ['gst-calculator', 'gstin-validator', 'amount-in-words', 'images-to-pdf'],
+  'invoice-generator': ['gst-calculator', 'gstin-validator', 'amount-in-words', 'qr-code-generator'],
   'quotation-maker': ['gst-calculator', 'profit-margin-calculator', 'invoice-generator'],
   'proforma-invoice-generator': ['invoice-generator', 'gst-calculator', 'gstin-validator'],
   'purchase-order-generator': ['gstin-validator', 'gst-calculator', 'invoice-generator'],
-  'receipt-maker': ['amount-in-words', 'invoice-generator', 'merge-split-pdf'],
-  'qr-code-generator': ['qr-code-scanner', 'barcode-generator', 'logo-maker'],
+  'receipt-maker': ['amount-in-words', 'invoice-generator', 'interest-calculator'],
+  'qr-code-generator': ['qr-code-scanner', 'invoice-generator', 'receipt-maker'],
   'barcode-generator': ['barcode-scanner', 'qr-code-generator'],
   'qr-code-scanner': ['qr-code-generator', 'barcode-scanner'],
   'barcode-scanner': ['barcode-generator', 'qr-code-scanner'],
-  'logo-maker': ['image-compressor', 'image-converter'],
-  'pdf-to-image': ['images-to-pdf', 'merge-split-pdf', 'image-compressor'],
-  'image-converter': ['image-compressor', 'images-to-pdf', 'pdf-to-image'],
-  'image-compressor': ['image-converter', 'logo-maker', 'images-to-pdf'],
-  'images-to-pdf': ['merge-split-pdf', 'image-compressor', 'pdf-to-image'],
-  'merge-split-pdf': ['images-to-pdf', 'pdf-to-image', 'invoice-generator'],
+  'logo-maker': ['invoice-generator', 'quotation-maker', 'qr-code-generator'],
   'gstin-validator': ['invoice-generator', 'gst-calculator', 'purchase-order-generator'],
   'amount-in-words': ['receipt-maker', 'invoice-generator', 'gst-calculator'],
-  'word-counter': ['amount-in-words'],
   'profit-margin-calculator': ['gst-calculator', 'quotation-maker', 'emi-calculator'],
   'emi-calculator': ['interest-calculator', 'profit-margin-calculator'],
-  'interest-calculator': ['emi-calculator', 'profit-margin-calculator'],
+  'interest-calculator': ['emi-calculator', 'receipt-maker', 'profit-margin-calculator'],
 };

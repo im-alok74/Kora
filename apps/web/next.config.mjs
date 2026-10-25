@@ -9,6 +9,11 @@ const APP_CSP = { key: 'Content-Security-Policy', value: "frame-ancestors 'self'
 const CAMERA_PAGES = '/tools/:tool(barcode-scanner|qr-code-scanner)';
 const PERMISSIONS_POLICY = (camera) => ({ key: 'Permissions-Policy', value: `camera=${camera}, microphone=(), geolocation=(), payment=()` });
 
+// Free tools that were taken off the site because they have nothing to do with invoicing or GST. The pages may be indexed, so each
+// address (and anything under it, such as the share card) answers with a permanent redirect to the tools hub. Keep in step with
+// REMOVED_TOOLS in lib/tools.ts; test/toolRedirects.test.ts checks that they match.
+export const REMOVED_TOOL_SLUGS = ['pdf-to-image', 'image-converter', 'image-compressor', 'images-to-pdf', 'merge-split-pdf', 'word-counter'];
+
 const SECURITY_HEADERS = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
@@ -19,6 +24,9 @@ const SECURITY_HEADERS = [
 
 /** @type {import('next').NextConfig} */
 export default {
+  async redirects() {
+    return [{ source: `/tools/:slug(${REMOVED_TOOL_SLUGS.join('|')})/:rest*`, destination: '/tools', permanent: true }];
+  },
   // The browser tests build into their own folder, so they can run while a dev server is using .next.
   distDir: process.env.NEXT_DIST_DIR || '.next',
   transpilePackages: ['@kora/core', '@kora/db', '@kora/adapters', '@kora/tax', '@kora/pdf'],

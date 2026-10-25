@@ -110,8 +110,8 @@ const INVOICE: ToolPageInfo = {
 
 const LOGO: ToolPageInfo = {
   badge: 'Free, no signup',
-  highlight: 'Make a logo in a few clicks',
-  lead: 'Enter your business name and pick a style you like. Change the colour, shape and letters, then download your logo as an image.',
+  highlight: 'Make an invoice logo in a few clicks',
+  lead: 'Enter your business name and pick a style you like. Change the colour, shape and letters, then download your logo as an image. Already have a logo? Fit it under the 150 KB Kora allows.',
   cta: 'Make my logo',
   toolTitle: 'Create your logo',
   toolAccent: 'now',
@@ -128,11 +128,13 @@ const LOGO: ToolPageInfo = {
     ['Enter your name', 'Type your business name. The letters for the mark are suggested from it, and you can change them.'],
     ['Pick a style', 'Choose one of the starting styles, then adjust the colour, shape, letter style and layout.'],
     ['Download', 'Download the logo as a PNG and use it on your invoices, your social pages or your shop board.'],
+    ['Or fit your own', 'If you already have a logo that is too big for an invoice, choose it under "Already have a logo" and download the smaller copy.'],
   ],
   features: [
     ['A few clicks', 'Start from a ready style and change only what you like.'],
     ['Fully adjustable', 'Colours, shapes, letter styles and layouts are all your choice.'],
     ['Yours to use', 'You can use the logo you make wherever you like.'],
+    ['Fits the Kora limit', 'Shrink a logo you already have to under 150 KB, the size Kora accepts for an invoice logo.'],
     ['Private', 'The logo is drawn on your device. Your business name is not sent anywhere.'],
   ],
   faq: [
@@ -140,6 +142,7 @@ const LOGO: ToolPageInfo = {
     ['Can I use the logo for my business?', 'Yes. It is a simple mark made from your own letters and your own name, so it is yours to use.'],
     ['What format do I get?', 'A PNG image. A square mark under 150 KB works well as your logo on a Kora invoice.'],
     ['Can I change it later?', 'Come back and make another any time. The tool does not store your logo, so keep the file you download.'],
+    ['My logo is too big to upload to Kora. What do I do?', 'Use "Already have a logo? Fit it for Kora" on this page. It lowers the quality and then the size until the file is under 150 KB. A WebP logo is saved as a JPG, because Kora takes PNG or JPG.'],
     ['Will this replace a designer?', 'It makes a clean starter logo. If you want a full brand identity, a designer is still the better choice.'],
   ],
   crossTitle: 'Put your logo to work',
