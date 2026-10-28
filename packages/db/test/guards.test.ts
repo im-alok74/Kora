@@ -102,6 +102,7 @@ const NO_RLS: Record<string, string> = {
   state_code: 'reference data',
   tax_rate: 'reference data',
   billing_event: 'webhook replay guard: no grant for the application role, written only by billing_apply_event()',
+  admin_audit: 'platform admin log: no grant for the application role, written only by admin_log()',
   data_breach: 'platform register of breaches: no grant for the application role, reached only through the admin functions',
 };
 

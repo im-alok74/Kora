@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { createSql, type Sql } from '@kora/db';
 import { createLazyGsp, createMockBilling, createMockGateway, createRazorpayBilling, createRazorpayGateway, type BillingGateway, createMockGstinLookup, otpSenderFromEnv, type GspClient, type GstinLookup, type PaymentGateway } from '@kora/adapters';
 import {
-  createAuth, rateLimiterFromEnv, reportError, type RequestInfo, getEinvoice, getTemplate, getBusiness, getDocument, getParty, isAuthError, isConflictError, isForbidden, isPlanLimitError, isValidationError, listBusinesses, resolveTenant,
+  createAuth, rateLimiterFromEnv, reportError, type RequestInfo, getEinvoice, getTemplate, getBusiness, getDocument, getParty, isAdminUser, isAuthError, isConflictError, isForbidden, isPlanLimitError, isValidationError, listBusinesses, resolveTenant,
   type Auth, type TenantSession,
 } from '@kora/core';
 import { isTaxError } from '@kora/tax';
@@ -77,6 +77,19 @@ export function billing(): { gw: BillingGateway; planIds: { business?: string; f
     return { gw: createMockBilling({ secret, baseUrl: services().appUrl }), planIds: { business: planIds.business ?? 'plan_mock_business', firm: planIds.firm ?? 'plan_mock_firm' } };
   }
   return null;
+}
+
+/**
+ * Routes for Kora's own staff. Anyone who is not an admin gets the same 404 as a page that does not exist, so the panel's address
+ * tells a visitor nothing. An admin is a signed in user whose e-mail is in KORA_ADMIN_EMAILS AND who signed in with an authenticator
+ * code (so an admin account without an authenticator app cannot use the panel at all). Every call is checked again; nothing is cached.
+ */
+export function adminRoute(handler: (a: { adminId: string; req: Request; params: Record<string, string>; sql: Sql }) => Promise<unknown>) {
+  return userRoute(async ({ userId, token, req, params, svc }) => {
+    const ok = (await isAdminUser(svc.sql, userId)) && (await svc.auth.sessionHasMfa(token));
+    if (!ok) return json({ error: 'Not found.' }, 404);
+    return handler({ adminId: userId, req, params, sql: svc.sql });
+  });
 }
 
 export function json(body: unknown, status = 200, headers: Record<string, string> = {}) {
