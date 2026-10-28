@@ -59,10 +59,14 @@ function below1000(n: number): string {
   return [h ? ONES[h] + ' Hundred' : '', r ? below100(r) : ''].filter(Boolean).join(' ');
 }
 
+/** Largest whole-rupee amount the words can express: 999 crore and some (crores above 999 would need a thousand-crore word). */
+export const MAX_WORDS_RUPEES = 9_999_999_999n;
+
 /** 118000 paise -> "Rupees One Thousand One Hundred Eighty Only" with lakh and crore. */
 export function rupeesInWords(p: Paise): string {
   if (p < 0n) throw new TaxError('negative_amount', 'Amount cannot be negative.');
   let rupees = p / 100n;
+  if (rupees > MAX_WORDS_RUPEES) throw new TaxError('amount_too_large', 'An amount in words goes up to Rs 999 crore.');
   const paise = Number(p % 100n);
   if (rupees === 0n && paise === 0) return 'Rupees Zero Only';
   const parts: string[] = [];

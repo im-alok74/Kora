@@ -39,4 +39,13 @@ describe('credit notes issued at the same moment', () => {
     const out = await Promise.allSettled([x, y, z].map((d) => issueDocument(db.web, t, d.id)));
     expect(out.filter((o) => o.status === 'fulfilled')).toHaveLength(2);
   });
+  it('the database refuses it too, when the application check is bypassed (audit C-6)', async () => {
+    const inv = await invoice();
+    const mk = (rate: string) => saveDraft(db.web, t, { docType: 'credit_note', partyId: party, originalDocumentId: inv.id as string, docDate: '2026-10-02',
+      lines: [{ name: 'W', hsnSac: '998313', quantity: '1', rate, taxRateBp: 1800, kind: 'service' }] });
+    const [x, y] = [await mk('600'), await mk('600')];
+    await issueDocument(db.web, t, x.id);
+    // Straight to the table, as a future code path that forgets the headroom check would do.
+    await expect(db.owner`update document set status = 'issued' where id = ${y.id}`).rejects.toThrow(/exceed/);
+  });
 });

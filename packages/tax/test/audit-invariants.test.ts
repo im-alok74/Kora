@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import {
-  allocateDiscount, computeDocument, computeLine, formatMoney, formatRupees, gstinCheckChar, gstinValid, isTaxError, parseExchangeRate, parseRupees,
+  allocateDiscount, computeDocument, computeLine, formatMoney, formatRupees, GSTIN_STATE_CODES, gstinCheckChar, gstinValid, isTaxError, parseExchangeRate, parseRupees,
   roundHalfUp, rupeesInWords, validateInvoiceNumber, type DocumentInput, type LineInput,
 } from '../src/index.js';
 
@@ -142,7 +142,7 @@ describe('currency conversion and display keep paise exact', () => {
     }), RUNS);
   });
   it('amounts in words never throw for any non-negative amount and always end in Only', () => {
-    fc.assert(fc.property(fc.bigInt({ min: 0n, max: 99_999_999_999_999n }), (p) => rupeesInWords(p).endsWith(' Only')), RUNS);
+    fc.assert(fc.property(fc.bigInt({ min: 0n, max: 999_999_999_999n }), (p) => rupeesInWords(p).endsWith(' Only')), RUNS);
   });
 });
 
@@ -161,8 +161,8 @@ describe('invoice numbers (CGST Rule 46(b): at most 16 characters, letters, digi
 
 describe('GSTIN check digit', () => {
   const pan = fc.stringOf(fc.constantFrom(...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')), { minLength: 5, maxLength: 5 });
-  const gstinArb = fc.tuple(fc.integer({ min: 1, max: 37 }), pan, fc.integer({ min: 0, max: 9999 }), fc.constantFrom(...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')), fc.constantFrom(...'123456789'.split('')))
-    .map(([st, p, n, l, e]) => { const first14 = `${String(st).padStart(2, '0')}${p}${String(n).padStart(4, '0')}${l}${e}Z`; return first14 + gstinCheckChar(first14); });
+  const gstinArb = fc.tuple(fc.constantFrom(...GSTIN_STATE_CODES), pan, fc.integer({ min: 0, max: 9999 }), fc.constantFrom(...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')), fc.constantFrom(...'123456789'.split('')))
+    .map(([st, p, n, l, e]) => { const first14 = `${st}${p}${String(n).padStart(4, '0')}${l}${e}Z`; return first14 + gstinCheckChar(first14); });
   it('a GSTIN built with the check character is valid, and changing any one character makes it invalid', () => {
     fc.assert(fc.property(gstinArb, fc.integer({ min: 0, max: 14 }), (g, i) => {
       if (!gstinValid(g)) return false;
@@ -170,5 +170,18 @@ describe('GSTIN check digit', () => {
       const broken = g.slice(0, i) + alt + g.slice(i + 1);
       return !gstinValid(broken);
     }), RUNS);
+  });
+});
+
+describe('audit C-7 / T-9 / T-10: GSTIN state codes and the bound on amounts in words', () => {
+  const withCheck = (b: string) => b + gstinCheckChar(b);
+  it('refuses a GSTIN whose first two digits are not a state code, even with a correct check character', () => {
+    for (const s of ['00', '25', '28', '39', '96']) expect(gstinValid(withCheck(`${s}ABCDE1234F1Z`))).toBe(false);
+    expect(gstinValid(withCheck('27ABCDE1234F1Z'))).toBe(true);
+    expect(gstinValid(withCheck('99ABCDE1234F1Z'))).toBe(true);
+  });
+  it('words go up to Rs 999 crore and refuse more instead of printing undefined', () => {
+    expect(rupeesInWords(9_999_999_999n * 100n)).not.toMatch(/undefined/);
+    expect(() => rupeesInWords(10_000_000_000n * 100n)).toThrow(/999 crore/);
   });
 });
