@@ -1,13 +1,13 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { api, rupees } from '../../../../lib/client';
+import { api, paiseToRupeeText, rupees } from '../../../../lib/client';
 
 type Extras = {
   tags: string[]; credit_limit_paise: string | null; opening_balance_paise: string; opening_balance_on: string | null;
   credit: { limitPaise: string | null; owedPaise: string; availablePaise: string | null; over: boolean };
 };
 type Note = { id: string; body: string; createdAt: string; author: string; mine: boolean };
-const toRupees = (p: string | null) => (p === null ? '' : (Number(p) / 100).toFixed(2));
+const toRupees = (p: string | null) => (p === null ? '' : paiseToRupeeText(p));
 
 /** Labels, the most this customer may owe, what they owed before Kora, and the team's notes. */
 export default function ExtrasPanel({ partyId, canWrite, isOwner }: { partyId: string; canWrite: boolean; isOwner: boolean }) {

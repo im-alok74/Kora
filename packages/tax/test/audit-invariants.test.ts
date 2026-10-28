@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import {
   allocateDiscount, computeDocument, computeLine, formatMoney, formatRupees, GSTIN_STATE_CODES, gstinCheckChar, gstinValid, isTaxError, parseExchangeRate, parseRupees,
-  roundHalfUp, rupeesInWords, validateInvoiceNumber, type DocumentInput, type LineInput,
+  roundHalfUp, nearestSlabBp, rupeesInWords, validateInvoiceNumber, type DocumentInput, type LineInput,
 } from '../src/index.js';
 
 /**
@@ -183,5 +183,14 @@ describe('audit C-7 / T-9 / T-10: GSTIN state codes and the bound on amounts in 
   it('words go up to Rs 999 crore and refuse more instead of printing undefined', () => {
     expect(rupeesInWords(9_999_999_999n * 100n)).not.toMatch(/undefined/);
     expect(() => rupeesInWords(10_000_000_000n * 100n)).toThrow(/999 crore/);
+  });
+});
+
+describe('audit C-15: a rate worked out from amounts snaps to a real slab', () => {
+  it('turns 1799 and 1801 into 1800 and keeps real slabs as they are', () => {
+    expect(nearestSlabBp(1799)).toBe(1800);
+    expect(nearestSlabBp(1801)).toBe(1800);
+    expect(nearestSlabBp(500)).toBe(500);
+    expect(nearestSlabBp(0)).toBe(0);
   });
 });

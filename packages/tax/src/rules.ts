@@ -21,6 +21,13 @@ export function allowedRatesOn(date: string): ReadonlySet<number> {
  * Every slab that has existed since the 2017 launch. Used only when the date of supply is not known; a caller that has a date
  * should pass it so that 12% and 28% are refused after the reform and 40% before it.
  */
+/** The slab nearest to a rate worked out from amounts (tax x 10000 / taxable can land on 1799 or 1801 for an 18% line). */
+export function nearestSlabBp(rawBp: number): number {
+  let best = 0;
+  for (const s of DEFAULT_ALLOWED_RATE_BP) if (Math.abs(s - rawBp) < Math.abs(best - rawBp)) best = s;
+  return best;
+}
+
 export const DEFAULT_ALLOWED_RATE_BP: ReadonlySet<number> = new Set([...SLABS_BEFORE, ...SLABS_FROM]);
 
 export type SupplyKind = 'goods' | 'service';

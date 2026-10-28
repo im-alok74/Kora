@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { api, rupees } from '../../../../lib/client';
+import { api, paiseToRupeeText, rupees } from '../../../../lib/client';
 
 type Ev = { at: string; kind: string; title: string; amountPaise: string; balancePaise: string | null; allocationId?: string; refundable?: boolean };
 type Tl = { totalPaise: string; duePaise: string; state: 'paid' | 'part_paid' | 'unpaid'; events: Ev[] };
@@ -39,7 +39,7 @@ export default function PaymentTimeline({ documentId, refreshKey, canRefund, onC
                 <button style={{ flex: 'none' }}>Refund</button>
                 <button type="button" className="secondary" style={{ flex: 'none' }} onClick={() => setRefund(null)}>Cancel</button>
               </form>
-            ) : <button className="link" onClick={() => setRefund({ id: e.allocationId!, amount: (Number(e.amountPaise) / 100).toFixed(2), method: 'bank_transfer', note: '' })}>Refund some or all of this</button>)}
+            ) : <button className="link" onClick={() => setRefund({ id: e.allocationId!, amount: paiseToRupeeText(e.amountPaise), method: 'bank_transfer', note: '' })}>Refund some or all of this</button>)}
           </li>))}
       </ol>
       {err && <p className="error" role="alert">{err}</p>}

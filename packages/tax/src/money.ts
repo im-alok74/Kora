@@ -11,7 +11,7 @@ export class TaxError extends Error {
 export const isTaxError = (e: unknown): e is TaxError => e instanceof Error && e.name === 'TaxError';
 
 export type TaxErrorCode =
-  | 'negative_amount' | 'bad_quantity' | 'discount_exceeds_gross' | 'rate_not_allowed'
+  | 'negative_amount' | 'amount_too_large' | 'bad_quantity' | 'discount_exceeds_gross' | 'rate_not_allowed'
   | 'specific_cess_unsupported' | 'no_lines' | 'composition_tax_invoice' | 'unregistered_tax_invoice'
   | 'bill_of_supply_with_tax' | 'unsupported_place_of_supply' | 'credit_exceeds_original'
   | 'gstin_state_mismatch' | 'gstin_invalid' | 'bad_date' | 'number_too_long' | 'number_bad_characters' | 'hsn_too_short';
