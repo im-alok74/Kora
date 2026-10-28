@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { createSql, type Sql } from '@kora/db';
-import { createLazyGsp, createMockGateway, createRazorpayGateway, createMockGstinLookup, otpSenderFromEnv, type GspClient, type GstinLookup, type PaymentGateway } from '@kora/adapters';
+import { createLazyGsp, createMockBilling, createMockGateway, createRazorpayBilling, createRazorpayGateway, type BillingGateway, createMockGstinLookup, otpSenderFromEnv, type GspClient, type GstinLookup, type PaymentGateway } from '@kora/adapters';
 import {
   createAuth, rateLimiterFromEnv, reportError, type RequestInfo, getEinvoice, getTemplate, getBusiness, getDocument, getParty, isAuthError, isConflictError, isForbidden, isPlanLimitError, isValidationError, listBusinesses, resolveTenant,
   type Auth, type TenantSession,
@@ -54,6 +54,29 @@ export function services(): Services {
       gsp: createLazyGsp() };
   }
   return g.__kora;
+}
+
+/**
+ * Kora's own subscription billing (the Billing page and its webhook). Null when it is not set up, so the rest of the product runs
+ * without it: the page then says plans cannot be bought online yet. Razorpay needs its keys, a webhook secret for the billing
+ * webhook and the two plan ids; the mock (development) is refused in production unless KORA_ALLOW_MOCKS=1.
+ */
+export function billing(): { gw: BillingGateway; planIds: { business?: string; firm?: string } } | null {
+  const kind = process.env.BILLING_GATEWAY ?? (process.env.NODE_ENV === 'production' ? '' : 'mock');
+  const planIds = { business: process.env.RAZORPAY_PLAN_BUSINESS || undefined, firm: process.env.RAZORPAY_PLAN_FIRM || undefined };
+  if (kind === 'razorpay') {
+    const keyId = process.env.RAZORPAY_BILLING_KEY_ID || process.env.RAZORPAY_KEY_ID, keySecret = process.env.RAZORPAY_BILLING_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET;
+    const webhookSecret = process.env.RAZORPAY_BILLING_WEBHOOK_SECRET;
+    if (!keyId || !keySecret || !webhookSecret) return null;
+    return { gw: createRazorpayBilling({ keyId, keySecret, webhookSecret }), planIds };
+  }
+  if (kind === 'mock') {
+    if (process.env.NODE_ENV === 'production' && process.env.KORA_ALLOW_MOCKS !== '1') return null;
+    const secret = process.env.BILLING_WEBHOOK_SECRET;
+    if (!secret) return null;
+    return { gw: createMockBilling({ secret, baseUrl: services().appUrl }), planIds: { business: planIds.business ?? 'plan_mock_business', firm: planIds.firm ?? 'plan_mock_firm' } };
+  }
+  return null;
 }
 
 export function json(body: unknown, status = 200, headers: Record<string, string> = {}) {

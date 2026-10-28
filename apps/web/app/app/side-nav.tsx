@@ -27,7 +27,7 @@ export default function SideNav({ role, multi = false, children }: { role: strin
     { title: 'Manage', items: [
       { href: '/app/data', label: 'Data', icon: 'database' }, { href: '/app/import', label: 'Import', icon: 'inbox', show: role !== 'accountant' }, { href: '/app/developers', label: 'Developers', icon: 'code', show: role === 'owner' },
       { href: '/app/team', label: 'Team', icon: 'team', show: role === 'owner' }, { href: '/app/activity', label: 'Activity', icon: 'clock', show: role !== 'staff' },
-      { href: '/app/security', label: 'Security', icon: 'shield' }, { href: '/app/privacy', label: 'Privacy', icon: 'shield' }, { href: '/app/settings', label: 'Settings', icon: 'settings' }] },
+      { href: '/app/security', label: 'Security', icon: 'shield' }, { href: '/app/privacy', label: 'Privacy', icon: 'shield' }, { href: '/app/billing', label: 'Billing', icon: 'rupee', show: role === 'owner' }, { href: '/app/settings', label: 'Settings', icon: 'settings' }] },
   ];
   const current = (href: string) => (href === '/app' ? path === '/app' : path === href || path.startsWith(href + '/'));
 

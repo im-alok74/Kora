@@ -101,6 +101,7 @@ const NO_RLS: Record<string, string> = {
   schema_migration: 'migration bookkeeping',
   state_code: 'reference data',
   tax_rate: 'reference data',
+  billing_event: 'webhook replay guard: no grant for the application role, written only by billing_apply_event()',
   data_breach: 'platform register of breaches: no grant for the application role, reached only through the admin functions',
 };
 

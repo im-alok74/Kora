@@ -45,11 +45,13 @@ export interface EffectivePlan { plan: Plan; stored: PlanId; status: string; val
 /** What the business is on right now. A paid plan that has run out (past the grace days) counts as starter. */
 export async function effectivePlanTx(tx: Tx, businessId: string): Promise<EffectivePlan> {
   const [r] = await tx`select plan, status, valid_until::text as valid_until,
-                               (valid_until is not null and valid_until + make_interval(days => ${GRACE_DAYS}) < now()) as lapsed
+                               (valid_until is not null and valid_until + make_interval(days => ${GRACE_DAYS}) < now()) as lapsed,
+                               (valid_until is not null and valid_until > now()) as in_period
                           from business_plan where business_id = ${businessId}`;
   if (!r) return { plan: PLANS.starter, stored: 'starter', status: 'free', validUntil: null, lapsed: false };
   const stored = r.plan as PlanId, status = r.status as string, lapsed = !!r.lapsed;
-  const paidAndLive = stored !== 'starter' && ['active', 'trialing', 'past_due'].includes(status) && !lapsed;
+  // A cancelled subscription keeps its plan to the end of the period that was paid for.
+  const paidAndLive = stored !== 'starter' && !lapsed && (['active', 'trialing', 'past_due'].includes(status) || (status === 'cancelled' && !!r.in_period));
   return { plan: paidAndLive ? PLANS[stored] : PLANS.starter, stored, status, validUntil: (r.valid_until as string | null) ?? null, lapsed };
 }
 
