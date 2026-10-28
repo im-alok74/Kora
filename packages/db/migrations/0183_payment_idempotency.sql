@@ -1,3 +1,4 @@
+-- Renumbered from 0180 (a second 0180 existed). Every statement is guarded, so it is safe on a database that already applied it under the old name.
 -- P-6: a client that retries "record this payment" after a timeout must not record the money twice. A caller may now send an
 -- Idempotency-Key with a payment; the same key for the same business names the same payment. Additive and safe to run twice.
 
