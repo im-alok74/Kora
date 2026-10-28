@@ -70,3 +70,4 @@ export * from './ewaybill.js';
 export * from './onboarding.js';
 export * from './demo.js';
 export * from './privacy.js';
+export * from './plans.js';

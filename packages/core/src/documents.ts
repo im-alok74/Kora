@@ -6,6 +6,7 @@ import type { Sql, Tx } from '@kora/db';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { ConflictError, isDate, str, todayIn, ValidationError } from './validation.js';
 import { scheduleReminders } from './reminders.js';
+import { checkCanIssue } from './plans.js';
 import { queueEinvoiceIfRequired } from './einvoice.js';
 import { emitEvent } from './webhooks.js';
 import { copyCustom, resolveCustom } from './customfields.js';
@@ -457,6 +458,7 @@ export async function issueTx(tx: Tx, t: TenantSession, id: string) {
     const [d] = await tx`select id, status, doc_type, doc_date, original_document_id from document where id = ${id} for update`;
     if (!d) throw new ValidationError('Document not found.');
     if (d.status !== 'draft') throw new ValidationError('This document is already issued.');
+    await checkCanIssue(tx, t.businessId, d.doc_type as string);
     const [biz] = await tx`select turnover_band from business where id = ${t.businessId}`;
     if (TAX_DOCS.has(d.doc_type as string)) {
       const bad = await tx`select position from document_line where document_id = ${id} and hsn_sac is null order by position`;

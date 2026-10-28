@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { createSql, type Sql } from '@kora/db';
 import { createLazyGsp, createMockGateway, createRazorpayGateway, createMockGstinLookup, otpSenderFromEnv, type GspClient, type GstinLookup, type PaymentGateway } from '@kora/adapters';
 import {
-  createAuth, rateLimiterFromEnv, reportError, type RequestInfo, getEinvoice, getTemplate, getBusiness, getDocument, getParty, isAuthError, isConflictError, isForbidden, isValidationError, listBusinesses, resolveTenant,
+  createAuth, rateLimiterFromEnv, reportError, type RequestInfo, getEinvoice, getTemplate, getBusiness, getDocument, getParty, isAuthError, isConflictError, isForbidden, isPlanLimitError, isValidationError, listBusinesses, resolveTenant,
   type Auth, type TenantSession,
 } from '@kora/core';
 import { isTaxError } from '@kora/tax';
@@ -137,6 +137,7 @@ export async function requireTenant(req: Request): Promise<TenantSession | Respo
 export function errorResponse(e: unknown): Response {
   if (isAuthError(e)) return json({ error: e.message, code: e.code }, e.code === 'bad_credentials' ? 401 : ['invalid_code', 'weak_password', 'exists'].includes(e.code) ? 400 : 429);
   if (isForbidden(e)) return json({ error: e.message }, 403);
+  if (isPlanLimitError(e)) return json({ error: e.message, code: e.code, feature: e.feature, plan: e.plan, upgradeUrl: '/app/billing' }, 402);
   if (isValidationError(e)) return json({ error: e.message, field: e.field }, 400);
   if (isTaxError(e)) return json({ error: e.message, code: e.code }, 400);
   if (isConflictError(e)) return json({ error: e.message, code: 'conflict', id: e.documentId, serverRev: e.serverRev }, 409);
