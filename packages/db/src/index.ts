@@ -49,6 +49,15 @@ export async function withTenant<T>(sql: Sql, ctx: TenantContext, fn: (tx: Tx) =
   }) as Promise<T>;
 }
 
+/** For tables that belong to one person, not one business (consent, privacy requests): sets only app.user_id. */
+export async function withUser<T>(sql: Sql, userId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  if (!UUID.test(userId)) throw new Error('withUser: id must be a UUID');
+  return sql.begin(async (tx) => {
+    await tx`select set_config('app.user_id', ${userId}, true)`;
+    return fn(tx);
+  }) as Promise<T>;
+}
+
 export const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
 /**

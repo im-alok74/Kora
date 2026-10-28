@@ -101,6 +101,7 @@ const NO_RLS: Record<string, string> = {
   schema_migration: 'migration bookkeeping',
   state_code: 'reference data',
   tax_rate: 'reference data',
+  data_breach: 'platform register of breaches: no grant for the application role, reached only through the admin functions',
 };
 
 // The one exception that DOES hold per business data: the job queue. The worker claims jobs across all businesses, so the
