@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { api } from '../lib/client';
+import { api, paiseToRupeeText } from '../lib/client';
 
 type Cfg = { enabled: boolean; mode: 'percent_per_month' | 'flat'; value: number; graceDays: number; gstRateBp: number };
 const RATES = [{ bp: 0, label: '0%' }, { bp: 500, label: '5%' }, { bp: 1200, label: '12%' }, { bp: 1800, label: '18%' }, { bp: 2800, label: '28%' }];
@@ -11,7 +11,7 @@ export default function LateFeeSettings({ readOnly }: { readOnly: boolean }) {
   const [text, setText] = useState('');      // the fee as typed: a percentage or rupees
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
-  const show = (c: Cfg) => setText(c.mode === 'flat' ? (c.value / 100).toFixed(2) : String(c.value / 100));
+  const show = (c: Cfg) => setText(c.mode === 'flat' ? paiseToRupeeText(c.value) : String(c.value / 100));
   useEffect(() => { api('/api/late-fees').then((r) => { setCfg(r.config); show(r.config); }).catch((e) => setErr(e.message)); }, []);
   if (!cfg) return err ? <p className="error" role="alert">{err}</p> : null;
 

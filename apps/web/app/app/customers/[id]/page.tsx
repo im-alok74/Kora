@@ -2,7 +2,7 @@
 import { use, useEffect, useState } from 'react';
 import { STATE_NAMES } from '@kora/tax';
 import Icon from '../../../../components/Icon';
-import { api, DOC_LABEL, rupees } from '../../../../lib/client';
+import { api, DOC_LABEL, paiseToRupeeText, rupees } from '../../../../lib/client';
 import RemindersPanel from './reminders-panel';
 import PortalPanel from './portal-panel';
 import ExtrasPanel from './extras-panel';
@@ -118,7 +118,7 @@ export default function Customer({ params }: { params: Promise<{ id: string }> }
             <table className="t" aria-label="Money held"><thead><tr><th>Received</th><th>Method</th><th>Note</th><th className="n">Held</th><th /></tr></thead>
               <tbody>{credit.payments.map((x) => (
                 <tr key={x.id}><td>{x.received_on}</td><td>{x.method.replace(/_/g, ' ')}</td><td>{x.note ?? ''}</td><td className="n">{rupees(x.available_paise)}</td>
-                  <td className="n">{canWrite && <button className="link" onClick={() => setRef({ id: x.id, amount: (Number(x.available_paise) / 100).toFixed(2), method: 'bank_transfer', note: '' })}>Refund</button>}</td></tr>))}</tbody></table>)}
+                  <td className="n">{canWrite && <button className="link" onClick={() => setRef({ id: x.id, amount: paiseToRupeeText(x.available_paise), method: 'bank_transfer', note: '' })}>Refund</button>}</td></tr>))}</tbody></table>)}
           {ref && canWrite && (
             <form onSubmit={(e) => { e.preventDefault(); void act(async () => { await api(`/api/payments/${ref.id}/refund`, { body: { amount: ref.amount, method: ref.method, note: ref.note || undefined } }); setRef(null); setMsg('Refund recorded.'); }); }}>
               <div className="row">

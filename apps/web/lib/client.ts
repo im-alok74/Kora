@@ -46,3 +46,9 @@ export const NOTE_REASON_TEXT: Record<string, string> = {
   quantity_correction: 'Quantity was wrong', service_deficiency: 'Service was short or not up to the mark', tax_rate_correction: 'Tax rate was wrong',
   additional_charge: 'Extra charge to add', other: 'Something else',
 };
+
+/** Paise (a string from the API, or a bigint) as rupee text with two decimals, "12345" -> "123.45". No floating point is involved. */
+export function paiseToRupeeText(p: string | bigint | number): string {
+  const v = BigInt(p), neg = v < 0n, a = neg ? -v : v;
+  return `${neg ? '-' : ''}${a / 100n}.${(a % 100n).toString().padStart(2, '0')}`;
+}

@@ -1,4 +1,5 @@
 import { TaxError } from './money.js';
+import { STATE_NAMES } from './rules.js';
 
 const CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
@@ -13,9 +14,12 @@ export function gstinCheckChar(first14: string): string {
   return CHARS[(36 - (total % 36)) % 36]!;
 }
 
-/** Mirrors gstin_valid() in the database. A test compares the two on random input. */
+/** State codes a GSTIN can start with: every GST state or territory code except 96 (other country, which has no GSTIN). */
+export const GSTIN_STATE_CODES: readonly string[] = Object.keys(STATE_NAMES).filter((c) => c !== '96');
+
+/** Mirrors gstin_valid() in the database (pattern, a real state code, check character). A test compares the two on random input. */
 export function gstinValid(g: string): boolean {
-  return PATTERN.test(g) && gstinCheckChar(g) === g[14];
+  return PATTERN.test(g) && GSTIN_STATE_CODES.includes(g.slice(0, 2)) && gstinCheckChar(g) === g[14];
 }
 
 /** The first two digits of a GSTIN are the state code. */

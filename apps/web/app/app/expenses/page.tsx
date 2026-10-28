@@ -1,7 +1,7 @@
 'use client';
 import ExpenseExtras from './extras';
 import { useCallback, useEffect, useState } from 'react';
-import { api, rupees } from '../../../lib/client';
+import { api, paiseToRupeeText, rupees } from '../../../lib/client';
 import EmptyState from '../../../components/EmptyState';
 
 type Row = { id: string; expense_date: string; vendor: string | null; category: string; amount_paise: string; gst_paise: string; paid_via: string; notes: string | null; has_receipt: boolean };
@@ -131,7 +131,7 @@ export default function Expenses() {
                   <td className="n">
                     {r.has_receipt && <a href={`/api/expenses/${r.id}/receipt`} target="_blank" rel="noreferrer">Receipt</a>}
                     {canWrite && (<>{' '}
-                      <button className="link" onClick={() => { setEditing(r.id); setOpen(true); setFile(null); setForm({ date: r.expense_date, vendor: r.vendor ?? '', category: r.category, amount: (Number(r.amount_paise) / 100).toFixed(2), gst: BigInt(r.gst_paise) > 0n ? (Number(r.gst_paise) / 100).toFixed(2) : '', paidVia: r.paid_via, notes: r.notes ?? '' }); window.scrollTo({ top: 0 }); }}>Edit</button>{' '}
+                      <button className="link" onClick={() => { setEditing(r.id); setOpen(true); setFile(null); setForm({ date: r.expense_date, vendor: r.vendor ?? '', category: r.category, amount: paiseToRupeeText(r.amount_paise), gst: BigInt(r.gst_paise) > 0n ? paiseToRupeeText(r.gst_paise) : '', paidVia: r.paid_via, notes: r.notes ?? '' }); window.scrollTo({ top: 0 }); }}>Edit</button>{' '}
                       <button className="link" onClick={() => { if (confirm('Delete this expense?')) void api(`/api/expenses/${r.id}`, { method: 'DELETE' }).then(load).catch((e) => setErr(e.message)); }}>Delete</button></>)}
                   </td>
                 </tr>))}</tbody>

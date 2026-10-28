@@ -11,7 +11,7 @@ export class TaxError extends Error {
 export const isTaxError = (e: unknown): e is TaxError => e instanceof Error && e.name === 'TaxError';
 
 export type TaxErrorCode =
-  | 'negative_amount' | 'bad_quantity' | 'discount_exceeds_gross' | 'rate_not_allowed'
+  | 'negative_amount' | 'amount_too_large' | 'bad_quantity' | 'discount_exceeds_gross' | 'rate_not_allowed'
   | 'specific_cess_unsupported' | 'no_lines' | 'composition_tax_invoice' | 'unregistered_tax_invoice'
   | 'bill_of_supply_with_tax' | 'unsupported_place_of_supply' | 'credit_exceeds_original'
   | 'gstin_state_mismatch' | 'gstin_invalid' | 'bad_date' | 'number_too_long' | 'number_bad_characters' | 'hsn_too_short';
@@ -59,10 +59,14 @@ function below1000(n: number): string {
   return [h ? ONES[h] + ' Hundred' : '', r ? below100(r) : ''].filter(Boolean).join(' ');
 }
 
+/** Largest whole-rupee amount the words can express: 999 crore and some (crores above 999 would need a thousand-crore word). */
+export const MAX_WORDS_RUPEES = 9_999_999_999n;
+
 /** 118000 paise -> "Rupees One Thousand One Hundred Eighty Only" with lakh and crore. */
 export function rupeesInWords(p: Paise): string {
   if (p < 0n) throw new TaxError('negative_amount', 'Amount cannot be negative.');
   let rupees = p / 100n;
+  if (rupees > MAX_WORDS_RUPEES) throw new TaxError('amount_too_large', 'An amount in words goes up to Rs 999 crore.');
   const paise = Number(p % 100n);
   if (rupees === 0n && paise === 0) return 'Rupees Zero Only';
   const parts: string[] = [];

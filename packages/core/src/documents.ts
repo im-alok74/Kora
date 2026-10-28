@@ -179,6 +179,12 @@ async function build(tx: Tx, t: TenantSession, input: DocIn): Promise<Built> {
     } catch (e) { if (isTaxError(e)) throw new ValidationError(e.message); throw e; }
   }
 
+  // CGST Act s10(2): a composition dealer cannot make inter-state supplies of goods (audit C-19). Said when the draft is saved,
+  // not only when a recurring run fails months later. Services are not covered by this rule here.
+  if (biz.registration_type === 'composition' && placeOfSupply !== biz.state_code && !allServices && currency === 'INR') {
+    throw new ValidationError('A composition dealer cannot sell goods to another state. Choose a place of supply in your own state, or change your registration.', 'placeOfSupply');
+  }
+
   const lineInputs: LineInput[] = built.map((b) => ({
     quantityMilli: b.quantityMilli, ratePaise: b.rate, discountPaise: b.discount,
     taxRateBp: b.input.taxRateBp, cessRateBp: b.input.cessRateBp ?? 0, taxInclusive: !!b.input.taxInclusive,

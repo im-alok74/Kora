@@ -1,4 +1,4 @@
-import { computeLine, DEFAULT_ALLOWED_RATE_BP, parseQuantity, parseRupees, TaxError } from '@kora/tax';
+import { computeLine, DEFAULT_ALLOWED_RATE_BP, nearestSlabBp, parseQuantity, parseRupees, TaxError } from '@kora/tax';
 import type { Sql } from '@kora/db';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { isDate, str, todayIn, ValidationError } from './validation.js';
@@ -369,7 +369,7 @@ export async function acceptGstr2bEntry(sql: Sql, t: TenantSession, entryId: str
                             values (${t.businessId}, ${v!.id}, ${e.invoice_number}, ${date}, ${supply}, ${rcm}, ${taxable.toString()}, ${cgst.toString()}, ${sgst.toString()}, ${igst.toString()}, ${cess.toString()}, ${total.toString()},
                                     ${e.itc_available ? 'eligible' : 'blocked'}, ${e.itc_available ? null : 'Marked not available in GSTR-2B'}, 'Created from the GSTR-2B statement', ${t.userId}) returning id`;
     await tx`insert into purchase_line (business_id, bill_id, line_no, description, quantity_milli, rate_paise, tax_rate_bp, taxable_paise, cgst_paise, sgst_paise, igst_paise, cess_paise, total_paise)
-             values (${t.businessId}, ${bill!.id}, 1, ${`Invoice ${e.invoice_number} (from GSTR-2B)`}, 1000, ${taxable.toString()}, ${taxable > 0n ? Number(((cgst + sgst + igst) * 10000n) / taxable) : 0}, ${taxable.toString()}, ${cgst.toString()}, ${sgst.toString()}, ${igst.toString()}, ${cess.toString()}, ${total.toString()})`;
+             values (${t.businessId}, ${bill!.id}, 1, ${`Invoice ${e.invoice_number} (from GSTR-2B)`}, 1000, ${taxable.toString()}, ${taxable > 0n ? nearestSlabBp(Number(((cgst + sgst + igst) * 10000n) / taxable)) : 0}, ${taxable.toString()}, ${cgst.toString()}, ${sgst.toString()}, ${igst.toString()}, ${cess.toString()}, ${total.toString()})`;
     await tx`update gstr2b_entry set bill_id = ${bill!.id} where id = ${entryId}`;
     return { billId: bill!.id as string };
   });
