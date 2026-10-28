@@ -35,6 +35,13 @@ export function taxRatesFor(date?: string, keep?: number): { bp: number; label: 
   return TAX_RATES.filter((r) => on.has(r.bp) || r.bp === keep).map((r) => (on.has(r.bp) ? r : { ...r, label: `${r.label} (not valid on this date)` }));
 }
 
+/** Rates on these lines (basis points) that are not GST slabs on the date, as "12%". Used for a notice when a draft is opened. */
+export function retiredRates(date: string | undefined, rates: number[]): string[] {
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(date ?? '') ? date! : new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+  const on = allowedRatesOn(d);
+  return [...new Set(rates.filter((bp) => !on.has(bp)))].map((bp) => `${bp / 100}%`);
+}
+
 export const DOC_LABEL: Record<string, string> = {
   tax_invoice: 'Tax invoice', bill_of_supply: 'Bill of supply', estimate: 'Estimate', proforma: 'Proforma invoice',
   delivery_challan: 'Delivery challan', credit_note: 'Credit note', debit_note: 'Debit note', sales_order: 'Sales order',

@@ -2,7 +2,7 @@
 import Icon from './Icon';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CURRENCIES, dueDateFor, formatMoney, gstinValid, PAYMENT_TERMS, STATE_NAMES } from '@kora/tax';
-import { api, ApiError, DOC_LABEL, rupees as rupeesInr, taxRatesFor } from '../lib/client';
+import { api, ApiError, DOC_LABEL, retiredRates, rupees as rupeesInr, taxRatesFor } from '../lib/client';
 import { cacheGet, cacheSet, getDraft, isNetworkError, newId, putDraft, removeDraft, type LocalDraft } from '../lib/offline';
 import { localTotals, type BusinessFacts, type PartyFacts } from '../lib/localTotals';
 import { effectiveDiscounts, shippingRateBp } from '../lib/discounts';
@@ -518,6 +518,10 @@ export default function DocumentEditor({ draftId, localId: localIdProp, initial 
       <section className="panel" aria-label="Items">
       <p className="section-label">Items</p>
       <div onKeyDown={onLinesKey}>
+      {docType !== 'credit_note' && docType !== 'debit_note' && (() => {
+        const old = retiredRates(docDate, lines.map((l) => l.taxRateBp));
+        return old.length ? <p className="warn" role="status" data-testid="retired-rate-note">{old.join(' and ')} is not a GST rate on this date, so this document will be refused until you change those lines to a current rate.</p> : null;
+      })()}
       <table className="t line-table" aria-label="Line items" aria-describedby="line-keys">
         <thead><tr><th>Item details</th><th className="n">Qty</th><th className="n">Rate{currency !== 'INR' ? ` (${currency})` : ''}</th><th className="n">Discount</th><th>GST</th><th className="n">Amount</th><th /></tr></thead>
         <tbody>
