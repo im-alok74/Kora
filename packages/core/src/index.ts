@@ -41,6 +41,7 @@ export * from './firmlink.js';
 export * from './firmengagement.js';
 export * from './firmwork.js';
 export * from './firmrequests.js';
+export * from './firmreview.js';
 export * from './inbox.js';
 export * from './matters.js';
 export * from './tick.js';

@@ -55,6 +55,7 @@ export default function Work() {
     <>
       <div className="toolbar">
         <div><h1>Work</h1><p className="page-sub">GST returns to prepare for each client, who has them and what is holding them up.</p></div>
+        {wide && <button className="secondary" onClick={() => run(async () => { const r = await api('/api/ca/reminders', { body: {} }); setNote(`${r.queued} reminder(s) queued, ${r.cancelled} cancelled. ${r.summary.queued} waiting, ${r.summary.sent} sent, ${r.summary.failed} failed. Kora does not send them yet: copy the client link and send it yourself.`); })}>Queue reminders</button>}
         {wide && <button className="btn" onClick={() => run(async () => { const r = await api('/api/ca/engagements/generate', { body: { period } }); setNote(`${period}: ${r.created} added, ${r.existing} already there.`); })}>Create {period} work</button>}
       </div>
 

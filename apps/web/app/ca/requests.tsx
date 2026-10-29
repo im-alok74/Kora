@@ -15,6 +15,8 @@ export default function Requests({ engagementId, onChange }: { engagementId: str
   const [label, setLabel] = useState('');
   const [url, setUrl] = useState('');
   const [err, setErr] = useState('');
+  const [deciding, setDeciding] = useState<{ id: string; decision: 'needs_correction' | 'waived' } | null>(null);
+  const [why, setWhy] = useState('');
   const load = useCallback(async () => { setD(await api<Data>(`/api/ca/engagements/${engagementId}/requests`)); onChange?.(); }, [engagementId, onChange]);
   useEffect(() => { load().catch((e) => setErr(e.message)); }, [load]);
   const run = async (fn: () => Promise<unknown>) => { setErr(''); try { await fn(); await load(); } catch (e) { setErr((e as Error).message); } };
@@ -38,6 +40,18 @@ export default function Requests({ engagementId, onChange }: { engagementId: str
           {r.dueDate && <span className="muted"> · by {r.dueDate}</span>}
           {r.reason && <div className="muted">{r.reason}</div>}
           {r.versions.map((v, i) => <div key={v.id} style={{ fontSize: 13 }}><a href={`/api/ca/files/${v.id}`}>{v.fileName}</a> <span className="muted">{i === 0 ? 'latest · ' : ''}sent by {v.uploadedVia === 'link' ? 'the client' : 'your team'} on {v.createdAt.slice(0, 10)}</span></div>)}
+          <div style={{ fontSize: 13 }}>
+            {r.status === 'received' && <button className="link" onClick={() => run(() => api(`/api/ca/requests/${r.id}`, { method: 'PATCH', body: { decision: 'accepted' } }))}>Accept</button>}{' '}
+            {(r.status === 'received' || r.status === 'requested') && <button className="link" onClick={() => { setDeciding({ id: r.id, decision: 'needs_correction' }); setWhy(''); }}>Send back</button>}{' '}
+            {(r.status === 'requested' || r.status === 'received' || r.status === 'needs_correction') && <button className="link" onClick={() => { setDeciding({ id: r.id, decision: 'waived' }); setWhy(''); }}>Not needed</button>}
+            {(r.status === 'accepted' || r.status === 'waived' || r.status === 'needs_correction') && <button className="link" onClick={() => run(() => api(`/api/ca/requests/${r.id}`, { method: 'PATCH', body: { decision: 'requested' } }))}>Reopen</button>}
+          </div>
+          {deciding?.id === r.id && (
+            <form className="filters" onSubmit={(e) => { e.preventDefault(); void run(async () => { await api(`/api/ca/requests/${r.id}`, { method: 'PATCH', body: { decision: deciding.decision, reason: why } }); setDeciding(null); }); }}>
+              <div style={{ flex: 3 }}><label htmlFor={`why${r.id}`}>{deciding.decision === 'waived' ? 'Why is it not needed?' : 'What is wrong? The client will see this.'}</label><input id={`why${r.id}`} value={why} onChange={(e) => setWhy(e.target.value)} required maxLength={500} /></div>
+              <button className="btn">Save</button> <button type="button" className="secondary" onClick={() => setDeciding(null)}>Cancel</button>
+            </form>
+          )}
           {r.status !== 'accepted' && r.status !== 'waived' && (
             <div><label htmlFor={`sf${r.id}`} className="muted" style={{ fontSize: 13 }}>Add a file you received</label>{' '}
               <input id={`sf${r.id}`} type="file" accept="image/jpeg,image/png,application/pdf" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void run(async () => api(`/api/ca/requests/${r.id}/files`, { body: { name: f.name, type: f.type, data: await toBase64(f) } })); }} /></div>

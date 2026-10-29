@@ -51,6 +51,19 @@ test('a CA asks a client for documents, the client sends one from a link with no
   expect(res.headers()['content-disposition']).toContain('attachment');
   expect(await res.text()).toBe('%PDF-1.4 bank');
 
+  // Sending it back with a reason: the client sees the reason and the item asks again.
+  await row.getByRole('button', { name: 'Send back' }).click();
+  await page.getByLabel('What is wrong? The client will see this.').fill('Page 2 is missing');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(row).toContainText('Sent back');
+  const back = await browser.newContext();
+  const b = await back.newPage();
+  await b.goto(url);
+  const again1 = b.locator('.panel', { hasText: 'Bank statement for the month' });
+  await expect(again1).toContainText('Please send again');
+  await expect(again1).toContainText('Page 2 is missing');
+  await back.close();
+
   // Stopping the link closes the door.
   await page.getByRole('button', { name: 'Stop the link' }).click();
   const again = await browser.newContext();
