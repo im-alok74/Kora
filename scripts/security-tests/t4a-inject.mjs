@@ -23,9 +23,9 @@ for (const [name, html] of Object.entries(pages)) {
 // The CSP on those pages: would a missed escape still run?
 const inv = await new Client().get(`/i/${tok}`);
 const csp = inv.headers.get('content-security-policy');
-record('T4a-csp', 'headers', 'public invoice page has a script-blocking Content-Security-Policy', /script-src/.test(csp ?? '') ? 'HELD' : 'WEAK', `CSP: ${csp ?? '(none)'}`, 'medium');
-const app = await o.get('/app'); const csp2 = app.headers.get('content-security-policy');
-record('T4a-csp-app', 'headers', 'the signed-in app has a script-src policy', /script-src/.test(csp2 ?? '') ? 'HELD' : 'WEAK', `CSP: ${csp2 ?? '(none)'}`, 'medium');
+record('T4a-csp', 'headers', 'public invoice page has a script-blocking Content-Security-Policy', /script-src|default-src 'none'/.test(csp ?? '') ? 'HELD' : 'WEAK', `CSP: ${csp ?? '(none)'}`, 'medium');
+const app = await o.get('/app'); const csp2 = app.headers.get('content-security-policy'); const ro = app.headers.get('content-security-policy-report-only');
+record('T4a-csp-app', 'headers', 'the signed-in app has a script-src policy (enforced, or report-only while it is being rolled out)', /script-src/.test(csp2 ?? '') ? 'HELD' : /script-src/.test(ro ?? '') ? 'WEAK' : 'WEAK', `enforced: ${csp2 ?? '(none)'} | report-only: ${(ro ?? '(none)').slice(0, 90)}`, 'medium');
 
 // SQL injection
 const sqli = ["' OR '1'='1", "'; drop table party;--", "%' UNION SELECT null--", '\\', "\u0000"];

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { MAX_BODY_BYTES } from './lib/badInput';
+import { THEME_SCRIPT } from './lib/themeScript';
 
 /**
  * A request limit in front of every API route, per IP address, when Upstash Redis is configured
@@ -18,7 +19,28 @@ function reportProblem(e: unknown) {
   console.error(JSON.stringify({ t: new Date().toISOString(), level: 'error', event: 'ratelimit_unavailable', where: 'middleware', message: String((e as Error)?.message ?? e).slice(0, 200) }));
 }
 
+/**
+ * A script policy for the signed-in pages, REPORT-ONLY for now: the browser tells /api/csp-report what it would have blocked, and blocks nothing.
+ * Scripts need the per-request nonce (Next.js adds it to its own scripts when the policy is on the request), 'strict-dynamic' lets those load
+ * their chunks, and nothing else may run. Switch to enforcing (rename the header) after a week without reports from real use.
+ */
+async function pageCsp(req: NextRequest) {
+  const nonce = btoa(crypto.randomUUID());
+  const themeHash = btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(THEME_SCRIPT)))));
+  const policy = [
+    "default-src 'self'", `script-src 'self' 'nonce-${nonce}' 'sha256-${themeHash}' 'strict-dynamic'`, "style-src 'self' 'unsafe-inline'", "img-src 'self' data: blob:", "font-src 'self' data:",
+    "connect-src 'self'", "object-src 'none'", "base-uri 'self'", "frame-ancestors 'self'", "form-action 'self'", 'report-uri /api/csp-report',
+  ].join('; ');
+  const headers = new Headers(req.headers);
+  headers.set('x-nonce', nonce);
+  headers.set('content-security-policy-report-only', policy);   // Next.js reads the nonce from the request's policy
+  const res = NextResponse.next({ request: { headers } });
+  res.headers.set('content-security-policy-report-only', policy);
+  return res;
+}
+
 export async function middleware(req: NextRequest) {
+  if (!req.nextUrl.pathname.startsWith('/api/')) return await pageCsp(req);
   // A body larger than any real request is refused before the route reads it. (Vercel stops bodies over 4.5 MB itself; other hosts do not.)
   const declared = Number(req.headers.get('content-length') ?? 0);
   if (declared > MAX_BODY_BYTES && !req.nextUrl.pathname.startsWith('/api/webhooks/')) return NextResponse.json({ error: 'That request is too large.' }, { status: 413 });
@@ -45,4 +67,4 @@ export async function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: '/api/:path*' };
+export const config = { matcher: ['/api/:path*', '/app/:path*', '/ca/:path*', '/send/:path*'] };

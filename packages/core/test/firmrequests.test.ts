@@ -104,3 +104,30 @@ describe('the client link', () => {
     expect(await getVersionFile(db.web, other, vid)).toBeNull();
   });
 });
+
+describe('upload quota on the client link', () => {
+  it('stops one link filling storage: 10 files per item, 40 per piece of work, 50 MB in all; staff are not limited', async () => {
+    await addRequest(db.web, partner, e2, { label: 'Fourth item' });
+    await addRequest(db.web, partner, e2, { label: 'Fifth item' });
+    const { token } = await createUploadLink(db.web, partner, e2);
+    const ids = (await loadUploadPage(db.web, token))!.items.map((i) => i.id);
+    expect(ids.length).toBeGreaterThanOrEqual(5);
+    const [a, b, c, d, e] = ids;
+    for (let i = 0; i < 10; i++) await uploadViaLink(db.web, token, a!, { name: `a${i}.pdf`, type: 'application/pdf', dataBase64: pdf(`a${i}`) });
+    await expect(uploadViaLink(db.web, token, a!, { name: 'a11.pdf', type: 'application/pdf', dataBase64: pdf('x') })).rejects.toThrow(/most files this link allows/);   // per item
+    for (const item of [b!, c!, d!]) for (let i = 0; i < 10; i++) await uploadViaLink(db.web, token, item, { name: `f${i}.pdf`, type: 'application/pdf', dataBase64: pdf(`${item}${i}`) });
+    await expect(uploadViaLink(db.web, token, e!, { name: 'fifth.pdf', type: 'application/pdf', dataBase64: pdf('fifth') })).rejects.toThrow(/most files this link allows/);   // 40 in all
+    expect(await addStaffVersion(db.web, partner, e!, { name: 'staff.pdf', type: 'application/pdf', dataBase64: pdf('staff') })).toBeTruthy();                                  // staff are not limited
+  });
+  it('refuses once the bytes through the link pass 50 MB', async () => {
+    const { token } = await createUploadLink(db.web, partner, e1);
+    const item = (await loadUploadPage(db.web, token))!.items[0]!.id;
+    await db.owner`update document_version set size_bytes = 2097152 where request_id in (select id from document_request where engagement_id = ${e1}) and uploaded_via = 'link'`;
+    await db.owner`insert into document_version (firm_id, request_id, file_name, content_type, size_bytes, sha256, data, uploaded_via)
+                   select firm_id, id, 'big.pdf', 'application/pdf', 2097152, repeat('a', 64), '\x25'::bytea, 'link' from document_request where engagement_id = ${e1} limit 1 offset 1`;
+    // push the engagement total towards the byte cap with direct rows so the test stays fast
+    for (let i = 0; i < 24; i++) await db.owner`insert into document_version (firm_id, request_id, file_name, content_type, size_bytes, sha256, data, uploaded_via)
+                   select firm_id, id, ${'filler' + i + '.pdf'}, 'application/pdf', 2097152, repeat('b', 64), '\x25'::bytea, 'link' from document_request where engagement_id = ${e1} and id <> ${item} limit 1`;
+    await expect(uploadViaLink(db.web, token, item, { name: 'over.pdf', type: 'application/pdf', dataBase64: pdf('over') })).rejects.toThrow(/most files this link allows/);
+  });
+});

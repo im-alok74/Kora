@@ -148,7 +148,7 @@ One link accepted 28 files in a burst of 40 until the per-minute limit (30) stop
 |---|---|---|---|
 | **0 (owner, today, no code)** | Close the live exposure | F1 environment: unset the three switches in Production, redeploy, `/api/health` must say `ok` | health check; a second look at who signed in recently |
 | **1 (this PR)** | Close the exploitable gaps | F1 code, F2, F3, F8 | new unit tests (every IPv6 notation, flags in a production deployment, body limit); re-run `t4c2`, `t5`, `t8`; full suites |
-| **2** | Defence in depth and abuse limits | F4 (report-only first), F5, F6, F7 | re-run `t3`, `t4b`, `t7`; watch CSP reports for a week before enforcing |
+| **2** | Defence in depth and abuse limits | F4 (report-only first), F5, F6, F7. **Done**, except turning the script policy from report-only to enforcing | re-run `t3`, `t4a`, `t4b`, `t7` (done); watch CSP reports for a week before enforcing |
 | **3** | Hygiene | F9 to F13 | re-run `t3`, `t7`, `t9` |
 | **4 (process)** | Keep it safe | run `scripts/security-tests` in CI against the built app; scheduled dependency audit; pen test by a person on the live site before wide launch | CI job green; report |
 
@@ -185,7 +185,10 @@ Clear the local limiter table between scripts if sign-ins start failing (`trunca
 | F2 IPv4-mapped IPv6 bypass | **Fixed (Phase 1)** | `https://[::ffff:127.0.0.1]/` is now refused when saved; unit tests cover 12 more notations (hex, expanded, 6to4, Teredo, NAT64, zone ids) and three public ones that must stay allowed |
 | F3 request body limit | **Fixed (Phase 1)** | 30 MB and 120 MB bodies now get 413 in under a second (middleware, 8 MB cap, web-hook route excluded) |
 | F8 500 instead of 400 | **Fixed (Phase 1)** | the hostile-body run went from 53 server errors on 25 routes to 0 on 0 (JSON syntax errors, Postgres data exceptions, negative limit, non-text values in CA and statement routes, firm name length) |
-| F4 to F7 | Open: Phase 2 | |
+| F4 script policy | **Rolled out in report-only mode (Phase 2); not yet enforcing** | `/app`, `/ca` and `/send` pages send `Content-Security-Policy-Report-Only` with a per-request nonce, `'strict-dynamic'` and the hash of the theme script; 28 of 29 scripts carry the nonce and the 29th is the hashed theme script; reports go to `/api/csp-report` (rate limited, one log line each). **Enforce it (rename the header in `apps/web/middleware.ts`) after a week with no `csp_violation` log lines from real use.** The in-app browser used for checking bypasses CSP, so the browser-to-report loop was proven only with a hand-made report |
+| F5 per-person rate limit | **Fixed (Phase 2)** | 600 requests a minute per person (40 for reports, exports, imports and PDFs), counted in memory per server instance; 700 dashboard calls: 108 answered 429; 70 reports: 30 answered 429; another person unaffected. It is a per-instance cap, not a global one; Upstash adds the per-address global limit |
+| F6 upload quota | **Fixed (Phase 2)** | migration `0211`: through one client link at most 10 files per item, 40 files and 50 MB per piece of work; a burst of 40 now stores 10; staff uploads unaffected |
+| F7 passwords | **Fixed (Phase 2)** | `12345678`, `password`, `Passw0rd`, `aaaaaaaaaaaa`, `P@ssw0rd!`, `password123`, `Welcome1`, `Admin@123`, `India@2026`, sequences, digit-only, fewer than 4 different characters, and anything built from the person's name, email or phone are refused; long phrases and ordinary mixed passwords pass |
 | F9 to F13 | Open: Phase 3 | |
 
 ### What Phase 1 changed in the code

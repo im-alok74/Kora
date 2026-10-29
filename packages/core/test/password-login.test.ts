@@ -68,11 +68,11 @@ describe('sign up and sign in with a password, no code', () => {
   });
 
   it('the real owner of an address signing in by code removes the password someone else set, and ends its sessions', async () => {
-    const s = await auth.signUp({ identifier: 'victim@firm.test', password: 'squatter password', name: 'Squatter' });
+    const s = await auth.signUp({ identifier: 'victim@firm.test', password: 'hostile tactic pw', name: 'Squatter' });
     if (s.needsMfa) throw new Error('unexpected');
     await auth.requestOtp('victim@firm.test');
     await auth.verifyOtp('victim@firm.test', sender.outbox[sender.outbox.length - 1]!.code);
     expect(await auth.getSession(s.token)).toBeNull();
-    expect(await code(auth.signInPassword('victim@firm.test', 'squatter password'))).toBe('bad_credentials');
+    expect(await code(auth.signInPassword('victim@firm.test', 'hostile tactic pw'))).toBe('bad_credentials');
   });
 });

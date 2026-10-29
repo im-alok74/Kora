@@ -68,9 +68,14 @@ const o = await seededOwner('m7');
 }
 // --- rate limiting on authenticated endpoints and the public ones
 {
-  const a = await o.get('/api/me'); const burst = await Promise.all(Array.from({ length: 150 }, () => o.get('/api/dashboard')));
+  const a = await o.get('/api/me'); const burst = await Promise.all(Array.from({ length: 700 }, () => o.get('/api/dashboard')));
   const lim = burst.filter((r) => r.status === 429).length;
-  record('T7-rate-api', 'dos', `150 dashboard requests in one burst: ${lim} limited`, lim ? 'HELD' : 'WEAK', 'no limit on signed-in endpoints unless Upstash is configured (the middleware does nothing without it)', 'medium');
+  record('T7-rate-api', 'dos', `700 dashboard requests in one burst (limit is 600 a minute per person): ${lim} limited`, lim >= 90 ? 'HELD' : 'WEAK', `${lim} answered 429; ordinary use stays far below 600 a minute`, 'medium');
+  const heavy0 = await Promise.all(Array.from({ length: 70 }, () => o.get('/api/reports/ageing')));
+  const hl = heavy0.filter((r) => r.status === 429).length;
+  record('T7-rate-heavy', 'dos', `70 report requests in a minute (limit 40): ${hl} limited`, hl >= 25 ? 'HELD' : 'WEAK', `${hl} answered 429`, 'medium');
+  const other = await newUser('rl2'); const still = await other.get('/api/me');
+  record('T7-rate-isolated', 'dos', 'one person hitting the limit does not slow anyone else', still.status === 200 ? 'HELD' : 'WEAK', `${still.status}`);
   const pub = await Promise.all(Array.from({ length: 150 }, () => new Client().get(`/api/gstin/27AAAAA0000A1Z5`)));
   record('T7-rate-gstin', 'dos', 'public/unauthenticated lookups', 'INFO', `${[...new Set(pub.map((r) => r.status))]}`);
   const heavy = await Promise.all(Array.from({ length: 30 }, () => o.get('/api/reports/gstr1?from=2020-01-01&to=2026-12-31')));

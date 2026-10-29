@@ -1,0 +1,2 @@
+/** Sets the theme before the first paint. Shared by the root layout and the page script policy, which allows exactly this text by its hash. */
+export const THEME_SCRIPT = "try{var t=localStorage.getItem('kora-theme');document.documentElement.dataset.theme=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light'}catch(e){document.documentElement.dataset.theme='light'}";
