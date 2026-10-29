@@ -1,7 +1,7 @@
 import type { Sql, Tx } from '@kora/db';
 import { gstinValid } from '@kora/tax';
 import { parseCsv } from './importer.js';
-import { inFirm, type FirmSession } from './firmtenancy.js';
+import { inFirm, seesAllClients, type FirmSession } from './firmtenancy.js';
 import { ValidationError } from './validation.js';
 
 export type RegistrationType = 'regular' | 'composition' | 'sez' | 'isd';
@@ -71,6 +71,42 @@ export async function addClient(sql: Sql, s: FirmSession, input: NewClient): Pro
   });
 }
 
+/** The scope test: everyone with a wide role passes; otherwise the client must be assigned to this person. Alias the client table as `c`. */
+const mine = (tx: Tx, s: FirmSession, all: boolean) =>
+  all ? tx`true` : tx`exists (select 1 from client_assignment a where a.client_id = c.id and a.user_id = ${s.userId})`;
+
+/** Throws unless this person may work on this client. The one check every client-scoped action should call. */
+export async function assertClientAccess(tx: Tx, s: FirmSession, clientId: string): Promise<void> {
+  const [r] = await tx`select 1 as ok from client_entity c where c.id = ${clientId} and c.firm_id = ${s.firmId} and ${mine(tx, s, seesAllClients(s.role))}`;
+  if (!r) throw new ValidationError('That client was not found.');
+}
+
+/** Gives a preparer or reviewer access to one client. The person must be an active member of this firm. */
+export async function assignClient(sql: Sql, s: FirmSession, clientId: string, userId: string): Promise<void> {
+  return inFirm(sql, s, 'client.assign', async (tx) => {
+    await assertClientAccess(tx, s, clientId);
+    const [m] = await tx`select 1 as ok from firm_member where firm_id = ${s.firmId} and user_id = ${userId} and active`;
+    if (!m) throw new ValidationError('That person is not an active member of your firm.');
+    await tx`insert into client_assignment (firm_id, client_id, user_id, assigned_by) values (${s.firmId}, ${clientId}, ${userId}, ${s.userId}) on conflict do nothing`;
+  });
+}
+
+export async function unassignClient(sql: Sql, s: FirmSession, clientId: string, userId: string): Promise<void> {
+  return inFirm(sql, s, 'client.assign', async (tx) => {
+    await assertClientAccess(tx, s, clientId);
+    await tx`delete from client_assignment where client_id = ${clientId} and user_id = ${userId}`;
+  });
+}
+
+export async function listAssignees(sql: Sql, s: FirmSession, clientId: string): Promise<{ userId: string; email: string; role: string }[]> {
+  return inFirm(sql, s, 'client.read', async (tx) => {
+    await assertClientAccess(tx, s, clientId);
+    return (await tx`select a.user_id, u.email, m.role from client_assignment a join app_user u on u.id = a.user_id
+                      left join firm_member m on m.firm_id = a.firm_id and m.user_id = a.user_id where a.client_id = ${clientId} order by u.email`)
+      .map((r) => ({ userId: r.user_id as string, email: r.email as string, role: (r.role as string) ?? '' }));
+  });
+}
+
 export interface ClientRow {
   id: string; legalName: string; pan: string | null; sourceSoftware: string; contactName: string; contactEmail: string; contactPhone: string; status: string;
   registrations: { id: string; gstin: string; registrationType: string; filingFrequency: string; stateCode: string }[];
@@ -80,9 +116,10 @@ export interface ClientRow {
 export async function listClients(sql: Sql, s: FirmSession, opts: { limit?: number; offset?: number } = {}) {
   const limit = Math.min(Math.max(opts.limit ?? 100, 1), 200);
   const offset = Math.max(opts.offset ?? 0, 0);
+  const all = seesAllClients(s.role);
   return inFirm(sql, s, 'client.read', async (tx) => {
-    const [{ n }] = (await tx`select count(*)::int as n from client_entity where firm_id = ${s.firmId} and status = 'active'`) as unknown as [{ n: number }];
-    const ents = await tx`select * from client_entity where firm_id = ${s.firmId} and status = 'active' order by legal_name, id limit ${limit} offset ${offset}`;
+    const [{ n }] = (await tx`select count(*)::int as n from client_entity c where c.firm_id = ${s.firmId} and c.status = 'active' and ${mine(tx, s, all)}`) as unknown as [{ n: number }];
+    const ents = await tx`select c.* from client_entity c where c.firm_id = ${s.firmId} and c.status = 'active' and ${mine(tx, s, all)} order by c.legal_name, c.id limit ${limit} offset ${offset}`;
     const ids = ents.map((e) => e.id as string);
     const regs = ids.length ? await tx`select * from client_registration where client_id = any(${ids}) order by gstin` : [];
     const clients: ClientRow[] = ents.map((e) => ({
