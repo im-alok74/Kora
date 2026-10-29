@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import './globals.css';
 import './kora-loader.css';
 import './product.css';
+import { THEME_SCRIPT } from '../lib/themeScript';
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from '../lib/site';
 
 export const metadata = {
@@ -21,7 +22,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en-IN" suppressHydrationWarning>
       <head>
         {/* Sets the theme before the first paint, from the saved choice, else from the device setting, so there is no flash of the wrong one. */}
-        <script dangerouslySetInnerHTML={{ __html: "try{var t=localStorage.getItem('kora-theme');document.documentElement.dataset.theme=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light'}catch(e){document.documentElement.dataset.theme='light'}" }} />
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body>{children}</body>
     </html>

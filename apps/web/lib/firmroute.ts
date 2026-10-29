@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import type { Sql } from '@kora/db';
 import { listFirms, resolveFirm, type FirmSession } from '@kora/core';
-import { currentUserId, errorResponse, json, requireJson, services } from './server';
+import { currentUserId, errorResponse, json, requireJson, services, tooManyRequests } from './server';
 
 const FIRM_COOKIE = 'kora_firm';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -19,6 +19,8 @@ export function firmRoute(handler: (a: { s: FirmSession; req: Request; sql: Sql 
       }
       const userId = await currentUserId();
       if (!userId) return json({ error: 'Sign in first.' }, 401);
+      const slow = tooManyRequests(userId, req);
+      if (slow) return slow;
       const { sql } = services();
       const asked = req.headers.get('x-firm-id') ?? (await cookies()).get(FIRM_COOKIE)?.value ?? '';
       const firmId = UUID.test(asked) ? asked : (await listFirms(sql, userId))[0]?.firmId;

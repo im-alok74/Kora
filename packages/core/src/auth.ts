@@ -1,3 +1,4 @@
+import { passwordProblem } from './password-rules.js';
 import { createHash, createHmac, randomBytes, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { Sql } from '@kora/db';
 import type { OtpSender } from '@kora/adapters';
@@ -210,6 +211,8 @@ export function createAuth(sql: Sql, sender: OtpSender, cfg: AuthConfig) {
       if (password.length > 128) throw new AuthError('weak_password', 'That password is too long. Use 128 characters or fewer.');
       const name = String(i.name ?? '').trim();
       if (name.length < 1 || name.length > 80) throw new AuthError('weak_password', 'Enter your name.');
+      const weak = passwordProblem(password, [name, id.value.split('@')[0]!]);
+      if (weak) throw new AuthError('weak_password', weak);
       const accountType = (i.accountType ?? 'business') as AccountType;
       if (!ACCOUNT_TYPES.includes(accountType)) throw new AuthError('weak_password', 'Choose what kind of account this is.');
       const col = id.channel === 'sms' ? 'phone' : 'email';

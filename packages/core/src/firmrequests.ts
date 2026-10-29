@@ -162,7 +162,10 @@ export async function uploadViaLink(sql: Sql, token: string, requestId: string, 
     await sql`select upload_link_add_version(${hash}, ${requestId}, ${id}, ${file.name}, ${file.type}, ${file.data.length}, ${sha(file.data)}, ${data}, ${key})`;
   } catch (e) {
     if (key) await getBlobStore()?.delete(key).catch(() => {});
-    if ((e as { code?: string }).code === '23514') throw new ValidationError('That could not be saved: the link may have expired, or the item is already closed.');
+    if ((e as { code?: string }).code === '23514') {
+      if (/upload limit/.test((e as Error).message)) throw new ValidationError('You have sent the most files this link allows. Ask your CA to review what you have sent, or for a new link.');
+      throw new ValidationError('That could not be saved: the link may have expired, or the item is already closed.');
+    }
     throw e;
   }
 }
