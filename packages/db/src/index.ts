@@ -49,6 +49,19 @@ export async function withTenant<T>(sql: Sql, ctx: TenantContext, fn: (tx: Tx) =
   }) as Promise<T>;
 }
 
+/**
+ * A firm reading a linked client's business. READ ONLY at the database level, and is_authorized() lets it through only while an active
+ * client_business_link joins this firm to this business and the person is an active firm member.
+ */
+export async function withLinkedTenant<T>(sql: Sql, ctx: { businessId: string; userId: string; firmId: string }, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  if (!UUID.test(ctx.businessId) || !UUID.test(ctx.userId) || !UUID.test(ctx.firmId)) throw new Error('withLinkedTenant: ids must be UUIDs');
+  return sql.begin('read only', async (tx) => {
+    await tx`select set_config('app.business_id', ${ctx.businessId}, true), set_config('app.user_id', ${ctx.userId}, true),
+                    set_config('app.firm_id', ${ctx.firmId}, true)`;
+    return fn(tx);
+  }) as Promise<T>;
+}
+
 /** A firm session: sets app.firm_id and app.user_id. Firm tables are isolated on app.firm_id; this grants no access to any client's business. */
 export async function withFirm<T>(sql: Sql, ctx: { firmId: string; userId: string }, fn: (tx: Tx) => Promise<T>): Promise<T> {
   if (!UUID.test(ctx.firmId) || !UUID.test(ctx.userId)) throw new Error('withFirm: ids must be UUIDs');

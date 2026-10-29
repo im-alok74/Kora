@@ -1,4 +1,4 @@
-import { withTenant, type Sql, type Tx } from '@kora/db';
+import { withLinkedTenant, withTenant, type Sql, type Tx } from '@kora/db';
 import { can, ForbiddenError, type Action, type Role } from './permissions.js';
 
 export interface Membership { businessId: string; legalName: string; role: Role }
@@ -16,7 +16,8 @@ export async function createBusiness(
   return r!.id as string;
 }
 
-export interface TenantSession { businessId: string; userId: string; role: Role }
+/** `viaFirm` is set only for a CA firm reading a linked client: read actions only, in a read-only transaction. */
+export interface TenantSession { businessId: string; userId: string; role: Role; viaFirm?: string }
 
 /** Confirms the user belongs to the business. Call once per request, before any tenant query. */
 export async function resolveTenant(sql: Sql, userId: string, businessId: string): Promise<TenantSession> {
@@ -28,6 +29,10 @@ export async function resolveTenant(sql: Sql, userId: string, businessId: string
 /** Runs fn inside the tenant, after checking the role may perform the action. */
 export function inTenant<T>(sql: Sql, t: TenantSession, action: Action, fn: (tx: Tx) => Promise<T>): Promise<T> {
   if (!can(t.role, action)) throw new ForbiddenError(action);
+  if (t.viaFirm) {
+    if (!action.endsWith('.read')) throw new ForbiddenError(action);
+    return withLinkedTenant(sql, { businessId: t.businessId, userId: t.userId, firmId: t.viaFirm }, fn);
+  }
   return withTenant(sql, { businessId: t.businessId, userId: t.userId }, fn);
 }
 
