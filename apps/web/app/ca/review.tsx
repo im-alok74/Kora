@@ -4,6 +4,7 @@ import { api } from '../../lib/client';
 
 type Issue = { id: string; text: string; status: 'open' | 'resolved' };
 type Sub = { id: string; versionNo: number; status: string; decisionNote: string | null; unchanged: boolean; submittedAt: string; issues: Issue[] };
+type Ev = { id: string; reference: string; filedOn: string; fileName: string };
 type State = { effective: 'none' | 'pending' | 'approved' | 'stale' | 'returned'; submission: Sub | null };
 
 const SAYS: Record<State['effective'], string> = {
@@ -17,7 +18,12 @@ export default function Review({ engagementId, version, onChange }: { engagement
   const [point, setPoint] = useState('');
   const [note, setNote] = useState('');
   const [back, setBack] = useState(false);
-  const load = useCallback(async () => { setSt(await api<State>(`/api/ca/engagements/${engagementId}/review`)); onChange?.(); }, [engagementId, onChange]);
+  const [ev, setEv] = useState<Ev[]>([]);
+  const [f, setF] = useState({ reference: '', filedOn: '' });
+  const load = useCallback(async () => {
+    const [r, e] = await Promise.all([api<State>(`/api/ca/engagements/${engagementId}/review`), api<{ evidence: Ev[] }>(`/api/ca/engagements/${engagementId}/filing`)]);
+    setSt(r); setEv(e.evidence); onChange?.();
+  }, [engagementId, onChange]);
   // Reload when the checklist beside it changes, so a stale approval shows as soon as it happens.
   useEffect(() => { load().catch((e) => setErr(e.message)); }, [load, version]);
   const run = async (fn: () => Promise<unknown>) => { setErr(''); try { await fn(); await load(); } catch (e) { setErr((e as Error).message); } };
@@ -60,6 +66,24 @@ export default function Review({ engagementId, version, onChange }: { engagement
           )}
         </>
       )}
+      <h3 style={{ fontSize: 16, marginTop: 16 }}>Filing</h3>
+      {ev.map((x) => <div key={x.id} style={{ fontSize: 14 }}>Marked filed: reference <b>{x.reference}</b> on {x.filedOn} · <a href={`/api/ca/evidence/${x.id}`}>{x.fileName}</a></div>)}
+      {ev.length > 0 && <p className="muted" style={{ fontSize: 13 }}>This is your team’s own record. Kora has not checked it with the GST portal.</p>}
+      {st.effective === 'approved' ? (
+        <>
+          <form className="filters" onSubmit={(e) => { e.preventDefault(); const file = (e.currentTarget.elements.namedItem('ack') as HTMLInputElement).files?.[0]; if (!file) return; void run(async () => {
+            const data = await new Promise<string>((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] ?? ''); r.onerror = () => no(new Error('The file could not be read.')); r.readAsDataURL(file); });
+            await api(`/api/ca/engagements/${engagementId}/filing`, { body: { reference: f.reference, filedOn: f.filedOn, name: file.name, type: file.type, data } });
+            setF({ reference: '', filedOn: '' });
+          }); }}>
+            <div style={{ flex: 2 }}><label htmlFor={`fr${engagementId}`}>Reference (ARN)</label><input id={`fr${engagementId}`} value={f.reference} onChange={(e) => setF({ ...f, reference: e.target.value })} required maxLength={60} /></div>
+            <div><label htmlFor={`fd${engagementId}`}>Filed on</label><input id={`fd${engagementId}`} type="date" value={f.filedOn} onChange={(e) => setF({ ...f, filedOn: e.target.value })} required /></div>
+            <div><label htmlFor={`fa${engagementId}`}>Acknowledgement file</label><input id={`fa${engagementId}`} name="ack" type="file" accept="image/jpeg,image/png,application/pdf" required /></div>
+            <button className="secondary">Record the filing</button>
+          </form>
+          <p><button className="btn" disabled={ev.length === 0} title={ev.length === 0 ? 'Record the filing first' : ''} onClick={() => run(() => api(`/api/ca/engagements/${engagementId}/close`, { body: {} }))}>Close this work</button></p>
+        </>
+      ) : <p className="muted">A filing can be recorded once the review is approved.</p>}
     </div>
   );
 }

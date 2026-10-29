@@ -71,17 +71,16 @@ describe('blockers', () => {
 });
 
 describe('closing work', () => {
-  it('lets a preparer move work to review but not mark it done', async () => {
+  it('lets anyone who can see the client move work to review, but nobody marks it done from here', async () => {
     await setEngagementStatus(db.web, prep, e1, 'in_review');
-    await expect(setEngagementStatus(db.web, prep, e1, 'done')).rejects.toThrow(/assigned reviewer/);
+    for (const who of [prep, rev, partner]) await expect(setEngagementStatus(db.web, who, e1, 'done')).rejects.toThrow(/closed from the Review section/);
   });
-  it('lets the assigned reviewer mark it done, and only a closer reopen it', async () => {
-    await setEngagementStatus(db.web, rev, e1, 'done');
+  it('lets only a closer reopen finished work', async () => {
+    await db.owner`update engagement set status = 'done' where id = ${e1}`;
     await expect(setEngagementStatus(db.web, prep, e1, 'preparing')).rejects.toThrow(/reopen/);
+    await setEngagementStatus(db.web, rev, e1, 'preparing');
+    await db.owner`update engagement set status = 'done' where id = ${e1}`;
     await setEngagementStatus(db.web, partner, e1, 'preparing');
-  });
-  it('does not let a reviewer close work they are not assigned to review', async () => {
-    await expect(setEngagementStatus(db.web, rev, e2, 'done')).rejects.toThrow(/assigned reviewer/);
   });
   it('hides engagements of unassigned clients and other firms', async () => {
     await expect(setEngagementStatus(db.web, stranger, e1, 'preparing')).rejects.toThrow(/not found/);

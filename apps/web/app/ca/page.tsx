@@ -92,7 +92,7 @@ export default function Work() {
                 {r.statutoryDeadline && r.status !== 'done' && r.statutoryDeadline < today() && <><br /><span className="chip" title="Kora does not know whether this was filed">date passed</span></>}
                 {r.internalTarget && <><br /><span className="muted">aim {r.internalTarget}</span></>}</td>
               <td><select style={{ minWidth: 120 }} aria-label={`Status of ${r.form} for ${r.clientName}`} value={r.status} onChange={(e) => patch(r.id, { status: e.target.value })}>
-                {(Object.keys(STATUS) as Row['status'][]).map((s) => <option key={s} value={s}>{STATUS[s]}</option>)}</select></td>
+                {(Object.keys(STATUS) as Row['status'][]).filter((s) => s !== 'done' || r.status === 'done').map((s) => <option key={s} value={s} disabled={s === 'done'}>{STATUS[s]}</option>)}</select></td>
               <td>{wide ? (
                 <select style={{ minWidth: 140 }} aria-label={`Preparer for ${r.form} for ${r.clientName}`} value={r.ownerId ?? ''} onChange={(e) => patch(r.id, { ownerId: e.target.value || null })}>
                   <option value="">Nobody</option>{me.members.map((m) => <option key={m.userId} value={m.userId}>{m.email}</option>)}</select>) : (name.get(r.ownerId ?? '') ?? <span className="muted">Nobody</span>)}</td>
