@@ -39,6 +39,7 @@ export * from './firmtenancy.js';
 export * from './firmclients.js';
 export * from './firmlink.js';
 export * from './firmengagement.js';
+export * from './firmwork.js';
 export * from './inbox.js';
 export * from './matters.js';
 export * from './tick.js';

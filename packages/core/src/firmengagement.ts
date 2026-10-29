@@ -62,16 +62,20 @@ export async function generateEngagements(sql: Sql, s: FirmSession, period: stri
 export interface EngagementRow {
   id: string; clientId: string; clientName: string; gstin: string; service: Service; form: string; period: string;
   statutoryDeadline: string | null; deadlineSource: string; internalTarget: string | null; status: EngagementStatus;
+  ownerId: string | null; reviewerId: string | null;
+  blocker: { reason: string; party: 'client' | 'firm' | 'third_party'; nextAction: string; expected: string | null; since: string } | null;
 }
 
 /** One page of engagements the person may see (preparers and reviewers: only for clients assigned to them). */
-export async function listEngagements(sql: Sql, s: FirmSession, opts: { period?: string; status?: EngagementStatus; limit?: number; offset?: number } = {}) {
+export async function listEngagements(sql: Sql, s: FirmSession, opts: { period?: string; status?: EngagementStatus; blocked?: boolean; mine?: boolean; limit?: number; offset?: number } = {}) {
   const limit = Math.min(Math.max(opts.limit ?? 100, 1), 200), offset = Math.max(opts.offset ?? 0, 0);
   if (opts.period && !PERIOD.test(opts.period)) throw new ValidationError('Period must look like 2026-09.', 'period');
   const all = seesAllClients(s.role);
   return inFirm(sql, s, 'engagement.read', async (tx) => {
     const where = (t: Tx) => t`e.firm_id = ${s.firmId}
       ${opts.period ? t`and e.period = ${opts.period}` : t``} ${opts.status ? t`and e.status = ${opts.status}` : t``}
+      ${opts.blocked === undefined ? t`` : opts.blocked ? t`and e.blocker_reason is not null` : t`and e.blocker_reason is null`}
+      ${opts.mine ? t`and (e.owner_id = ${s.userId} or e.reviewer_id = ${s.userId})` : t``}
       ${all ? t`` : t`and exists (select 1 from client_assignment a where a.client_id = e.client_id and a.user_id = ${s.userId})`}`;
     const [{ n }] = (await tx`select count(*)::int as n from engagement e where ${where(tx)}`) as unknown as [{ n: number }];
     const rows = await tx`select e.*, c.legal_name, r.gstin from engagement e join client_entity c on c.id = e.client_id join client_registration r on r.id = e.registration_id
@@ -80,6 +84,11 @@ export async function listEngagements(sql: Sql, s: FirmSession, opts: { period?:
       id: e.id, clientId: e.client_id, clientName: e.legal_name, gstin: e.gstin, service: e.service, form: FORM_NAME[e.service as Service], period: e.period,
       statutoryDeadline: e.statutory_deadline ? new Date(e.statutory_deadline).toISOString().slice(0, 10) : null, deadlineSource: e.deadline_source,
       internalTarget: e.internal_target ? new Date(e.internal_target).toISOString().slice(0, 10) : null, status: e.status,
+      ownerId: e.owner_id ?? null, reviewerId: e.reviewer_id ?? null,
+      blocker: e.blocker_reason ? {
+        reason: e.blocker_reason, party: e.blocker_party, nextAction: e.blocker_next_action ?? '',
+        expected: e.blocker_expected ? new Date(e.blocker_expected).toISOString().slice(0, 10) : null, since: new Date(e.blocker_since).toISOString(),
+      } : null,
     }));
     return { total: n, limit, offset, engagements };
   });
