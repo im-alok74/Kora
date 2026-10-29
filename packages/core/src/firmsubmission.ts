@@ -108,7 +108,7 @@ export async function resolveIssue(sql: Sql, s: FirmSession, issueId: string): P
  * the checklist and files to be exactly as submitted. Returning needs a note and puts the work back to "preparing".
  */
 export async function decideSubmission(sql: Sql, s: FirmSession, submissionId: string, d: { decision: 'approved' | 'returned'; note?: string | null }): Promise<void> {
-  const note = (d.note ?? '').trim().slice(0, 1000) || null;
+  const note = (typeof d.note === 'string' ? d.note : '').trim().slice(0, 1000) || null;
   if (d.decision !== 'approved' && d.decision !== 'returned') throw new ValidationError('Choose approve or send back.', 'decision');
   if (d.decision === 'returned' && !note) throw new ValidationError('Say what needs to change.', 'note');
   return inFirm(sql, s, 'engagement.work', async (tx) => {

@@ -30,16 +30,32 @@ describe('signatures', () => {
 describe('where webhooks may go', () => {
   it('refuses every address that is not on the public internet', () => {
     for (const ip of ['127.0.0.1', '127.255.0.9', '10.1.2.3', '172.16.0.1', '172.31.255.255', '192.168.1.1', '169.254.169.254', '100.64.0.1', '0.0.0.0', '224.0.0.1', '198.18.0.1',
-                      '::1', '::', 'fe80::1', 'fd00::1', 'fc00::5', '::ffff:10.0.0.1', '::ffff:127.0.0.1', 'ff02::1']) {
+                      '::1', '::', 'fe80::1', 'fd00::1', 'fc00::5', '::ffff:10.0.0.1', '::ffff:127.0.0.1', 'ff02::1',
+                      // the forms Node and DNS actually produce for an IPv4 address inside IPv6
+                      '::ffff:7f00:1', '::ffff:a9fe:a9fe', '::ffff:0a00:0001', '0:0:0:0:0:ffff:7f00:1', '::7f00:1', '2002:7f00:1::', '2002:a9fe:a9fe::1', '64:ff9b::7f00:1', '2001:0:4136:e378:8000:63bf:3fff:fdd2', 'fe80::1%eth0', '2001:db8::1',
+                      'not-an-address']) {
       expect(isPrivateAddress(ip), ip).toBe(true);
     }
-    for (const ip of ['8.8.8.8', '1.1.1.1', '172.32.0.1', '172.15.255.255', '100.63.255.255', '100.128.0.1', '203.0.113.5', '2606:4700:4700::1111', '::ffff:8.8.8.8']) {
+    for (const ip of ['8.8.8.8', '1.1.1.1', '172.32.0.1', '172.15.255.255', '100.63.255.255', '100.128.0.1', '203.0.113.5', '2606:4700:4700::1111', '::ffff:8.8.8.8', '::ffff:808:808', '2002:808:808::1']) {
       expect(isPrivateAddress(ip), ip).toBe(false);
+    }
+  });
+  it('ignores the allow-private switch on the live production deployment', () => {
+    const was = { a: process.env.KORA_WEBHOOK_ALLOW_PRIVATE, v: process.env.VERCEL_ENV };
+    try {
+      process.env.KORA_WEBHOOK_ALLOW_PRIVATE = '1';
+      process.env.VERCEL_ENV = 'preview';
+      expect(validateWebhookUrl('http://127.0.0.1:9/x').hostname).toBe('127.0.0.1');   // staging: allowed on purpose
+      process.env.VERCEL_ENV = 'production';
+      expect(() => validateWebhookUrl('http://127.0.0.1:9/x')).toThrow(ValidationError);
+      expect(() => validateWebhookUrl('https://10.0.0.5/x')).toThrow(ValidationError);
+    } finally {
+      for (const [k, v] of [['KORA_WEBHOOK_ALLOW_PRIVATE', was.a], ['VERCEL_ENV', was.v]] as const) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
     }
   });
   it('accepts a normal https address and refuses the rest when saved', () => {
     expect(validateWebhookUrl('https://hooks.example.com/kora?x=1').hostname).toBe('hooks.example.com');
-    for (const bad of ['http://example.com/x', 'ftp://example.com', 'not a url', '', 'https://localhost/x', 'https://app.localhost/x', 'https://127.0.0.1/x', 'https://[::1]/x', 'https://10.0.0.5/x',
+    for (const bad of ['http://example.com/x', 'ftp://example.com', 'not a url', '', 'https://localhost/x', 'https://app.localhost/x', 'https://127.0.0.1/x', 'https://[::1]/x', 'https://[::ffff:127.0.0.1]/x', 'https://[::ffff:7f00:1]:8443/x', 'https://[::ffff:169.254.169.254]/x', 'https://10.0.0.5/x',
                        'https://169.254.169.254/latest/meta-data', 'https://metadata.google.internal/x', 'https://printer.local/x', 'https://intranet/x', 'https://user:pw@example.com/x', 'javascript:alert(1)']) {
       expect(() => validateWebhookUrl(bad), bad).toThrow(ValidationError);
     }

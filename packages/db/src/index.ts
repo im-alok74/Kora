@@ -4,7 +4,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export type Sql = postgres.Sql;
-export { schemaStatus, mockFlagsInProduction, migrationDirs, type SchemaStatus } from './health.js';
+export { schemaStatus, mockFlagsInProduction, isLiveDeployment, migrationDirs, type SchemaStatus } from './health.js';
 export type Tx = postgres.TransactionSql;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
