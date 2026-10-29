@@ -7,11 +7,9 @@ import { getBlobStore } from './blobs.js';
 export const INBOX_STATUSES = ['new', 'done', 'rejected'] as const;
 export type InboxStatus = (typeof INBOX_STATUSES)[number];
 
-/** A client hands over a bill or paper. The accountant later marks it done, or sends it back with a reason. */
-export async function addToInbox(sql: Sql, t: TenantSession, i: { title: string; note?: string | null; name: string; type: string; dataBase64: string }): Promise<{ id: string }> {
+/** Checks an uploaded file: type, name, readable base64, size up to 2 MB, and that the first bytes match the claimed type. Shared by the inbox and the firm's requests. */
+export function checkUpload(i: { name: string; type: string; dataBase64: string }): { name: string; type: string; data: Buffer } {
   if (!(RECEIPT_TYPES as readonly string[]).includes(i.type)) throw new ValidationError('The file can be a JPEG or PNG photo, or a PDF.', 'type');
-  const title = str(i.title, 'Title', { required: true, max: 120 })!;
-  const note = str(i.note, 'Note', { max: 1000 });
   const name = str(i.name, 'File name', { required: true, max: 120 })!.replace(/[^\w.\- ]+/g, '_');
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(i.dataBase64)) throw new ValidationError('The file could not be read.', 'data');
   const data = Buffer.from(i.dataBase64, 'base64');
@@ -21,6 +19,14 @@ export async function addToInbox(sql: Sql, t: TenantSession, i: { title: string;
     : i.type === 'image/png' ? data.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))
     : data.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]));
   if (!magic) throw new ValidationError('The file does not look like a real file of that type.', 'data');
+  return { name, type: i.type, data };
+}
+
+/** A client hands over a bill or paper. The accountant later marks it done, or sends it back with a reason. */
+export async function addToInbox(sql: Sql, t: TenantSession, i: { title: string; note?: string | null; name: string; type: string; dataBase64: string }): Promise<{ id: string }> {
+  const { name, data } = checkUpload(i);
+  const title = str(i.title, 'Title', { required: true, max: 120 })!;
+  const note = str(i.note, 'Note', { max: 1000 });
   const store = getBlobStore();
   try {
     return await inTenant(sql, t, 'inbox.upload', async (tx) => {
