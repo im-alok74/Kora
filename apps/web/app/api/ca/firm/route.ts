@@ -10,6 +10,6 @@ export const GET = userRoute(async ({ userId, svc }) => {
 });
 export const POST = userRoute(async ({ userId, req, svc }) => {
   const name = String(((await req.json().catch(() => ({}))) as { name?: string }).name ?? '').trim();
-  if (!name) return Response.json({ error: 'Enter your firm name.' }, { status: 400 });
+  if (!name || name.length > 200) return Response.json({ error: 'Enter your firm name (up to 200 characters).' }, { status: 400 });
   return { id: await createFirm(svc.sql, userId, name) };
 });

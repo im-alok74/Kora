@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { otpSenderFromEnv, type OtpSender } from '@kora/adapters';
 import { portalAccess } from '@kora/core';
+import { isLiveDeployment } from '@kora/db';
 import { json, services } from './server';
 import { publicLimit } from './publicLimit';
 
@@ -15,7 +16,7 @@ export const portalSecret = () => {
   if (!s) throw new Error('OTP_HMAC_SECRET is not set (see .env.example)');
   return s;
 };
-export const portalFixedCode = () => (process.env.KORA_ALLOW_MOCKS === '1' ? process.env.DEMO_FIXED_OTP || undefined : undefined);
+export const portalFixedCode = () => (process.env.KORA_ALLOW_MOCKS === '1' && !isLiveDeployment() ? process.env.DEMO_FIXED_OTP || undefined : undefined);
 
 export const PORTAL_GONE = { error: 'This link is not valid any more. Ask the business for a new one.' };
 

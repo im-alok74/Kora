@@ -5,6 +5,7 @@ import { readJson, tenantRoute } from '../../../../../lib/server';
 export const POST = tenantRoute(async ({ t, sql, req }) => {
   const b = await readJson<{ party?: string; from?: string; to?: string; contactPersonId?: string | null; email?: string | null }>(req);
   return queueStatementSend(sql, t, {
-    partyId: b.party ?? '', from: b.from, to: b.to, contactPersonId: b.contactPersonId ?? null, email: b.email ?? null,
+    partyId: String(b.party ?? ''), from: typeof b.from === 'string' ? b.from : undefined, to: typeof b.to === 'string' ? b.to : undefined,
+    contactPersonId: typeof b.contactPersonId === 'string' ? b.contactPersonId : null, email: typeof b.email === 'string' ? b.email : null,
   });
 });

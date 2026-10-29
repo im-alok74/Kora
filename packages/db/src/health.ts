@@ -38,6 +38,13 @@ export async function schemaStatus(sql: Sql, dirs: string[] = migrationDirs()): 
  * staging demo and must never be on in production. A Vercel preview deployment counts as staging; anything else running with
  * NODE_ENV=production is treated as production.
  */
+/**
+ * True on the live Vercel production deployment. The demo one-time code, the fake payment page and web-hooks to private addresses are
+ * switched OFF there whatever the environment variables say, so setting a staging switch by mistake cannot open an account takeover.
+ * (The mock adapters can still be selected so the app starts; they are not an attack surface.)
+ */
+export const isLiveDeployment = (env: Record<string, string | undefined> = process.env): boolean => env.VERCEL_ENV === 'production';
+
 export function mockFlagsInProduction(env: Record<string, string | undefined> = process.env): string[] {
   if (env.NODE_ENV !== 'production' || env.VERCEL_ENV === 'preview' || env.VERCEL_ENV === 'development') return [];
   const on: string[] = [];

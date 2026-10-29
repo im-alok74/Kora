@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { MAX_BODY_BYTES } from './lib/badInput';
 
 /**
  * A request limit in front of every API route, per IP address, when Upstash Redis is configured
@@ -18,6 +19,9 @@ function reportProblem(e: unknown) {
 }
 
 export async function middleware(req: NextRequest) {
+  // A body larger than any real request is refused before the route reads it. (Vercel stops bodies over 4.5 MB itself; other hosts do not.)
+  const declared = Number(req.headers.get('content-length') ?? 0);
+  if (declared > MAX_BODY_BYTES && !req.nextUrl.pathname.startsWith('/api/webhooks/')) return NextResponse.json({ error: 'That request is too large.' }, { status: 413 });
   const url = process.env.UPSTASH_REDIS_REST_URL, token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return NextResponse.next();
   const p = req.nextUrl.pathname;

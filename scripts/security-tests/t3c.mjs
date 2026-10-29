@@ -1,0 +1,11 @@
+import { record, seededOwner, newUser, findings } from './lib.mjs';
+const owner = await seededOwner('rc'); const staff = await newUser('st2'); const acct = await newUser('ac2');
+await owner.post('/api/team', { identifier: staff.email, role: 'staff' }); await owner.post('/api/team', { identifier: acct.email, role: 'accountant' });
+staff.headers['x-business-id'] = owner.businessId; acct.headers['x-business-id'] = owner.businessId;
+const r1 = await acct.post('/api/data/import', { kind: 'customers', csv: 'name\nInjected By Accountant', commit: true });
+const list = await owner.get('/api/parties');
+record('T3c-import', 'roles', 'accountant (read-only) commits a customer import', /Injected By Accountant/.test(list.text) ? 'VULN' : 'HELD', `${r1.status} ${r1.text.slice(0, 80)}`, 'medium');
+const r2 = await staff.post('/api/outbound-webhooks', { url: 'https://example.com/x', events: ['document.issued'] });
+record('T3c-hook', 'roles', 'staff creates an outbound webhook', r2.status < 300 ? 'VULN' : 'HELD', `${r2.status} ${r2.text.slice(0, 80)}`, 'medium');
+const r3 = await acct.post('/api/outbound-webhooks', { url: 'https://example.com/x', events: ['document.issued'] });
+record('T3c-hook2', 'roles', 'accountant creates an outbound webhook', r3.status < 300 ? 'VULN' : 'HELD', `${r3.status} ${r3.text.slice(0, 80)}`, 'medium');

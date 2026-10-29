@@ -441,7 +441,7 @@ export async function listDocuments(sql: Sql, t: TenantSession, f: { type?: stri
      where (${f.type ?? null}::text is null or d.doc_type = ${f.type ?? ''})
        and (${f.status ?? null}::text is null or d.status = ${f.status ?? ''})
        and (${f.q ?? null}::text is null or d.number ilike ${'%' + (f.q ?? '') + '%'} or p.name ilike ${'%' + (f.q ?? '') + '%'})
-     order by d.doc_date desc, d.created_at desc limit ${Math.min(f.limit ?? 50, 200)} offset ${f.offset ?? 0}`);
+     order by d.doc_date desc, d.created_at desc limit ${Math.max(1, Math.min(Number(f.limit) || 50, 200))} offset ${Math.max(0, Number(f.offset) || 0)}`);
 }
 
 /**

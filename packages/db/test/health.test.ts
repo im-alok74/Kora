@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { mockFlagsInProduction, schemaStatus } from '../src/health.js';
+import { isLiveDeployment, mockFlagsInProduction, schemaStatus } from '../src/health.js';
 import { makeTestDb, type TestDb } from '../src/testing.js';
 
 describe('schemaStatus', () => {
@@ -48,5 +48,14 @@ describe('mockFlagsInProduction', () => {
   });
   it('does not count a flag that is set to something other than on', () => {
     expect(mockFlagsInProduction({ ...prod, KORA_ALLOW_MOCKS: '0', DEMO_FIXED_OTP: '' })).toEqual([]);
+  });
+});
+
+describe('isLiveDeployment', () => {
+  it('is true only on the Vercel production deployment, so staging switches stay usable in previews and in local production builds', () => {
+    expect(isLiveDeployment({ VERCEL_ENV: 'production', NODE_ENV: 'production' })).toBe(true);
+    expect(isLiveDeployment({ VERCEL_ENV: 'preview', NODE_ENV: 'production' })).toBe(false);
+    expect(isLiveDeployment({ NODE_ENV: 'production' })).toBe(false);
+    expect(isLiveDeployment({})).toBe(false);
   });
 });

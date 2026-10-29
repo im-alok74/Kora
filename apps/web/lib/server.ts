@@ -1,11 +1,12 @@
 import { cookies } from 'next/headers';
-import { createSql, type Sql } from '@kora/db';
+import { createSql, isLiveDeployment, type Sql } from '@kora/db';
 import { createLazyGsp, createMockBilling, createMockGateway, createRazorpayBilling, createRazorpayGateway, type BillingGateway, createMockGstinLookup, otpSenderFromEnv, type GspClient, type GstinLookup, type PaymentGateway } from '@kora/adapters';
 import {
   createAuth, rateLimiterFromEnv, reportError, type RequestInfo, getEinvoice, getTemplate, getBusiness, getDocument, getParty, isAdminUser, isAuthError, isConflictError, isForbidden, isPlanLimitError, isValidationError, listBusinesses, resolveTenant,
   type Auth, type TenantSession,
 } from '@kora/core';
 import { isTaxError } from '@kora/tax';
+import { badInputMessage } from './badInput';
 import { qrDataUrl, upiBlockFor } from '@kora/pdf';
 
 export const SESSION_COOKIE = 'kora_session';
@@ -29,7 +30,7 @@ export function services(): Services {
       hmacSecret: need('OTP_HMAC_SECRET'), limiter,
       sessionTtlDays: Number(process.env.SESSION_TTL_DAYS ?? 30),
       // Staging demo only. It needs KORA_ALLOW_MOCKS=1 as well, and lets anyone sign in as any number.
-      fixedCode: process.env.KORA_ALLOW_MOCKS === '1' ? process.env.DEMO_FIXED_OTP || undefined : undefined,
+      fixedCode: process.env.KORA_ALLOW_MOCKS === '1' && !isLiveDeployment() ? process.env.DEMO_FIXED_OTP || undefined : undefined,
     });
     // On Vercel, the platform sets the production host; an explicit APP_URL (a custom domain) always wins.
     const vercelHost = process.env.VERCEL_PROJECT_PRODUCTION_URL;
@@ -104,7 +105,8 @@ export function requireJson(req: Request): Response | null {
 }
 
 export async function readJson<T = Record<string, any>>(req: Request): Promise<T> {
-  try { return (await req.json()) as T; } catch { return {} as T; }
+  // Anything that is not a plain JSON object (a bare string, a number, a list, null) counts as an empty body, so a route never has to guard against it.
+  try { const v = await req.json(); return (v !== null && typeof v === 'object' && !Array.isArray(v) ? v : {}) as T; } catch { return {} as T; }
 }
 
 /** Where a request came from: the first address in x-forwarded-for (set by the host), and the browser's description of itself. */
@@ -179,6 +181,8 @@ export function errorResponse(e: unknown): Response {
   if (isConflictError(e)) return json({ error: e.message, code: 'conflict', id: e.documentId, serverRev: e.serverRev }, 409);
   // A malformed id in the URL is "not found", not a server error.
   if ((e as { code?: string })?.code === '22P02') return json({ error: 'Not found.' }, 404);
+  const bad = badInputMessage(e);
+  if (bad) return json({ error: bad }, 400);
   if (e instanceof Error && /^Enter a valid/.test(e.message)) return json({ error: e.message }, 400);
   void reportError(e, { event: 'request_error' });
   return json({ error: 'Something went wrong on our side. Try again.' }, 500);

@@ -13,7 +13,7 @@ export type ReviewDecision = 'accepted' | 'needs_correction' | 'waived' | 'reque
  *   requested         reopens an item that was accepted, waived or sent back
  */
 export async function reviewRequest(sql: Sql, s: FirmSession, requestId: string, d: { decision: ReviewDecision; reason?: string | null }): Promise<void> {
-  const reason = (d.reason ?? '').trim().slice(0, 500) || null;
+  const reason = (typeof d.reason === 'string' ? d.reason : '').trim().slice(0, 500) || null;
   if (!['accepted', 'needs_correction', 'waived', 'requested'].includes(d.decision)) throw new ValidationError('Choose accept, send back, not needed or reopen.', 'decision');
   if ((d.decision === 'needs_correction' || d.decision === 'waived') && !reason) throw new ValidationError(d.decision === 'waived' ? 'Say why this is not needed.' : 'Say what is wrong, so the client knows what to send instead.', 'reason');
   return inFirm(sql, s, 'engagement.work', async (tx) => {

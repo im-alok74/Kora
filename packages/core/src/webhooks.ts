@@ -3,7 +3,7 @@ import { lookup as dnsLookup } from 'node:dns';
 import { request as httpRequest, type IncomingMessage } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { isIP } from 'node:net';
-import { withTenant, SYSTEM_USER, type Sql, type Tx } from '@kora/db';
+import { isLiveDeployment, withTenant, SYSTEM_USER, type Sql, type Tx } from '@kora/db';
 import { enqueue, PermanentJobError, type JobRow } from './jobs.js';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { str, ValidationError } from './validation.js';
@@ -36,18 +36,49 @@ export function verifyWebhookSignature(secret: string, header: string | null | u
 }
 
 // ---------------------------------------------------------------- where requests may go
-const allowPrivate = () => process.env.KORA_WEBHOOK_ALLOW_PRIVATE === '1';
+const allowPrivate = () => process.env.KORA_WEBHOOK_ALLOW_PRIVATE === '1' && !isLiveDeployment();
 
-/** True for any address that is not on the public internet: loopback, private ranges, link-local (cloud metadata), CGNAT, multicast. */
-export function isPrivateAddress(ip: string): boolean {
-  const v4 = /^(?:::ffff:)?(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(ip);
-  if (v4) {
-    const [a, b] = [Number(v4[1]), Number(v4[2])];
-    return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) ||
-      (a === 100 && b >= 64 && b <= 127) || (a === 192 && b === 0) || (a === 198 && (b === 18 || b === 19)) || a >= 224;
+const privateV4 = (a: number, b: number) =>
+  a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) ||
+  (a === 100 && b >= 64 && b <= 127) || (a === 192 && b === 0) || (a === 198 && (b === 18 || b === 19)) || a >= 224;
+
+/** The 16 bytes of an IPv6 address in any notation (compressed, with a dotted IPv4 tail, with a zone), or null when it is not one. */
+function ipv6Bytes(ip: string): number[] | null {
+  let s = ip.toLowerCase().split('%')[0]!;
+  const tail = /(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(s);
+  if (tail) {
+    const q = tail.slice(1).map(Number);
+    if (q.some((n) => n > 255)) return null;
+    s = s.slice(0, tail.index) + ((q[0]! << 8) | q[1]!).toString(16) + ':' + ((q[2]! << 8) | q[3]!).toString(16);
   }
-  const s = ip.toLowerCase();
-  return s === '::' || s === '::1' || s.startsWith('fc') || s.startsWith('fd') || /^fe[89ab]/.test(s) || s.startsWith('ff') || s.startsWith('64:ff9b') || s.startsWith('2001:db8');
+  const halves = s.split('::');
+  if (halves.length > 2) return null;
+  const groups = (h: string) => (h === '' ? [] : h.split(':'));
+  const head = groups(halves[0]!), rest = halves.length === 2 ? groups(halves[1]!) : [];
+  const fill = 8 - head.length - rest.length;
+  if (halves.length === 1 ? head.length !== 8 : fill < 1) return null;
+  const all = [...head, ...Array(halves.length === 2 ? fill : 0).fill('0'), ...rest];
+  if (all.length !== 8 || all.some((g) => !/^[0-9a-f]{1,4}$/.test(g))) return null;
+  return all.flatMap((g) => [parseInt(g, 16) >> 8, parseInt(g, 16) & 255]);
+}
+
+/**
+ * True for any address that is not on the public internet: loopback, private ranges, link-local (cloud metadata), CGNAT, multicast,
+ * and every IPv6 form that carries one of those inside it. Node writes `[::ffff:127.0.0.1]` as `::ffff:7f00:1`, so the IPv4 inside an
+ * IPv4-mapped, IPv4-compatible or 6to4 address is read from the bytes, not from the text.
+ */
+export function isPrivateAddress(ip: string): boolean {
+  const v4 = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(ip);
+  if (v4) return privateV4(Number(v4[1]), Number(v4[2]));
+  const b = ipv6Bytes(ip);
+  if (!b) return true;                                         // not an address we can read: treat as unsafe
+  if (b.slice(0, 10).every((x) => x === 0) && b[10] === 255 && b[11] === 255) return privateV4(b[12]!, b[13]!);   // ::ffff:a.b.c.d
+  if (b.slice(0, 12).every((x) => x === 0)) return true;      // ::, ::1 and IPv4-compatible ::a.b.c.d
+  if (b[0] === 0x20 && b[1] === 0x02) return privateV4(b[2]!, b[3]!);                                              // 6to4 2002:AABB:CCDD::
+  if (b[0] === 0x20 && b[1] === 0x01 && b[2] === 0 && b[3] === 0) return true;                                      // Teredo
+  if (b[0] === 0x00 && b[1] === 0x64 && b[2] === 0xff && b[3] === 0x9b) return true;                                // NAT64
+  if (b[0] === 0x20 && b[1] === 0x01 && b[2] === 0x0d && b[3] === 0xb8) return true;                               // documentation
+  return (b[0]! & 0xfe) === 0xfc || (b[0] === 0xfe && (b[1]! & 0xc0) === 0x80) || b[0] === 0xff;                   // fc00::/7, fe80::/10, ff00::/8
 }
 
 /** Checks a URL when it is saved. A second check happens when it is used, on the address actually connected to. */

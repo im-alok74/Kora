@@ -1,3 +1,4 @@
+import { isLiveDeployment } from '@kora/db';
 import { formatRupees } from '@kora/tax';
 import { services } from '../../../lib/server';
 
@@ -5,7 +6,7 @@ const HEAD = { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-
 
 /** A stand-in for the gateway's hosted checkout, so the whole payment loop can be tried without a gateway account. */
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
-  if (process.env.NODE_ENV === 'production' && process.env.KORA_ALLOW_MOCKS !== '1') return new Response('Not found', { status: 404 });
+  if (isLiveDeployment() || (process.env.NODE_ENV === 'production' && process.env.KORA_ALLOW_MOCKS !== '1')) return new Response('Not found', { status: 404 });
   const { id } = await ctx.params;
   if (!/^plink_[0-9a-f]{18}$/.test(id)) return new Response('Not found', { status: 404 });
   const [link] = await services().sql`select * from lookup_payment_link('mock', ${id})`;
