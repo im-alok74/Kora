@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { db, gstin, signedIn } from '../helpers';
+import { gstin, signedIn } from '../helpers';
 
 const pdf = (s: string) => ({ name: `${s}.pdf`, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.4 ${s}`) });
 
@@ -15,13 +15,18 @@ test('work goes from checklist to review by a second person to a recorded filing
   await page.getByRole('button', { name: 'Add client' }).click();
   await expect(page.getByRole('table', { name: 'Clients' })).toContainText('Alpha Foods');
 
-  // A second person joins the firm as reviewer (there is no screen for adding people yet, so the setup is direct).
+  // A second person joins the firm as reviewer, added by a partner on the Team screen, and is given the client.
   const rcontext = await browser.newContext();
   const reviewer = await signedIn(rcontext, `rev${Date.now()}@example.test`);
-  const firmId = (await db`select firm_id as id from firm_member where user_id = ${partner.userId}`)[0]!.id as string;
-  const clientId = (await db`select id from client_entity where firm_id = ${firmId}`)[0]!.id as string;
-  await db`insert into firm_member (firm_id, user_id, role) values (${firmId}, ${reviewer.userId}, 'reviewer')`;
-  await db`insert into client_assignment (firm_id, client_id, user_id, assigned_by) values (${firmId}, ${clientId}, ${reviewer.userId}, ${partner.userId})`;
+  await page.goto('/ca/team');
+  await page.getByLabel('Mobile number or email').fill(reviewer.email);
+  await page.getByLabel('Role', { exact: true }).selectOption('reviewer');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.getByRole('table', { name: 'Team' })).toContainText(reviewer.email);
+  await page.goto('/ca/clients');
+  await page.getByRole('button', { name: 'Show' }).click();
+  await page.getByLabel('Give Alpha Foods to').selectOption({ label: `${reviewer.email} (reviewer)` });
+  await expect(page.getByRole('button', { name: 'Remove' })).toBeVisible();   // the reviewer now shows as looking after Alpha Foods
 
   await page.goto('/ca');
   await page.getByLabel('Month worked on').fill('2026-08');

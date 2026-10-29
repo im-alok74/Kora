@@ -8,6 +8,8 @@ services:
     environment:
       POSTGRES_PASSWORD: kora_admin_dev
       POSTGRES_DB: kora
+    # Every test database is built by running all migrations in one transaction; with many running at once the default lock table runs out ("out of shared memory").
+    command: ["postgres", "-c", "max_locks_per_transaction=256"]
     ports: ["54329:5432"]
     volumes:
       - ./infra/init-roles.sql:/docker-entrypoint-initdb.d/00-roles.sql:ro
