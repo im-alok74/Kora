@@ -2,13 +2,14 @@ import { withFirm, type Sql, type Tx } from '@kora/db';
 
 /** Roles inside a CA firm. These say nothing about access to a client's books; that needs a role in the client's business. */
 export type FirmRole = 'partner' | 'manager' | 'preparer' | 'reviewer';
-export type FirmAction = 'firm.read' | 'member.manage' | 'client.read' | 'client.write' | 'client.assign';
+export type FirmAction = 'firm.read' | 'member.manage' | 'client.read' | 'client.write' | 'client.assign'
+  | 'engagement.read' | 'engagement.write' | 'engagement.work';
 
 const GRANTS: Record<FirmRole, ReadonlySet<FirmAction>> = {
-  partner: new Set<FirmAction>(['firm.read', 'member.manage', 'client.read', 'client.write', 'client.assign']),
-  manager: new Set<FirmAction>(['firm.read', 'client.read', 'client.write', 'client.assign']),
-  preparer: new Set<FirmAction>(['firm.read', 'client.read']),
-  reviewer: new Set<FirmAction>(['firm.read', 'client.read']),
+  partner: new Set<FirmAction>(['firm.read', 'member.manage', 'client.read', 'client.write', 'client.assign', 'engagement.read', 'engagement.write', 'engagement.work']),
+  manager: new Set<FirmAction>(['firm.read', 'client.read', 'client.write', 'client.assign', 'engagement.read', 'engagement.write', 'engagement.work']),
+  preparer: new Set<FirmAction>(['firm.read', 'client.read', 'engagement.read', 'engagement.work']),
+  reviewer: new Set<FirmAction>(['firm.read', 'client.read', 'engagement.read', 'engagement.work']),
 };
 
 export const canFirm = (role: FirmRole, action: FirmAction) => GRANTS[role].has(action);
