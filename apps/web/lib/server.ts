@@ -172,7 +172,7 @@ export async function requireTenant(req: Request): Promise<TenantSession | Respo
 
 export function errorResponse(e: unknown): Response {
   if (isAuthError(e)) return json({ error: e.message, code: e.code }, e.code === 'bad_credentials' ? 401 : ['invalid_code', 'weak_password', 'exists'].includes(e.code) ? 400 : 429);
-  if (isForbidden(e)) return json({ error: e.message }, 403);
+  if (isForbidden(e) || (e instanceof Error && e.name === 'FirmForbiddenError')) return json({ error: (e as Error).message }, 403);
   if (isPlanLimitError(e)) return json({ error: e.message, code: e.code, feature: e.feature, plan: e.plan, upgradeUrl: '/app/billing' }, 402);
   if (isValidationError(e)) return json({ error: e.message, field: e.field }, 400);
   if (isTaxError(e)) return json({ error: e.message, code: e.code }, 400);

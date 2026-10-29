@@ -36,6 +36,7 @@ export * from './webhooks.js';
 export * from './dashboard.js';
 export * from './firm.js';
 export * from './firmtenancy.js';
+export * from './firmclients.js';
 export * from './inbox.js';
 export * from './matters.js';
 export * from './tick.js';
