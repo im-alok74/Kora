@@ -18,8 +18,8 @@ test('work goes from checklist to review by a second person to a recorded filing
   // A second person joins the firm as reviewer (there is no screen for adding people yet, so the setup is direct).
   const rcontext = await browser.newContext();
   const reviewer = await signedIn(rcontext, `rev${Date.now()}@example.test`);
-  const [{ id: firmId }] = await db`select firm_id as id from firm_member where user_id = ${partner.userId}`;
-  const [{ id: clientId }] = await db`select id from client_entity where firm_id = ${firmId}`;
+  const firmId = (await db`select firm_id as id from firm_member where user_id = ${partner.userId}`)[0]!.id as string;
+  const clientId = (await db`select id from client_entity where firm_id = ${firmId}`)[0]!.id as string;
   await db`insert into firm_member (firm_id, user_id, role) values (${firmId}, ${reviewer.userId}, 'reviewer')`;
   await db`insert into client_assignment (firm_id, client_id, user_id, assigned_by) values (${firmId}, ${clientId}, ${reviewer.userId}, ${partner.userId})`;
 
