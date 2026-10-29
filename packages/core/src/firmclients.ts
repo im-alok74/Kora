@@ -85,7 +85,7 @@ export async function assertClientAccess(tx: Tx, s: FirmSession, clientId: strin
 export async function assignClient(sql: Sql, s: FirmSession, clientId: string, userId: string): Promise<void> {
   return inFirm(sql, s, 'client.assign', async (tx) => {
     await assertClientAccess(tx, s, clientId);
-    const [m] = await tx`select 1 as ok from firm_member where firm_id = ${s.firmId} and user_id = ${userId} and active`;
+    const [m] = await tx`select 1 as ok from firm_member where firm_id = ${s.firmId} and user_id = ${userId} and active and accepted_at is not null`;
     if (!m) throw new ValidationError('That person is not an active member of your firm.');
     await tx`insert into client_assignment (firm_id, client_id, user_id, assigned_by) values (${s.firmId}, ${clientId}, ${userId}, ${s.userId}) on conflict do nothing`;
   });

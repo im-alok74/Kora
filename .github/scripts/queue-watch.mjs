@@ -53,7 +53,7 @@ async function main() {
     process.exit(1);
   }
   let health = null, jobs = null;
-  try { health = (await get(`${base}/api/health`)).body; } catch (e) { health = { status: `unreachable (${e.message})` }; }
+  try { health = (await get(`${base}/api/health`, { authorization: `Bearer ${secret}` })).body; } catch (e) { health = { status: `unreachable (${e.message})` }; }
   try {
     const r = await get(`${base}/api/admin/jobs`, { authorization: `Bearer ${secret}` });
     if (r.status === 200) jobs = r.body; else console.error(`/api/admin/jobs answered ${r.status}`);

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import KoraLoader from '../../../components/KoraLoader';
 import { api } from '../../../lib/client';
 
-type Member = { userId: string; email: string; role: string };
+type Member = { userId: string; email: string; role: string; pending?: boolean };
 type Client = { id: string; legalName: string; pan: string | null; sourceSoftware: string; registrations: { id: string; gstin: string; registrationType: string; filingFrequency: string }[] };
 type List = { total: number; limit: number; clients: Client[] };
 type Preview = { lines: { line: number; legalName: string; gstin: string; status: 'new' | 'exists' | 'error'; message: string }[]; counts: { new: number; exists: number; error: number } };
@@ -99,7 +99,7 @@ export default function Clients() {
                   <div key={a.userId}>{a.email} <button className="link" onClick={() => run(async () => { await api(`/api/ca/clients/${c.id}/assignees?userId=${a.userId}`, { method: 'DELETE' }); await showAssignees(c.id); })}>Remove</button></div>
                 )) : <span className="muted">Only partners and managers</span>) : <button className="link" onClick={() => showAssignees(c.id).catch((e) => setErr(e.message))}>Show</button>}
                 <select aria-label={`Give ${c.legalName} to`} value="" onChange={(e) => e.target.value && run(async () => { await api(`/api/ca/clients/${c.id}/assignees`, { body: { userId: e.target.value } }); await showAssignees(c.id); })}>
-                  <option value="">Give to…</option>{me.members.filter((m) => m.role === 'preparer' || m.role === 'reviewer').map((m) => <option key={m.userId} value={m.userId}>{m.email} ({m.role})</option>)}</select>
+                  <option value="">Give to…</option>{me.members.filter((m) => !m.pending && (m.role === 'preparer' || m.role === 'reviewer')).map((m) => <option key={m.userId} value={m.userId}>{m.email} ({m.role})</option>)}</select>
               </td>}
             </tr>))}</tbody>
         </table>

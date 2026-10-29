@@ -1,5 +1,6 @@
 import { authenticateApiKey, getPlan, plansEnforced, reportLimiterProblem, type ApiScope, type TenantSession } from '@kora/core';
 import type { Sql } from '@kora/db';
+import { publicLimit } from './publicLimit';
 import { errorResponse, requireJson, services } from './server';
 
 /**
@@ -53,7 +54,11 @@ export function v1Route(opts: { write?: boolean }, handler: (c: V1Context) => Pr
     try {
       const svc = services();
       const auth = await authenticateApiKey(svc.sql, req.headers.get('authorization'));
-      if (!auth) return v1Error(401, 'Send a valid API key as "Authorization: Bearer kora_...".', {}, { 'www-authenticate': 'Bearer' });
+      if (!auth) {
+        // Guessing keys is throttled per address; a wrong key is not counted against any key's own limit.
+        if (await publicLimit('v1-badkey', 30)) return v1Error(429, 'Too many invalid keys from this address. Wait a minute.', {}, { 'retry-after': '60' });
+        return v1Error(401, 'Send a valid API key as "Authorization: Bearer kora_...".', {}, { 'www-authenticate': 'Bearer' });
+      }
 
       // The plan sets the limit once plans are enforced; the free plan is the tightest. Otherwise the one configured number.
       const limit = plansEnforced() ? (await getPlan(svc.sql, auth.t)).plan.limits.apiPerMinute : LIMIT;

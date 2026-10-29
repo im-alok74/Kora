@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import KoraLoader from '../../../components/KoraLoader';
 import { api } from '../../../lib/client';
 
-type Member = { userId: string; email: string; role: string };
+type Member = { userId: string; email: string; role: string; pending?: boolean };
 type Me = { you: string; role: string; members: Member[] };
 
 const HELP: Record<string, string> = {
@@ -47,7 +47,7 @@ export default function Team() {
         <thead><tr><th>Person</th><th>Role</th><th>Can</th>{isPartner && <th />}</tr></thead>
         <tbody>{me.members.map((m) => (
           <tr key={m.userId}>
-            <td><b>{m.email}</b>{m.userId === me.you && <> <span className="chip">you</span></>}</td>
+            <td><b>{m.email}</b>{m.userId === me.you && <> <span className="chip">you</span></>}{m.pending && <> <span className="chip" title="They have not accepted yet. Nothing of the firm is open to them.">waiting to accept</span></>}</td>
             <td>{isPartner ? (
               <select aria-label={`Role of ${m.email}`} value={m.role} onChange={(e) => run(() => api('/api/ca/team', { body: { identifier: m.email, role: e.target.value } }))}>
                 <option value="preparer">Preparer</option><option value="reviewer">Reviewer</option><option value="manager">Manager</option><option value="partner">Partner</option>

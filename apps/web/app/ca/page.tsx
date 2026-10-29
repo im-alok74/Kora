@@ -4,7 +4,7 @@ import KoraLoader from '../../components/KoraLoader';
 import Requests from './requests';
 import { api } from '../../lib/client';
 
-type Member = { userId: string; email: string; role: string };
+type Member = { userId: string; email: string; role: string; pending?: boolean };
 type Row = {
   id: string; clientName: string; gstin: string; form: string; period: string; statutoryDeadline: string | null; deadlineSource: string; internalTarget: string | null;
   status: 'open' | 'preparing' | 'in_review' | 'done'; ownerId: string | null; reviewerId: string | null;
@@ -43,7 +43,7 @@ export default function Work() {
   const run = async (fn: () => Promise<unknown>, ok = '') => { setErr(''); setNote(''); try { await fn(); await load(); if (ok) setNote(ok); } catch (e) { setErr((e as Error).message); } };
   const patch = (id: string, body: object) => run(() => api(`/api/ca/engagements/${id}`, { method: 'PATCH', body }));
   const wide = me?.role === 'partner' || me?.role === 'manager';
-  const name = useMemo(() => new Map((me?.members ?? []).map((m) => [m.userId, m.email])), [me]);
+  const name = useMemo(() => new Map((me?.members ?? []).filter((m) => !m.pending).map((m) => [m.userId, m.email])), [me]);
 
   if (!me || !list) return err ? <p className="error" role="alert">{err}</p> : <KoraLoader />;
   const rows = list.engagements;
@@ -95,10 +95,10 @@ export default function Work() {
                 {(Object.keys(STATUS) as Row['status'][]).filter((s) => s !== 'done' || r.status === 'done').map((s) => <option key={s} value={s} disabled={s === 'done'}>{STATUS[s]}</option>)}</select></td>
               <td>{wide ? (
                 <select style={{ minWidth: 140 }} aria-label={`Preparer for ${r.form} for ${r.clientName}`} value={r.ownerId ?? ''} onChange={(e) => patch(r.id, { ownerId: e.target.value || null })}>
-                  <option value="">Nobody</option>{me.members.map((m) => <option key={m.userId} value={m.userId}>{m.email}</option>)}</select>) : (name.get(r.ownerId ?? '') ?? <span className="muted">Nobody</span>)}</td>
+                  <option value="">Nobody</option>{me.members.filter((m) => !m.pending).map((m) => <option key={m.userId} value={m.userId}>{m.email}</option>)}</select>) : (name.get(r.ownerId ?? '') ?? <span className="muted">Nobody</span>)}</td>
               <td>{wide ? (
                 <select style={{ minWidth: 140 }} aria-label={`Reviewer for ${r.form} for ${r.clientName}`} value={r.reviewerId ?? ''} onChange={(e) => patch(r.id, { reviewerId: e.target.value || null })}>
-                  <option value="">Nobody</option>{me.members.map((m) => <option key={m.userId} value={m.userId}>{m.email}</option>)}</select>) : (name.get(r.reviewerId ?? '') ?? <span className="muted">Nobody</span>)}</td>
+                  <option value="">Nobody</option>{me.members.filter((m) => !m.pending).map((m) => <option key={m.userId} value={m.userId}>{m.email}</option>)}</select>) : (name.get(r.reviewerId ?? '') ?? <span className="muted">Nobody</span>)}</td>
               <td>{r.blocker ? (
                 <><span className="chip cancelled">Waiting on {PARTY[r.blocker.party]}</span> {r.blocker.reason}
                   <br /><span className="muted">{ageDays(r.blocker.since)} day(s){r.blocker.expected ? `, expected ${r.blocker.expected}` : ''}{r.blocker.nextAction ? ` · next: ${r.blocker.nextAction}` : ''}</span>
