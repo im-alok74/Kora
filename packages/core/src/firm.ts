@@ -42,7 +42,8 @@ const MAX_CLIENTS = 200;
  * Each business is read through its own tenant session, so a role that cannot see reports sees a row without figures.
  */
 export async function firmSummary(sql: Sql, userId: string) {
-  const memberships = (await listBusinesses(sql, userId)).slice(0, MAX_CLIENTS);
+  const all = await listBusinesses(sql, userId);
+  const memberships = all.slice(0, MAX_CLIENTS);
   const clients: FirmClient[] = [];
   for (const m of memberships) {
     const t = await resolveTenant(sql, userId, m.businessId);
@@ -66,6 +67,8 @@ export async function firmSummary(sql: Sql, userId: string) {
   clients.sort((a, b) => Number(b.needsAttention) - Number(a.needsAttention) || a.name.localeCompare(b.name));
   const sum = (f: (c: FirmClient) => string) => clients.reduce((s, c) => s + BigInt(f(c)), 0n).toString();
   return {
+    /** True when more businesses exist than are listed, so every total below covers only the first `shown`. */
+    truncated: all.length > memberships.length, shown: memberships.length, total: all.length,
     totals: { clients: clients.length, outstanding: sum((c) => c.outstanding), overdue: sum((c) => c.overdue), needingAttention: clients.filter((c) => c.needsAttention).length },
     clients,
   };

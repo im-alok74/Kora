@@ -89,6 +89,7 @@ export default function Itc() {
 
           {r.onlyIn2b.length > 0 && (
             <div className="panel"><p className="section-label">Filed by suppliers, missing from your books</p>
+              <p className="muted" style={{ fontSize: 13 }}>Adding a bill only records it in Kora. It does not accept or reject anything on the GST portal.</p>
               <table className="t" aria-label="In 2B only"><thead><tr><th>Supplier</th><th>Invoice</th><th className="n">Taxable</th><th className="n">Tax</th><th /></tr></thead>
                 <tbody>{r.onlyIn2b.map((m) => (<tr key={m.entryId}><td>{m.supplier ?? m.gstin}</td><td>{m.invoiceNumber}{!m.itcAvailable && <> <span className="chip cancelled">ITC not available</span></>}</td><td className="n">{rupees(m.taxablePaise)}</td><td className="n">{rupees(m.taxPaise)}</td>
                   <td className="n">{canWrite && <button className="secondary sm" disabled={busy} onClick={() => run(async () => { const a = await api('/api/itc/gstr2b/accept', { body: { entryId: m.entryId } }); window.location.href = `/app/purchases/${a.billId}`; })}>Add as a bill</button>}</td></tr>))}</tbody></table></div>)}
