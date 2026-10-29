@@ -43,9 +43,10 @@ describe('firm summary', () => {
     expect(z.deadlines).toHaveLength(2);
     const al = f.clients[1]!;
     expect(al).toMatchObject({ role: 'accountant', registrationType: 'unregistered', deadlines: [], outstanding: '0', drafts: 1 });
+    expect(f).toMatchObject({ truncated: false, shown: 2, total: 2 });
     expect(f.totals).toEqual({ clients: 2, outstanding: '118000', overdue: '118000', needingAttention: 1 });
   });
   it('is empty for someone with no businesses', async () => {
-    expect(await firmSummary(db.web, stranger)).toEqual({ totals: { clients: 0, outstanding: '0', overdue: '0', needingAttention: 0 }, clients: [] });
+    expect(await firmSummary(db.web, stranger)).toEqual({ truncated: false, shown: 0, total: 0, totals: { clients: 0, outstanding: '0', overdue: '0', needingAttention: 0 }, clients: [] });
   });
 });

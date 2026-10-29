@@ -9,7 +9,7 @@ type Client = {
   outstanding: string; overdue: string; overdueCount: number; drafts: number; salesThisMonth: string; collectedThisMonth: string;
   deadlines: { form: string; period: string; due: string; daysLeft: number }[]; needsAttention: boolean;
 };
-type Firm = { totals: { clients: number; outstanding: string; overdue: string; needingAttention: number }; clients: Client[] };
+type Firm = { truncated: boolean; shown: number; total: number; totals: { clients: number; outstanding: string; overdue: string; needingAttention: number }; clients: Client[] };
 
 const when = (d: number) => (d < 0 ? `${-d} day${d === -1 ? '' : 's'} ago` : d === 0 ? 'today' : `in ${d} day${d === 1 ? '' : 's'}`);
 
@@ -36,6 +36,8 @@ export default function Firm() {
         <div><h1>Clients</h1><p className="page-sub">Every business you look after, with what is owed and what is due next.</p></div>
         <a className="btn" href="/setup?add=1"><Icon name="plus" size={18} />Add a client</a>
       </div>
+
+      {f.truncated && <p className="error" role="alert" data-testid="firm-truncated">Showing the first {f.shown} of {f.total} clients. The totals below cover only these, not all {f.total}.</p>}
 
       <div className="stats">
         <div className="stat"><div className="label">Clients</div><div className="value" data-testid="firm-clients">{f.totals.clients}</div></div>
@@ -66,7 +68,7 @@ export default function Firm() {
                 <td className="n c-type">{c.drafts}</td>
               </>) : <td colSpan={3} className="muted c-cust">Your role cannot see figures for this business.</td>}
               <td className="c-cust">{c.deadlines.length === 0 ? <span className="muted">None tracked</span> : c.deadlines.map((d) => (
-                <div key={d.form} style={{ fontSize: 13 }}>{d.form} for {d.period}: <b style={{ color: d.daysLeft >= 0 && d.daysLeft <= 5 ? 'var(--warning)' : d.daysLeft < 0 ? 'var(--text-muted)' : undefined }}>{d.due}</b> ({when(d.daysLeft)})</div>))}</td>
+                <div key={d.form} style={{ fontSize: 13 }}>{d.form} for {d.period}: <b style={{ color: d.daysLeft >= 0 && d.daysLeft <= 5 ? 'var(--warning)' : d.daysLeft < 0 ? 'var(--text-muted)' : undefined }}>{d.due}</b> ({when(d.daysLeft)}){d.daysLeft < 0 && <> <span className="chip" title="Kora does not know if this was filed">date passed, confirm filed</span></>}</div>))}</td>
               <td className="n c-status"><button className="secondary sm" onClick={() => open(c.businessId)} aria-label={`Open ${c.name}`}>Open</button></td>
             </tr>))}</tbody>
         </table>
