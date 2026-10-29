@@ -35,15 +35,17 @@ export async function assignEngagement(sql: Sql, s: FirmSession, id: string, a: 
 }
 
 /**
- * Moves the work along. Anyone who can see the client may mark it open, preparing or in review; only a partner, a manager or the
- * assigned reviewer may mark it done. Moving back out of done also needs one of them.
+ * Moves the work along. Anyone who can see the client may mark it open, preparing or in review. Marking it done is not possible here:
+ * it goes through closeEngagement, which needs an approved review and filing evidence. Moving back out of done needs a partner,
+ * a manager or the assigned reviewer.
  */
 export async function setEngagementStatus(sql: Sql, s: FirmSession, id: string, status: EngagementStatus): Promise<void> {
   if (!STATUSES.includes(status)) throw new ValidationError(`Status must be one of ${STATUSES.join(', ')}.`, 'status');
   return inFirm(sql, s, 'engagement.work', async (tx) => {
     const e = await loadEngagement(tx, s, id);
+    if (status === 'done') throw new ValidationError('Work is closed from the Review section: it needs an approved review and filing evidence.');
     const closer = seesAllClients(s.role) || e.reviewer_id === s.userId;
-    if ((status === 'done' || e.status === 'done') && !closer) throw new ValidationError('Only a partner, a manager or the assigned reviewer can mark work done or reopen it.');
+    if (e.status === 'done' && !closer) throw new ValidationError('Only a partner, a manager or the assigned reviewer can reopen finished work.');
     await tx`update engagement set status = ${status}, updated_at = now() where id = ${id}`;
   });
 }

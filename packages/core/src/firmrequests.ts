@@ -65,7 +65,7 @@ export async function listRequests(sql: Sql, s: FirmSession, engagementId: strin
 }
 
 /** Stores the bytes where the deployment keeps files: object storage when it is set up, the database otherwise. */
-async function keep(firmId: string, versionId: string, file: { type: string; data: Buffer }) {
+export async function keep(firmId: string, versionId: string, file: { type: string; data: Buffer }) {
   const store = getBlobStore();
   const key = store ? `firm/${firmId}/requests/${versionId}` : null;
   if (store && key) await store.put(key, file.data, file.type);

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { makeTestDb, type TestDb } from '@kora/db/src/testing.js';
 import {
   addClient, addDefaultChecklist, addFirmMember, addStaffVersion, createFirm, createUploadLink, demoGstin, generateEngagements, listEngagements, listRequests, markReminder,
-  planReminders, reminderSummary, resolveFirm, reviewRequest, setEngagementStatus, uploadViaLink, type FirmSession,
+  planReminders, reminderSummary, resolveFirm, reviewRequest, uploadViaLink, type FirmSession,
 } from '../src/index.js';
 
 let db: TestDb;
@@ -106,7 +106,7 @@ describe('reminders', () => {
     const [n] = await db.owner`select count(*)::int as n from request_reminder where request_id = ${id}`;
     expect(n!.n).toBe(4);   // the cap, reached and not passed
     await db.owner`update request_reminder set status = 'sent', settled_at = now() where status = 'queued'`;
-    await setEngagementStatus(db.web, partner, eng, 'done');
+    await db.owner`update engagement set status = 'done' where id = ${eng}`;   // closing goes through the review and filing steps, tested elsewhere
     await db.owner`update request_reminder set created_at = created_at - interval '9 days'`;
     expect((await planReminders(db.web, partner, days(60))).queued).toBe(0);
   });
