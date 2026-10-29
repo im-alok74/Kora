@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
-import { listBusinesses } from '@kora/core';
+import { listBusinesses, listFirms } from '@kora/core';
 import { BUSINESS_COOKIE, currentUserId, services } from '../../lib/server';
 import SideNav from './side-nav';
 import SignOut from './sign-out';
@@ -22,11 +22,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   if (!userId) redirect('/login');
   const businesses = await listBusinesses(services().sql, userId);
   if (businesses.length === 0) redirect('/setup');
+  // A person who works in a CA firm, or signed up as a CA, gets a way into the firm workspace from here.
+  const inFirm = (await listFirms(services().sql, userId)).length > 0 || (await services().auth.accountType(userId)) === 'ca';
   const chosen = (await cookies()).get(BUSINESS_COOKIE)?.value;
   const active = businesses.find((b) => b.businessId === chosen) ?? businesses[0]!;
   return (
     <div className="shell">
-      <SideNav role={active.role} multi={businesses.length > 1}>
+      <SideNav role={active.role} multi={businesses.length > 1} ca={inFirm}>
         <BusinessSwitcher businesses={businesses} activeId={active.businessId} />
         <span className="role">{active.role}</span>
         <SignOut />

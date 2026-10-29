@@ -8,7 +8,7 @@ import Icon, { type IconName } from '../../components/Icon';
 type Item = { href: string; label: string; icon: IconName; show?: boolean };
 
 /** The main navigation. On a phone it is a drawer behind a menu button. The page you are on is marked, for sighted users and screen readers. */
-export default function SideNav({ role, multi = false, children }: { role: string; multi?: boolean; children: ReactNode }) {
+export default function SideNav({ role, multi = false, ca = false, children }: { role: string; multi?: boolean; ca?: boolean; children: ReactNode }) {
   const path = usePathname() ?? '';
   const [open, setOpen] = useState(false);
   useEffect(() => { setOpen(false); }, [path]);
@@ -19,7 +19,7 @@ export default function SideNav({ role, multi = false, children }: { role: strin
   }, []);
 
   const groups: { title: string; items: Item[] }[] = [
-    { title: 'Overview', items: [{ href: '/app', label: 'Dashboard', icon: 'home' }, { href: '/app/firm', label: 'Clients', icon: 'team', show: multi }] },
+    { title: 'Overview', items: [{ href: '/app', label: 'Dashboard', icon: 'home' }, { href: '/app/firm', label: 'Clients', icon: 'team', show: multi }, { href: '/ca', label: 'CA workspace', icon: 'briefcase', show: ca }] },
     { title: 'Sales', items: [
       { href: '/app/invoices', label: 'Documents', icon: 'documents' }, { href: '/app/pos', label: 'Till', icon: 'rupee', show: role !== 'accountant' }, { href: '/app/recurring', label: 'Recurring', icon: 'repeat' },
       { href: '/app/matters', label: 'Matters', icon: 'briefcase' }, { href: '/app/projects', label: 'Projects', icon: 'clock' }, { href: '/app/customers', label: 'Customers', icon: 'user' }, { href: '/app/items', label: 'Items', icon: 'box' }, { href: '/app/price-lists', label: 'Price lists', icon: 'percent' }] },

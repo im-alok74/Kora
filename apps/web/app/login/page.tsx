@@ -12,7 +12,7 @@ import '../wizard.css';
 type Mode = 'signin' | 'signup' | 'code';
 type Step = 'id' | 'code' | 'mfa';
 const TYPES: [string, string][] = [['business', 'A business (invoices, GST)'], ['ca', 'A CA or accounting firm'], ['lawyer', 'A lawyer or legal practice'], ['freelancer', 'A freelancer or agency']];
-const LANDING: Record<string, string> = { ca: '/app/firm', lawyer: '/app/matters', freelancer: '/app/projects' };
+const LANDING: Record<string, string> = { lawyer: '/app/matters', freelancer: '/app/projects' };
 
 // What we remember on this device, so a returning person is not asked twice. Never a password or a code.
 const remember = (k: string, v?: string) => { try { if (v === undefined) return localStorage.getItem(k) ?? ''; localStorage.setItem(k, v); } catch { /* storage may be blocked */ } return ''; };
@@ -36,7 +36,7 @@ export default function Login() {
   const enter = async () => {
     if (demo || new URLSearchParams(window.location.search).has('demo')) { try { await api('/api/demo', { body: {} }); window.location.href = '/app'; return; } catch { /* fall through to the normal route */ } }
     const me = await api('/api/me');
-    window.location.href = me.businesses.length ? (LANDING[me.accountType] ?? '/app') : '/setup';
+    window.location.href = me.accountType === 'ca' ? '/ca' : me.businesses.length ? (LANDING[me.accountType] ?? '/app') : '/setup';
   };
   // The form is there at once. A signed-in visitor is sent on as soon as the session check answers.
   useEffect(() => { api('/api/auth/session').then((r) => { if (r.signedIn) void enter(); }).catch(() => { /* stay on the form */ }); }, []); // eslint-disable-line react-hooks/exhaustive-deps

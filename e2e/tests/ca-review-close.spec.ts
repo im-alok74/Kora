@@ -22,7 +22,14 @@ test('work goes from checklist to review by a second person to a recorded filing
   await page.getByLabel('Mobile number or email').fill(reviewer.email);
   await page.getByLabel('Role', { exact: true }).selectOption('reviewer');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await expect(page.getByRole('table', { name: 'Team' })).toContainText(reviewer.email);
+  await expect(page.getByRole('table', { name: 'Team' })).toContainText('waiting to accept');
+  // The invited person sees the invitation and accepts; until then nothing of the firm is open to them.
+  const invitee = await rcontext.newPage();
+  await invitee.goto('/ca/clients');
+  await expect(invitee.getByRole('heading', { name: 'You have been invited' })).toBeVisible();
+  await invitee.getByRole('button', { name: 'Accept' }).click();
+  await expect(invitee.getByRole('heading', { name: 'Work', exact: true })).toBeVisible();
+  await invitee.close();
   await page.goto('/ca/clients');
   await page.getByRole('button', { name: 'Show' }).click();
   await page.getByLabel('Give Alpha Foods to').selectOption({ label: `${reviewer.email} (reviewer)` });

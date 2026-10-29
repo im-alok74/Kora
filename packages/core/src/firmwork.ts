@@ -17,7 +17,7 @@ export async function loadEngagement(tx: Tx, s: FirmSession, id: string) {
 }
 
 async function assertActiveMember(tx: Tx, s: FirmSession, userId: string, what: string) {
-  const [m] = await tx`select 1 as ok from firm_member where firm_id = ${s.firmId} and user_id = ${userId} and active`;
+  const [m] = await tx`select 1 as ok from firm_member where firm_id = ${s.firmId} and user_id = ${userId} and active and accepted_at is not null`;
   if (!m) throw new ValidationError(`The ${what} must be an active member of your firm.`);
 }
 

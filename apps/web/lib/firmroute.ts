@@ -22,8 +22,13 @@ export function firmRoute(handler: (a: { s: FirmSession; req: Request; sql: Sql 
       const slow = tooManyRequests(userId, req);
       if (slow) return slow;
       const { sql } = services();
-      const asked = req.headers.get('x-firm-id') ?? (await cookies()).get(FIRM_COOKIE)?.value ?? '';
-      const firmId = UUID.test(asked) ? asked : (await listFirms(sql, userId))[0]?.firmId;
+      // A firm named in the x-firm-id header is exact: not a firm id is a 400, not one of yours is a 403. Never a silent fallback to another firm.
+      // The kora_firm cookie is only a remembered choice, so a stale one (a firm the person left) falls back to their first firm.
+      const header = req.headers.get('x-firm-id');
+      if (header !== null && !UUID.test(header)) return json({ error: 'The x-firm-id header is not a firm id.' }, 400);
+      const mine = await listFirms(sql, userId);
+      const cookie = (await cookies()).get(FIRM_COOKIE)?.value ?? '';
+      const firmId = header ?? (UUID.test(cookie) && mine.some((f) => f.firmId === cookie) ? cookie : mine[0]?.firmId);
       if (!firmId) return json({ error: 'Set up your firm first.', code: 'no_firm' }, 400);
       const out = await handler({ s: await resolveFirm(sql, userId, firmId), req, sql });
       return out instanceof Response ? out : json(out ?? { ok: true });

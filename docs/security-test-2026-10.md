@@ -149,7 +149,7 @@ One link accepted 28 files in a burst of 40 until the per-minute limit (30) stop
 | **0 (owner, today, no code)** | Close the live exposure | F1 environment: unset the three switches in Production, redeploy, `/api/health` must say `ok` | health check; a second look at who signed in recently |
 | **1 (this PR)** | Close the exploitable gaps | F1 code, F2, F3, F8 | new unit tests (every IPv6 notation, flags in a production deployment, body limit); re-run `t4c2`, `t5`, `t8`; full suites |
 | **2** | Defence in depth and abuse limits | F4 (report-only first), F5, F6, F7. **Done**, except turning the script policy from report-only to enforcing | re-run `t3`, `t4a`, `t4b`, `t7` (done); watch CSP reports for a week before enforcing |
-| **3** | Hygiene | F9 to F13 | re-run `t3`, `t7`, `t9` |
+| **3** | Hygiene | F9 to F13. **Done** (F11 accepted with limits) | e2e health and CA specs; unit tests for invitations |
 | **4 (process)** | Keep it safe | run `scripts/security-tests` in CI against the built app; scheduled dependency audit; pen test by a person on the live site before wide launch | CI job green; report |
 
 ## 6. Not tested, and why
@@ -189,7 +189,11 @@ Clear the local limiter table between scripts if sign-ins start failing (`trunca
 | F5 per-person rate limit | **Fixed (Phase 2)** | 600 requests a minute per person (40 for reports, exports, imports and PDFs), counted in memory per server instance; 700 dashboard calls: 108 answered 429; 70 reports: 30 answered 429; another person unaffected. It is a per-instance cap, not a global one; Upstash adds the per-address global limit |
 | F6 upload quota | **Fixed (Phase 2)** | migration `0211`: through one client link at most 10 files per item, 40 files and 50 MB per piece of work; a burst of 40 now stores 10; staff uploads unaffected |
 | F7 passwords | **Fixed (Phase 2)** | `12345678`, `password`, `Passw0rd`, `aaaaaaaaaaaa`, `P@ssw0rd!`, `password123`, `Welcome1`, `Admin@123`, `India@2026`, sequences, digit-only, fewer than 4 different characters, and anything built from the person's name, email or phone are refused; long phrases and ordinary mixed passwords pass |
-| F9 to F13 | Open: Phase 3 | |
+| F9 invite consent | **Fixed for CA firms (Phase 3)**; business team invites still add at once | migration `0212`: a person added to a firm is "invited" and counts for nothing until they accept (`my_firms` and `firm_member_role` ignore them; a pending partner does not count as a partner); they see an Accept / Decline panel; declined or removed people need a fresh invitation. Business invites (`/api/team`) are unchanged |
+| F10 firm header | **Fixed (Phase 3)** | a bad `x-firm-id` is 400, someone else's firm is 403, never a silent fallback; a stale `kora_firm` cookie falls back to the person's own first firm |
+| F11 sign-up names existing accounts | **Accepted, limited** | the password sign-up must say the address is taken, or the person cannot proceed; it is limited to 5 tries per address and 10 per network in 15 minutes |
+| F12 key and token guessing | **Fixed for API keys (Phase 3)**; portal already limited | wrong API keys are limited to 30 a minute per address; portal links were already limited to 240 a minute per address and have 144-bit tokens |
+| F13 health reason | **Fixed (Phase 3)** | public `/api/health` says only `{"status":"down"}`; the reason comes back only with `Authorization: Bearer <CRON_SECRET>` (the uptime watcher now sends it) |
 
 ### What Phase 1 changed in the code
 

@@ -58,6 +58,21 @@ export async function removeFirmMember(sql: Sql, actorId: string, firmId: string
   await sql`select remove_firm_member(${actorId}, ${firmId}, ${userId})`;
 }
 
+/** The firms that have invited this person and are waiting for an answer. */
+export async function listFirmInvites(sql: Sql, userId: string): Promise<FirmMembership[]> {
+  const rows = await sql`select firm_id, name, role from my_firm_invites(${userId})`;
+  return rows.map((r) => ({ firmId: r.firm_id, name: r.name, role: r.role }));
+}
+
+/** Accepting makes the person a member; declining switches the invitation off. */
+export async function answerFirmInvite(sql: Sql, userId: string, firmId: string, accept: boolean): Promise<void> {
+  try { await sql`select answer_firm_invite(${userId}, ${firmId}, ${accept})`; }
+  catch (e) {
+    if ((e as { code?: string }).code === '23514') throw new ValidationError('There is no invitation to answer.');
+    throw e;
+  }
+}
+
 /**
  * A partner adds a person by mobile number or email, as a business owner does. They sign in with that number or email (one-time code).
  * If they have never used Kora their account is created here. Adding someone already in the firm changes their role or turns them back on.
@@ -74,7 +89,7 @@ export async function inviteFirmMember(sql: Sql, s: FirmSession, a: { identifier
       const [{ n }] = (await tx`select count(*)::int as n from firm_member where firm_id = ${s.firmId} and active`) as unknown as [{ n: number }];
       if (n >= PLANS.firm.limits.members) throw new ValidationError(`The Firm plan includes ${PLANS.firm.limits.members} people.`);
     }
-    try { await tx`select add_firm_member(${s.userId}, ${s.firmId}, ${u!.id}, ${a.role})`; }
+    try { await tx`select invite_firm_member(${s.userId}, ${s.firmId}, ${u!.id}, ${a.role})`; }
     catch (e) {
       if ((e as { code?: string }).code === '23514') throw new ValidationError('A firm needs at least one partner.');
       throw e;
@@ -95,6 +110,6 @@ function inFirmGuard(s: FirmSession, action: FirmAction) { if (!canFirm(s.role, 
 
 export async function listFirmMembers(sql: Sql, s: FirmSession) {
   return inFirm(sql, s, 'firm.read', async (tx) => (await tx`
-    select m.user_id, coalesce(u.email, u.phone, '') as email, m.role, m.active from firm_member m join app_user u on u.id = m.user_id
-     where m.firm_id = ${s.firmId} order by m.active desc, coalesce(u.email, u.phone, '')`).map((r) => ({ userId: r.user_id as string, email: r.email as string, role: r.role as FirmRole, active: r.active as boolean })));
+    select m.user_id, coalesce(u.email, u.phone, '') as email, m.role, m.active, (m.accepted_at is null) as pending from firm_member m join app_user u on u.id = m.user_id
+     where m.firm_id = ${s.firmId} order by m.active desc, coalesce(u.email, u.phone, '')`).map((r) => ({ userId: r.user_id as string, email: r.email as string, role: r.role as FirmRole, active: r.active as boolean, pending: r.pending as boolean })));
 }
