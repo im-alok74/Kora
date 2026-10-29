@@ -64,6 +64,10 @@ test('a CA asks a client for documents, the client sends one from a link with no
   await expect(again1).toContainText('Page 2 is missing');
   await back.close();
 
+  // Review needs a preparer and a different reviewer, and the screen says so instead of pretending.
+  await page.getByRole('button', { name: 'Send for review' }).click();
+  await expect(page.locator('p.error')).toContainText('preparer and a reviewer');
+
   // Stopping the link closes the door.
   await page.getByRole('button', { name: 'Stop the link' }).click();
   const again = await browser.newContext();

@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../lib/client';
+import Review from './review';
 
 type Version = { id: string; fileName: string; uploadedVia: string; createdAt: string };
 type Req = { id: string; label: string; status: 'requested' | 'received' | 'needs_correction' | 'accepted' | 'waived'; reason: string | null; dueDate: string | null; versions: Version[] };
@@ -63,6 +64,7 @@ export default function Requests({ engagementId, onChange }: { engagementId: str
         <div style={{ flex: 3 }}><label htmlFor={`nl${engagementId}`}>Ask for something else</label><input id={`nl${engagementId}`} value={label} onChange={(e) => setLabel(e.target.value)} maxLength={200} placeholder="For example: GSTR-2B download" /></div>
         <button className="btn" disabled={!label.trim()}>Add</button>
       </form>
+      <Review engagementId={engagementId} version={JSON.stringify(d.requests.map((r) => [r.id, r.status, r.versions[0]?.id ?? null]))} onChange={onChange} />
     </div>
   );
 }

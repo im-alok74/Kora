@@ -105,7 +105,7 @@ export default function Work() {
                   <br /><button className="link" onClick={() => patch(r.id, { blocker: null })}>Clear</button> <button className="link" onClick={() => { setBl({ reason: r.blocker!.reason, party: r.blocker!.party, nextAction: r.blocker!.nextAction, expected: r.blocker!.expected ?? '' }); setEditing(r.id); }}>Edit</button></>
               ) : <button className="link" onClick={() => { setBl({ reason: '', party: 'client', nextAction: '', expected: '' }); setEditing(r.id); }}>Add</button>}</td>
             </tr>
-            {docs === r.id && <tr><td colSpan={7}><Requests engagementId={r.id} /></td></tr>}
+            {docs === r.id && <tr><td colSpan={7}><Requests engagementId={r.id} onChange={() => { void load(); }} /></td></tr>}
             {editing === r.id && <tr><td colSpan={7}><form className="filters" onSubmit={(e) => { e.preventDefault(); void patch(r.id, { blocker: { reason: bl.reason, party: bl.party, nextAction: bl.nextAction, expected: bl.expected || null } }).then(() => setEditing(null)); }}>
                 <div style={{ flex: 3 }}><label htmlFor={`br${r.id}`}>What is holding it up</label><input id={`br${r.id}`} placeholder="What is missing?" value={bl.reason} onChange={(e) => setBl({ ...bl, reason: e.target.value })} required maxLength={500} /></div>
                 <div><label htmlFor={`bp${r.id}`}>Waiting on</label><select id={`bp${r.id}`} value={bl.party} onChange={(e) => setBl({ ...bl, party: e.target.value })}><option value="client">The client</option><option value="firm">Us</option><option value="third_party">Someone else</option></select></div>
