@@ -7,7 +7,7 @@ import Icon from '../../components/Icon';
 export default function CaNav({ firmName, role, children }: { firmName: string; role: string; children: ReactNode }) {
   const path = usePathname() ?? '';
   const [open, setOpen] = useState(false);
-  const items = [{ href: '/ca', label: 'Work', icon: 'briefcase' as const }, { href: '/ca/clients', label: 'Clients', icon: 'team' as const }, { href: '/app', label: 'Your books', icon: 'home' as const }];
+  const items = [{ href: '/ca', label: 'Work', icon: 'briefcase' as const }, { href: '/ca/clients', label: 'Clients', icon: 'team' as const }, { href: '/ca/team', label: 'Team', icon: 'user' as const }, { href: '/app', label: 'Your books', icon: 'home' as const }];
   const current = (h: string) => (h === '/ca' ? path === '/ca' : path.startsWith(h));
   return (
     <>
