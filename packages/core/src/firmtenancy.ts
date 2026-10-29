@@ -2,16 +2,19 @@ import { withFirm, type Sql, type Tx } from '@kora/db';
 
 /** Roles inside a CA firm. These say nothing about access to a client's books; that needs a role in the client's business. */
 export type FirmRole = 'partner' | 'manager' | 'preparer' | 'reviewer';
-export type FirmAction = 'firm.read' | 'member.manage' | 'client.read' | 'client.write';
+export type FirmAction = 'firm.read' | 'member.manage' | 'client.read' | 'client.write' | 'client.assign';
 
 const GRANTS: Record<FirmRole, ReadonlySet<FirmAction>> = {
-  partner: new Set<FirmAction>(['firm.read', 'member.manage', 'client.read', 'client.write']),
-  manager: new Set<FirmAction>(['firm.read', 'client.read', 'client.write']),
+  partner: new Set<FirmAction>(['firm.read', 'member.manage', 'client.read', 'client.write', 'client.assign']),
+  manager: new Set<FirmAction>(['firm.read', 'client.read', 'client.write', 'client.assign']),
   preparer: new Set<FirmAction>(['firm.read', 'client.read']),
   reviewer: new Set<FirmAction>(['firm.read', 'client.read']),
 };
 
 export const canFirm = (role: FirmRole, action: FirmAction) => GRANTS[role].has(action);
+
+/** Partners and managers work across every client; preparers and reviewers only the clients assigned to them. */
+export const seesAllClients = (role: FirmRole) => role === 'partner' || role === 'manager';
 
 export class FirmForbiddenError extends Error {
   constructor(public action: FirmAction) { super(`Your firm role cannot do this (${action}).`); this.name = 'FirmForbiddenError'; }

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { makeTestDb, type TestDb } from '@kora/db/src/testing.js';
-import { addClient, addFirmMember, createFirm, demoGstin, importClients, listClients, parseCsv, previewClientImport, resolveFirm, type FirmSession } from '../src/index.js';
+import { addClient, assertClientAccess, assignClient, inFirm, listAssignees, unassignClient, addFirmMember, createFirm, demoGstin, importClients, listClients, parseCsv, previewClientImport, resolveFirm, type FirmSession } from '../src/index.js';
 
 let db: TestDb;
 let partner: FirmSession, preparer: FirmSession, other: FirmSession;
@@ -32,7 +32,7 @@ describe('clients', () => {
     await expect(addClient(db.web, partner, { legalName: 'Dup', registrations: [{ gstin: g(3) }, { gstin: g(3) }] })).rejects.toThrow(/twice/);
   });
   it('lets a preparer read but not add; another firm sees nothing and can use the same GSTIN', async () => {
-    expect((await listClients(db.web, preparer)).total).toBe(1);
+    expect((await listClients(db.web, preparer)).total).toBe(0); // nothing assigned yet
     await expect(() => addClient(db.web, preparer, { legalName: 'Nope', registrations: [{ gstin: g(4) }] })).rejects.toThrow(/firm role/);
     expect((await listClients(db.web, other)).total).toBe(0);
     await addClient(db.web, other, { legalName: 'Alpha Foods (their copy)', registrations: [{ gstin: g(1) }] });
@@ -44,6 +44,35 @@ describe('clients', () => {
     const p = await listClients(db.web, partner, { limit: 2, offset: 0 });
     expect(p).toMatchObject({ total: 6, limit: 2 });
     expect(p.clients).toHaveLength(2);
+  });
+});
+
+describe('assignment scope', () => {
+  it('shows a preparer only assigned clients, and refuses direct access to others', async () => {
+    const all = (await listClients(db.web, partner, { limit: 200 })).clients;
+    const alpha = all.find((c) => c.legalName === 'Alpha Foods')!, other6 = all.find((c) => c.legalName === 'Client 10')!;
+    await assignClient(db.web, partner, alpha.id, preparer.userId);
+    const mine = await listClients(db.web, preparer);
+    expect(mine.total).toBe(1);
+    expect(mine.clients.map((c) => c.legalName)).toEqual(['Alpha Foods']);
+    expect((await listAssignees(db.web, partner, alpha.id)).map((a) => a.email)).toEqual(['q@e.test']);
+    await expect(listAssignees(db.web, preparer, other6.id)).rejects.toThrow(/not found/);
+    await expect(inFirm(db.web, preparer, 'client.read', (tx) => assertClientAccess(tx, preparer, other6.id))).rejects.toThrow(/not found/);
+    await expect(assignClient(db.web, preparer, other6.id, preparer.userId)).rejects.toThrow(/firm role/);
+  });
+  it('lets a manager see all, and will not assign to someone outside the firm', async () => {
+    const [{ id: outsider }] = await db.owner`insert into app_user (email) values ('x@e.test') returning id` as unknown as [{ id: string }];
+    const alpha = (await listClients(db.web, partner, { limit: 200 })).clients.find((c) => c.legalName === 'Alpha Foods')!;
+    await expect(assignClient(db.web, partner, alpha.id, outsider)).rejects.toThrow(/not an active member/);
+  });
+  it('removes access when the assignment is removed', async () => {
+    const alpha = (await listClients(db.web, partner, { limit: 200 })).clients.find((c) => c.legalName === 'Alpha Foods')!;
+    await unassignClient(db.web, partner, alpha.id, preparer.userId);
+    expect((await listClients(db.web, preparer)).total).toBe(0);
+  });
+  it('does not let another firm touch this firm client', async () => {
+    const alpha = (await listClients(db.web, partner, { limit: 200 })).clients.find((c) => c.legalName === 'Alpha Foods')!;
+    await expect(assignClient(db.web, other, alpha.id, other.userId)).rejects.toThrow(/not found/);
   });
 });
 
