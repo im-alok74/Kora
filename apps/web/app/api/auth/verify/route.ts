@@ -1,3 +1,4 @@
+import { log, setConsent } from '@kora/core';
 import { json, requireJson, services, errorResponse, requestInfo, sessionCookie } from '../../../../lib/server';
 
 export async function POST(req: Request) {
@@ -6,6 +7,7 @@ export async function POST(req: Request) {
   try {
     const { identifier, code } = (await req.json()) as { identifier?: string; code?: string };
     const s = await services().auth.verifyOtpStep(String(identifier ?? ''), String(code ?? ''), requestInfo(req));
+    if (!s.needsMfa && s.isNewUser) await setConsent(services().sql, s.userId, 'terms_privacy', true, 'signup').catch((e) => log('error', 'consent.record_failed', { message: String(e?.message ?? e) }));
     if (s.needsMfa) return json({ ok: true, needsMfa: true, mfaToken: s.mfaToken });
     return json({ ok: true, isNewUser: s.isNewUser }, 200, { 'set-cookie': sessionCookie(s.token) });
   } catch (e) {

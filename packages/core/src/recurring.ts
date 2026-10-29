@@ -1,6 +1,7 @@
 import { SYSTEM_USER, withTenant, type Sql, type Tx } from '@kora/db';
 import { issueTx, persist, previewTotals, type DocIn, type LineIn } from './documents.js';
 import { enqueue } from './jobs.js';
+import { requireFeature } from './plans.js';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { isDate, str, todayIn, ValidationError } from './validation.js';
 import { parseRupees } from '@kora/tax';
@@ -90,6 +91,8 @@ async function validateTemplate(sql: Sql, t: TenantSession, c: ReturnType<typeof
 }
 
 export async function createRecurring(sql: Sql, t: TenantSession, input: RecurringIn) {
+  // First, so a free plan hears about the plan and not about a missing line.
+  await inTenant(sql, t, 'document.write', (tx) => requireFeature(tx, t.businessId, 'recurring'));
   const c = clean(input);
   await validateTemplate(sql, t, c);
   return inTenant(sql, t, 'document.write', async (tx) => {

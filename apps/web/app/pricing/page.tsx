@@ -15,7 +15,7 @@ type Plan = { name: string; forWho: string; price: string; per: string; features
 // Placeholder prices. Replace before launch. Nothing on this page is a legal promise.
 const PLANS: Plan[] = [
   { name: 'Starter', forWho: 'Freelancers and very small businesses just beginning.', price: 'Rs 0', per: 'a month', cta: 'Start free',
-    features: ['One business, one person', 'A fixed number of invoices each month', 'GST tax worked out for you', 'UPI QR on every invoice', 'PDF and a shareable link', 'Import customers and items'] },
+    features: ['One business, one person', '10 invoices and quotes a month', 'GST tax worked out for you', 'UPI QR on every invoice', 'PDF and a shareable link', 'Import customers and items'] },
   { name: 'Business', forWho: 'Shops and growing businesses that bill every week.', price: 'Rs 499', per: 'a month', cta: 'Start free', featured: true,
     features: ['Everything in Starter', 'Unlimited invoices and quotes', 'WhatsApp, SMS and email sending', 'Payment reminders on a schedule', 'Recurring invoices', 'Up to 3 team members', 'Reports and GSTR-1 data for your CA'] },
   { name: 'Firm', forWho: 'CA firms, law practices and agencies with many clients.', price: 'Rs 1,999', per: 'a month', cta: 'Talk to us',
@@ -24,13 +24,13 @@ const PLANS: Plan[] = [
 
 const ROWS: [string, string, string, string][] = [
   ['Businesses', '1', '1', 'Many'],
-  ['Invoices and quotes', 'Limited each month', 'Unlimited', 'Unlimited'],
+  ['Invoices and quotes', '10 a month', 'Unlimited', 'Unlimited'],
   ['GST tax worked out for you', 'yes', 'yes', 'yes'],
   ['UPI QR and pay link', 'yes', 'yes', 'yes'],
   ['Send on WhatsApp, SMS and email', 'no', 'yes', 'yes'],
   ['Payment reminders', 'no', 'yes', 'yes'],
   ['Recurring invoices', 'no', 'yes', 'yes'],
-  ['Team members', '1', 'Up to 3', 'More'],
+  ['Team members', '1', 'Up to 3', 'Up to 25'],
   ['GSTR-1 data and GST summary', 'yes', 'yes', 'yes'],
   ['Clients screen for CA firms', 'no', 'no', 'yes'],
   ['Matters and trust ledger', 'no', 'no', 'yes'],

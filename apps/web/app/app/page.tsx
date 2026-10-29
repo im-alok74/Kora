@@ -11,6 +11,7 @@ type Dash = {
   thisMonth: { sales: string; collected: string; expenses: string };
   dueThisWeek: { amount: string; count: number };
   topCustomers: { name: string; partyId: string | null; total: string }[];
+  unallocated?: { count: number; amount: string };
   toPay: { owed: string; late: string; dueThisWeek: string; bills: number; msmeAttention: number };
   chart: { key: string; label: string; total: string }[];
   attention: { overdue: { id: string; number: string; party_name: string; outstanding_paise: string; days: number }[]; drafts: number; openEstimates: number; acceptedEstimates: number };
@@ -93,6 +94,8 @@ export default function Dashboard() {
         <div className="stat good"><div className="label">Collected this month</div><div className="value" data-testid="stat-collected">{rupees(d.thisMonth.collected)}</div><div className="sub">Money received</div></div>
         <div className="stat"><div className="label">Spent this month</div><div className="value" data-testid="stat-spent">{rupees(d.thisMonth.expenses)}</div><div className="sub"><a href="/app/expenses">See expenses</a></div></div>
       </section>
+
+      {d.unallocated && d.unallocated.count > 0 && <p className="warn" role="status" data-testid="unallocated-note">{d.unallocated.count} online {d.unallocated.count === 1 ? 'payment' : 'payments'} worth {rupees(d.unallocated.amount)} {d.unallocated.count === 1 ? 'is' : 'are'} not applied to any invoice. <a href="/app/reports">Match or refund {d.unallocated.count === 1 ? 'it' : 'them'}</a>.</p>}
 
       <section className="stats" aria-label="Coming up">
         <div className="stat"><div className="label">Due in the next 7 days</div><div className="value" data-testid="stat-week">{rupees(d.dueThisWeek.amount)}</div><div className="sub">{d.dueThisWeek.count} invoice{d.dueThisWeek.count === 1 ? '' : 's'} falling due</div></div>

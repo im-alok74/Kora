@@ -29,6 +29,16 @@ export function findPlaceholders(files) {
   return out;
 }
 
+/** Pure: settings that must be on in production, from an environment. Run with --env against the production values. */
+export function envWarnings(env) {
+  const out = [];
+  if (env.KORA_PLANS !== 'enforce') out.push('KORA_PLANS is not "enforce", so the free plan limits (10 invoices a month, one person) are not applied');
+  if (!env.KORA_ADMIN_EMAILS) out.push('KORA_ADMIN_EMAILS is empty, so there is no admin panel');
+  if (env.BILLING_GATEWAY !== 'razorpay') out.push('BILLING_GATEWAY is not "razorpay", so paid plans cannot be bought');
+  else for (const k of ['RAZORPAY_BILLING_WEBHOOK_SECRET', 'RAZORPAY_PLAN_BUSINESS', 'RAZORPAY_PLAN_FIRM']) if (!env[k]) out.push(`${k} is not set`);
+  return out;
+}
+
 function walk(dir) {
   return readdirSync(dir).flatMap((n) => {
     if (['node_modules', '.next', 'test'].includes(n) || n.startsWith('.next')) return [];
@@ -54,5 +64,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     console.log(`${found.length} placeholder(s) to replace before real customers:`);
     for (const f of found) console.log(`  ${f.path}:${f.line}  (${f.why})  ${f.text}`);
   }
-  if (process.argv.includes('--strict') && found.length > 0) process.exit(1);
+  const env = process.argv.includes('--env') ? envWarnings(process.env) : [];
+  if (env.length) { console.log(`${env.length} setting(s) to change for production:`); for (const w of env) console.log(`  ${w}`); }
+  if (process.argv.includes('--strict') && (found.length > 0 || env.length > 0)) process.exit(1);
 }

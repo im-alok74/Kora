@@ -1,6 +1,7 @@
 import type { Sql } from '@kora/db';
 import { normaliseIdentifier } from './identifier.js';
 import { inTenant, type TenantSession } from './tenancy.js';
+import { checkCanAddMember } from './plans.js';
 import { ValidationError } from './validation.js';
 import type { Role } from './permissions.js';
 
@@ -22,6 +23,7 @@ export async function inviteMember(sql: Sql, t: TenantSession, a: { identifier: 
     const col = id.channel === 'sms' ? 'phone' : 'email';
     let [u] = await tx`select id from app_user where ${tx(col)} = ${id.value}`;
     if (!u) [u] = await tx`insert into app_user (${tx(col)}) values (${id.value}) on conflict (${tx(col)}) do update set ${tx(col)} = excluded.${tx(col)} returning id`;
+    await checkCanAddMember(tx, t.businessId);
     try {
       await tx`select add_member(${t.userId}, ${t.businessId}, ${u!.id}, ${a.role})`;
     } catch (e) {

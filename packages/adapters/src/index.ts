@@ -8,3 +8,4 @@ export * from './eway.js';
 export * from './mock-gsp-server.js';
 export * from './live.js';
 export * from './razorpay.js';
+export * from './razorpay-billing.js';

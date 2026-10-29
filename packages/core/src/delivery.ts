@@ -3,6 +3,7 @@ import { formatMoney } from '@kora/tax';
 import type { Messenger } from '@kora/adapters';
 import { SYSTEM_USER, withTenant, type Sql } from '@kora/db';
 import { normaliseIdentifier } from './identifier.js';
+import { requireFeature } from './plans.js';
 import { enqueue, PermanentJobError, type JobRow } from './jobs.js';
 import { DEFAULT_MESSAGES, fillMessage } from './messages.js';
 import { customerStatement, dateRange, statementText } from './registers.js';
@@ -36,6 +37,7 @@ export async function queueDocumentSend(
 ) {
   const to = normaliseRecipient(a.channel, a.to);
   return inTenant(sql, t, 'document.issue', async (tx) => {
+    await requireFeature(tx, t.businessId, 'messaging');
     const [d] = await tx`select status from document where id = ${a.documentId}`;
     if (!d) throw new ValidationError('Document not found.');
     if (d.status !== 'issued') throw new ValidationError('Only an issued document can be sent.');

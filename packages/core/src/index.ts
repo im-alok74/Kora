@@ -69,3 +69,7 @@ export * from './tallyimport.js';
 export * from './ewaybill.js';
 export * from './onboarding.js';
 export * from './demo.js';
+export * from './privacy.js';
+export * from './plans.js';
+export * from './billing.js';
+export * from './admin.js';

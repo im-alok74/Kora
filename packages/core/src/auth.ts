@@ -282,6 +282,13 @@ export function createAuth(sql: Sql, sender: OtpSender, cfg: AuthConfig) {
       return { userId: s.user_id as string };
     },
 
+    /** True when this sign-in went through the authenticator code step. The admin panel requires it. */
+    async sessionHasMfa(token: string): Promise<boolean> {
+      if (!token || token.length > 128) return false;
+      const [s] = await sql`select mfa from app_session where token_hash = ${sha256(token)} and revoked_at is null and expires_at > now()`;
+      return !!s?.mfa;
+    },
+
     async revokeSession(token: string): Promise<void> {
       await sql`update app_session set revoked_at = now() where token_hash = ${sha256(token)} and revoked_at is null`;
     },

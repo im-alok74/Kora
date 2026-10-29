@@ -16,6 +16,11 @@ Written on 23 October 2026 from the repository only. Nobody looked at Vercel, Su
 | 6 | A backup that is scheduled and has been restored once | **Not done** | Scripts exist (`infra/backup.sh`, `infra/restore-check.sh`) and the workflow is off until `BACKUPS_ENABLED=true`. No record of a restore drill in the repository |
 | 7 | A real GST partner | **Not done** | `GSP_URL` is a generic JSON client; no partner is chosen in the repository. E-invoice and e-way bill are off unless the business turns them on. See section 10 |
 | 8 | Alerts | **Not done** | Nothing in the repository sends an alert. There are health routes and a queue route to poll (section 5) |
+| 9 | Paid plans: Razorpay Subscriptions, two plans made, billing webhook added, a Rs 1 test run | **Not done** | Code is ready (`docs/pricing.md`). Needs `BILLING_GATEWAY=razorpay`, `RAZORPAY_PLAN_BUSINESS`, `RAZORPAY_PLAN_FIRM`, `RAZORPAY_BILLING_WEBHOOK_SECRET` and the webhook at `/api/webhooks/billing` |
+| 10 | Free plan limits switched on (`KORA_PLANS=enforce`) | **Not done** | Only after item 9 works, so a business that hits a limit can upgrade. `node scripts/launch-check.mjs --env` reports it |
+| 11 | Admin panel: `KORA_ADMIN_EMAILS` set and each admin has an authenticator app on | **Not done** | `docs/admin.md` |
+| 12 | DPDP: grievance officer named, notice reviewed by a lawyer, processor contracts signed, breach procedure agreed | **Not done** | `docs/dpdp.md` lists what exists and what is the owner's |
+| 13 | GST invoice for Kora's own subscription fee | **Not done** | Payments are recorded but no tax invoice is produced (`docs/pricing.md`, "Not done") |
 
 ## 2. Environment variables for production
 

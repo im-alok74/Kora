@@ -1,4 +1,4 @@
-import { authenticateApiKey, reportLimiterProblem, type ApiScope, type TenantSession } from '@kora/core';
+import { authenticateApiKey, getPlan, plansEnforced, reportLimiterProblem, type ApiScope, type TenantSession } from '@kora/core';
 import type { Sql } from '@kora/db';
 import { errorResponse, requireJson, services } from './server';
 
@@ -15,7 +15,7 @@ const buckets = new Map<string, { start: number; n: number }>();
 const body = (status: number, data: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers } });
 
-const CODES: Record<number, string> = { 400: 'invalid_request', 401: 'unauthorized', 403: 'forbidden', 404: 'not_found', 409: 'conflict', 415: 'unsupported_media_type', 429: 'rate_limited' };
+const CODES: Record<number, string> = { 400: 'invalid_request', 401: 'unauthorized', 402: 'plan_limit', 403: 'forbidden', 404: 'not_found', 409: 'conflict', 415: 'unsupported_media_type', 429: 'rate_limited' };
 
 export const v1Error = (status: number, message: string, extra: { field?: string; code?: string } = {}, headers: Record<string, string> = {}) =>
   body(status, { error: { code: extra.code ?? CODES[status] ?? 'server_error', message, ...(extra.field ? { field: extra.field } : {}) } }, headers);
@@ -34,9 +34,9 @@ export const ok = (data: unknown) => body(200, data);
 export interface V1Context { t: TenantSession; sql: Sql; req: Request; params: Record<string, string>; scope: ApiScope; appUrl: string }
 
 /** Counts one request for a key in the shared limiter, falling back to this process if the shared one fails (and saying so). */
-async function countRequest(limiter: { hitCount(key: string, limit: number, windowSeconds: number): Promise<{ allowed: boolean; count: number }> }, keyId: string): Promise<{ count: number; retryAfter: number }> {
+async function countRequest(limiter: { hitCount(key: string, limit: number, windowSeconds: number): Promise<{ allowed: boolean; count: number }> }, keyId: string, limit: number): Promise<{ count: number; retryAfter: number }> {
   try {
-    const { count } = await limiter.hitCount(`v1:${keyId}`, LIMIT, 60);
+    const { count } = await limiter.hitCount(`v1:${keyId}`, limit, 60);
     return { count, retryAfter: 60 - (Math.floor(Date.now() / 1000) % 60) };
   } catch (e) {
     reportLimiterProblem('api-v1', e);
@@ -55,9 +55,11 @@ export function v1Route(opts: { write?: boolean }, handler: (c: V1Context) => Pr
       const auth = await authenticateApiKey(svc.sql, req.headers.get('authorization'));
       if (!auth) return v1Error(401, 'Send a valid API key as "Authorization: Bearer kora_...".', {}, { 'www-authenticate': 'Bearer' });
 
-      const { count, retryAfter } = await countRequest(svc.limiter, auth.keyId);
-      const rate = { 'x-ratelimit-limit': String(LIMIT), 'x-ratelimit-remaining': String(Math.max(0, LIMIT - count)) };
-      if (count > LIMIT) return v1Error(429, `Too many requests. The limit is ${LIMIT} a minute for each key.`, {}, { ...rate, 'retry-after': String(retryAfter) });
+      // The plan sets the limit once plans are enforced; the free plan is the tightest. Otherwise the one configured number.
+      const limit = plansEnforced() ? (await getPlan(svc.sql, auth.t)).plan.limits.apiPerMinute : LIMIT;
+      const { count, retryAfter } = await countRequest(svc.limiter, auth.keyId, limit);
+      const rate = { 'x-ratelimit-limit': String(limit), 'x-ratelimit-remaining': String(Math.max(0, limit - count)) };
+      if (count > limit) return v1Error(429, `Too many requests. The limit is ${limit} a minute for each key.`, {}, { ...rate, 'retry-after': String(retryAfter) });
 
       if (opts.write) {
         if (auth.scope !== 'write') return v1Error(403, 'This key is read-only. Make a key with write access to change data.', {}, rate);

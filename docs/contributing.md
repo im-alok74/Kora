@@ -30,6 +30,10 @@ Start with the [README](../README.md) to get the app running and the tests passi
 - Any new environment variable is added to `.env.example` with a one-line explanation. `apps/web/test/envDocs.test.ts` fails if you forget.
 - Screens: every one works at 375 px width, has visible keyboard focus, labels on inputs, passes AA contrast, and works in the dark theme. Page text is short and plain.
 
+### Locking: read a total, then write against it
+
+Transactions run at READ COMMITTED. Two requests that each read a total, check it, then write can both pass the check. Whenever code reads a number from a row (what is already credited, what is already paid, a balance) and then decides whether to write against it, lock the row that owns the number first with `select ... for update`, in the same transaction. The credit note race (audit finding C-1) was exactly this. Where the rule matters most, `packages/core/test/lock-convention.test.ts` fails if the lock is removed. Add the function there when you add another place like it. Where possible, also let the database refuse the bad state (see migration 0186).
+
 ## Migrations
 
 - Files are in `packages/db/migrations`, named `NNNN_what_it_does.sql`. They run in **file name order**, all pending ones in one transaction, under an advisory lock.

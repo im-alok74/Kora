@@ -61,12 +61,19 @@ export async function dashboardSummary(sql: Sql, t: TenantSession) {
                              order by d.created_at desc limit 6`;
     const [n] = await tx`select (select count(*) from party where archived_at is null)::int as customers, (select count(*) from item where archived_at is null)::int as items,
                                 (select count(*) from document)::int as documents`;
+    // Money that arrived through a payment link or gateway but is not applied to any invoice (the invoice was already paid, or was
+    // cancelled). It is the owner's money to match or refund, so it is shown here instead of waiting to be found in a report.
+    const [loose] = await tx`select count(*)::int as n, coalesce(sum(left_over), 0)::text as amount from (
+        select p.amount_paise - coalesce((select sum(a.amount_paise) from payment_allocation a where a.payment_id = p.id), 0)
+                              - coalesce((select sum(r.amount_paise) from payment_refund r where r.payment_id = p.id), 0) as left_over
+          from payment p where p.gateway is not null) x where left_over > 0`;
     return {
       business: { name: (b!.trade_name ?? b!.legal_name) as string },
       today,
       owed: { outstanding: recv!.outstanding as string, overdue: recv!.overdue as string, unpaid: recv!.unpaid as number, overdueCount: recv!.overdue_count as number },
       dueThisWeek: { amount: week!.amount as string, count: week!.n as number },
       topCustomers: top.map((r) => ({ name: r.name as string, partyId: r.party_id as string | null, total: r.total as string })),
+      unallocated: { count: loose!.n as number, amount: loose!.amount as string },
       toPay: { owed: pay!.owed as string, late: pay!.late as string, dueThisWeek: pay!.week as string, bills: pay!.n as number, msmeAttention: msme!.n as number },
       thisMonth: { sales: byMonth.get(months[5]!.key) ?? '0', collected: col!.total as string, expenses: exp!.total as string },
       chart: months.map((mo) => ({ ...mo, total: byMonth.get(mo.key) ?? '0' })),

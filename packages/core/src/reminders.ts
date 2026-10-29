@@ -1,3 +1,4 @@
+import { requireFeature } from './plans.js';
 import type { Sql, Tx } from '@kora/db';
 import { SYSTEM_USER, withTenant } from '@kora/db';
 import { enqueue } from './jobs.js';
@@ -26,7 +27,10 @@ export async function getReminderConfig(sql: Sql, t: TenantSession): Promise<Rem
 
 export async function saveReminderConfig(sql: Sql, t: TenantSession, input: unknown): Promise<ReminderConfig> {
   const cfg = sanitiseReminderConfig(input);
-  await inTenant(sql, t, 'settings.write', (tx) => tx`update business set reminder_config = ${tx.json(cfg as any)} where id = ${t.businessId}`);
+  await inTenant(sql, t, 'settings.write', async (tx) => {
+    if (cfg.enabled) await requireFeature(tx, t.businessId, 'reminders');
+    await tx`update business set reminder_config = ${tx.json(cfg as any)} where id = ${t.businessId}`;
+  });
   return cfg;
 }
 
