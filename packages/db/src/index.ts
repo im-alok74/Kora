@@ -49,6 +49,16 @@ export async function withTenant<T>(sql: Sql, ctx: TenantContext, fn: (tx: Tx) =
   }) as Promise<T>;
 }
 
+/** A firm session: sets app.firm_id and app.user_id. Firm tables are isolated on app.firm_id; this grants no access to any client's business. */
+export async function withFirm<T>(sql: Sql, ctx: { firmId: string; userId: string }, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  if (!UUID.test(ctx.firmId) || !UUID.test(ctx.userId)) throw new Error('withFirm: ids must be UUIDs');
+  return sql.begin(async (tx) => {
+    await tx`select set_config('app.firm_id', ${ctx.firmId}, true),
+                    set_config('app.user_id', ${ctx.userId}, true)`;
+    return fn(tx);
+  }) as Promise<T>;
+}
+
 /** For tables that belong to one person, not one business (consent, privacy requests): sets only app.user_id. */
 export async function withUser<T>(sql: Sql, userId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
   if (!UUID.test(userId)) throw new Error('withUser: id must be a UUID');
