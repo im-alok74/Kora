@@ -45,6 +45,8 @@ export * from './firmreview.js';
 export * from './firmsubmission.js';
 export * from './firmclose.js';
 export * from './firmoverview.js';
+export * from './firmjobs.js';
+export * from './uploadscan.js';
 export * from './inbox.js';
 export * from './matters.js';
 export * from './tick.js';

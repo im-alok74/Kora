@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   try {
     const { sql, gsp, appUrl } = services();
     const handlers = createHandlers(sql, { messenger: messengerFromEnv(), gsp, appUrl });
-    return json({ ok: true, ...(await runTick(sql, handlers, { worker: 'cron-web', budgetMs: 40_000 })) });
+    return json({ ok: true, ...(await runTick(sql, handlers, { worker: 'cron-web', budgetMs: 40_000, firmWork: { messenger: messengerFromEnv(), appUrl } })) });
   } catch (e) {
     return errorResponse(e);
   }
