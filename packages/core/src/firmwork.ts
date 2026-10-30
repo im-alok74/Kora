@@ -1,5 +1,6 @@
 import type { Sql, Tx } from '@kora/db';
 import { assertClientAccess } from './firmclients.js';
+import { logFirmEvent } from './firmoverview.js';
 import type { EngagementStatus } from './firmengagement.js';
 import { inFirm, seesAllClients, type FirmSession } from './firmtenancy.js';
 import { ValidationError } from './validation.js';
@@ -30,7 +31,15 @@ export async function assignEngagement(sql: Sql, s: FirmSession, id: string, a: 
     if (owner && reviewer && owner === reviewer) throw new ValidationError('The preparer and the reviewer must be different people.');
     if (a.ownerId) await assertActiveMember(tx, s, a.ownerId, 'preparer');
     if (a.reviewerId) await assertActiveMember(tx, s, a.reviewerId, 'reviewer');
-    await tx`update engagement set owner_id = ${owner}, reviewer_id = ${reviewer}, updated_at = now() where id = ${id}`;
+    // Only the field that was sent is written. Writing both from what was read a moment ago lost an update when the preparer and the reviewer
+    // were chosen one straight after the other (the second write put the first one back to nobody).
+    try {
+      await tx`update engagement set owner_id = case when ${a.ownerId !== undefined} then ${a.ownerId ?? null}::uuid else owner_id end,
+                                     reviewer_id = case when ${a.reviewerId !== undefined} then ${a.reviewerId ?? null}::uuid else reviewer_id end, updated_at = now() where id = ${id}`;
+    } catch (err) {
+      if ((err as { code?: string }).code === '23514') throw new ValidationError('The preparer and the reviewer must be different people.');
+      throw err;
+    }
   });
 }
 
@@ -47,6 +56,7 @@ export async function setEngagementStatus(sql: Sql, s: FirmSession, id: string, 
     const closer = seesAllClients(s.role) || e.reviewer_id === s.userId;
     if (e.status === 'done' && !closer) throw new ValidationError('Only a partner, a manager or the assigned reviewer can reopen finished work.');
     await tx`update engagement set status = ${status}, updated_at = now() where id = ${id}`;
+    if (e.status === 'done') await logFirmEvent(tx, s.firmId, 'engagement_reopened', { engagementId: id });
   });
 }
 

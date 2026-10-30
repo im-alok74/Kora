@@ -1,4 +1,5 @@
 import type { Sql } from '@kora/db';
+import { logFirmEvent } from './firmoverview.js';
 import { inFirm, type FirmSession } from './firmtenancy.js';
 import { loadEngagement } from './firmwork.js';
 import { ValidationError } from './validation.js';
@@ -25,6 +26,8 @@ export async function reviewRequest(sql: Sql, s: FirmSession, requestId: string,
       if (!v) throw new ValidationError('Nothing has been received for this item yet.');
     }
     await tx`update document_request set status = ${d.decision}, reason = ${d.decision === 'needs_correction' || d.decision === 'waived' ? reason : null}, updated_at = now() where id = ${requestId}`;
+    const kind = ({ accepted: 'request_accepted', needs_correction: 'request_returned', waived: 'request_waived', requested: 'request_reopened' } as const)[d.decision];
+    await logFirmEvent(tx, s.firmId, kind, { engagementId: r.engagement_id as string, requestId });
   });
 }
 
@@ -63,7 +66,8 @@ export async function planReminders(sql: Sql, s: FirmSession, now: Date = new Da
          and (case when coalesce(x.n, 0) = 0 then r.updated_at <= ${now}::timestamptz - ${REMIND_FIRST_AFTER_DAYS + ' days'}::interval
                    else x.last <= ${now}::timestamptz - ${REMIND_EVERY_DAYS + ' days'}::interval end)
       on conflict (request_id, seq) do nothing
-      returning id`;
+      returning id, request_id`;
+    for (const q of queued) await logFirmEvent(tx, s.firmId, 'reminder_queued', { requestId: q.request_id as string, via: 'system' });
     return { queued: queued.length, cancelled: cancelled.length };
   });
 }

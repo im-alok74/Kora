@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { Sql, Tx } from '@kora/db';
+import { logFirmEvent } from './firmoverview.js';
 import { inFirm, seesAllClients, type FirmSession } from './firmtenancy.js';
 import { loadEngagement } from './firmwork.js';
 import { ValidationError } from './validation.js';
@@ -68,6 +69,7 @@ export async function submitForReview(sql: Sql, s: FirmSession, engagementId: st
     const [r] = await tx`insert into review_submission (firm_id, engagement_id, version_no, package_hash, snapshot, submitted_by)
                          values (${s.firmId}, ${engagementId}, ${n + 1}, ${pack.hash}, ${tx.json(pack.items as never)}, ${s.userId}) returning id`;
     await tx`update engagement set status = 'in_review', updated_at = now() where id = ${engagementId}`;
+    await logFirmEvent(tx, s.firmId, 'review_submitted', { engagementId });
     return { id: r!.id as string, versionNo: n + 1 };
   });
 }
@@ -124,5 +126,6 @@ export async function decideSubmission(sql: Sql, s: FirmSession, submissionId: s
     }
     await tx`update review_submission set status = ${d.decision}, decided_by = ${s.userId}, decided_at = now(), decision_note = ${note} where id = ${submissionId}`;
     if (d.decision === 'returned') await tx`update engagement set status = 'preparing', updated_at = now() where id = ${sub.engagement_id}`;
+    await logFirmEvent(tx, s.firmId, d.decision === 'approved' ? 'review_approved' : 'review_returned', { engagementId: sub.engagement_id as string });
   });
 }
