@@ -1,6 +1,7 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../lib/client';
+import FeePanel from './fee';
 import Review from './review';
 
 type Version = { id: string; fileName: string; uploadedVia: string; createdAt: string };
@@ -11,16 +12,19 @@ const SAYS: Record<Req['status'], string> = { requested: 'Waiting for the client
 const toBase64 = (f: File) => new Promise<string>((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] ?? ''); r.onerror = () => no(new Error('The file could not be read.')); r.readAsDataURL(f); });
 
 /** The checklist for one piece of work: what is needed, what has come in, and the link the client uses to send it. */
-export default function Requests({ engagementId, onChange }: { engagementId: string; onChange?: () => void }) {
+export default function Requests({ engagementId, wide = false, onChange }: { engagementId: string; wide?: boolean; onChange?: () => void }) {
   const [d, setD] = useState<Data | null>(null);
   const [label, setLabel] = useState('');
   const [url, setUrl] = useState('');
   const [err, setErr] = useState('');
   const [deciding, setDeciding] = useState<{ id: string; decision: 'needs_correction' | 'waived' } | null>(null);
   const [why, setWhy] = useState('');
-  const load = useCallback(async () => { setD(await api<Data>(`/api/ca/engagements/${engagementId}/requests`)); onChange?.(); }, [engagementId, onChange]);
+  // onChange is a new function on every render of the page, so it must never be a dependency of load (that made the panel reload itself forever).
+  const changed = useRef(onChange);
+  changed.current = onChange;
+  const load = useCallback(async () => { setD(await api<Data>(`/api/ca/engagements/${engagementId}/requests`)); }, [engagementId]);
   useEffect(() => { load().catch((e) => setErr(e.message)); }, [load]);
-  const run = async (fn: () => Promise<unknown>) => { setErr(''); try { await fn(); await load(); } catch (e) { setErr((e as Error).message); } };
+  const run = async (fn: () => Promise<unknown>) => { setErr(''); try { await fn(); await load(); changed.current?.(); } catch (e) { setErr((e as Error).message); } };
 
   if (!d) return err ? <p className="error" role="alert">{err}</p> : <p className="muted">Loading…</p>;
   return (
@@ -64,7 +68,8 @@ export default function Requests({ engagementId, onChange }: { engagementId: str
         <div style={{ flex: 3 }}><label htmlFor={`nl${engagementId}`}>Ask for something else</label><input id={`nl${engagementId}`} value={label} onChange={(e) => setLabel(e.target.value)} maxLength={200} placeholder="For example: GSTR-2B download" /></div>
         <button className="btn" disabled={!label.trim()}>Add</button>
       </form>
-      <Review engagementId={engagementId} version={JSON.stringify(d.requests.map((r) => [r.id, r.status, r.versions[0]?.id ?? null]))} onChange={onChange} />
+      <Review engagementId={engagementId} version={JSON.stringify(d.requests.map((r) => [r.id, r.status, r.versions[0]?.id ?? null]))} onChange={() => changed.current?.()} />
+      <FeePanel engagementId={engagementId} wide={wide} onChange={() => changed.current?.()} />
     </div>
   );
 }

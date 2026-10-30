@@ -12,6 +12,10 @@ type Row = {
 };
 type List = { total: number; limit: number; engagements: Row[] };
 type Me = { you: string; role: string; members: Member[] };
+type Overview = { asOf: string; counts: Record<string, number>; unbilledPaise: string; billedNotPaidPaise: string };
+type Metrics = { days: number; closed: number; medianDaysToClose: number | null; medianReviewHours: number | null; medianRequestDays: number | null; remindersPerRequest: number | null; reviewsReturned: number; reviewsDecided: number; reopened: number; filesViaClientLink: number; filesAddedByStaff: number };
+const CARDS: [string, string][] = [['due_soon', 'Due in 5 days'], ['passed', 'Date passed, not done'], ['no_date', 'No due date set'], ['blocked', 'Held up'], ['blocked_client', 'Waiting on the client'], ['in_review', 'Waiting for review'], ['filing_missing', 'Approved, filing not recorded'], ['unassigned', 'Nobody has it'], ['unbilled', 'Finished, not billed']];
+const dash = (v: number | null, unit = '') => (v === null ? 'Not enough yet' : `${v}${unit}`);
 
 const STATUS: Record<Row['status'], string> = { open: 'Not started', preparing: 'Preparing', in_review: 'In review', done: 'Done' };
 const PARTY: Record<string, string> = { client: 'the client', firm: 'us', third_party: 'someone else' };
@@ -29,15 +33,19 @@ export default function Work() {
   const [note, setNote] = useState('');
   const [editing, setEditing] = useState<string | null>(null);
   const [docs, setDocs] = useState<string | null>(null);
+  const [card, setCard] = useState('');
+  const [ov, setOv] = useState<Overview | null>(null);
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [bl, setBl] = useState({ reason: '', party: 'client', nextAction: '', expected: '' });
 
   const load = useCallback(async () => {
-    const q = new URLSearchParams({ period, limit: '200' });
+    const q = new URLSearchParams({ limit: '200' });
+    if (card) q.set('view', card); else q.set('period', period);
     if (view === 'mine') q.set('mine', '1');
     if (view === 'blocked') q.set('blocked', '1');
-    const [m, l] = await Promise.all([api<Me>('/api/ca/firm'), api<List>(`/api/ca/engagements?${q}`)]);
-    setMe(m); setList(l);
-  }, [period, view]);
+    const [m, l, o] = await Promise.all([api<Me>('/api/ca/firm'), api<List>(`/api/ca/engagements?${q}`), api<{ overview: Overview; metrics: Metrics | null }>('/api/ca/overview')]);
+    setMe(m); setList(l); setOv(o.overview); setMetrics(o.metrics);
+  }, [period, view, card]);
   useEffect(() => { load().catch((e) => setErr(e.message)); }, [load]);
 
   const run = async (fn: () => Promise<unknown>, ok = '') => { setErr(''); setNote(''); try { await fn(); await load(); if (ok) setNote(ok); } catch (e) { setErr((e as Error).message); } };
@@ -59,6 +67,18 @@ export default function Work() {
         {wide && <button className="btn" onClick={() => run(async () => { const r = await api('/api/ca/engagements/generate', { body: { period } }); setNote(`${period}: ${r.created} added, ${r.existing} already there.`); })}>Create {period} work</button>}
       </div>
 
+      {ov && (
+        <section aria-label="Needs attention">
+          <div className="stats" role="group" aria-label="Open any count to see the work behind it">
+            {CARDS.map(([k, label]) => (
+              <button key={k} type="button" className="stat" aria-pressed={card === k} data-testid={`card-${k}`} onClick={() => setCard(card === k ? '' : k)} style={{ textAlign: 'left', cursor: 'pointer', outline: card === k ? '2px solid var(--accent)' : undefined }}>
+                <div className="label">{label}</div><div className="value">{ov.counts[k] ?? 0}</div>
+              </button>))}
+          </div>
+          <p className="muted" style={{ fontSize: 13 }}>As of {new Date(ov.asOf).toLocaleString('en-IN')}. {card ? <>Showing <b>{CARDS.find(([k]) => k === card)?.[1]}</b> across all months. <button className="link" onClick={() => setCard('')}>Back to the month</button></> : 'Choose a count to see the work behind it.'}</p>
+        </section>
+      )}
+
       <div className="stats">
         <div className="stat"><div className="label">Shown</div><div className="value">{list.total}</div></div>
         <div className="stat"><div className="label">Due in 5 days</div><div className="value" data-testid="ca-due">{dueSoon}</div></div>
@@ -67,7 +87,7 @@ export default function Work() {
       </div>
 
       <div className="filters">
-        <div><label htmlFor="cp">Month worked on</label><input id="cp" type="month" value={period} onChange={(e) => e.target.value && setPeriod(e.target.value)} /></div>
+        <div style={card ? { opacity: 0.5 } : undefined}><label htmlFor="cp">Month worked on</label><input id="cp" type="month" value={period} onChange={(e) => e.target.value && setPeriod(e.target.value)} /></div>
         <div><label htmlFor="cv">Show</label>
           <select id="cv" value={view} onChange={(e) => setView(e.target.value as typeof view)}>
             <option value="all">All work</option><option value="mine">My work</option><option value="blocked">Blocked</option>
@@ -105,7 +125,7 @@ export default function Work() {
                   <br /><button className="link" onClick={() => patch(r.id, { blocker: null })}>Clear</button> <button className="link" onClick={() => { setBl({ reason: r.blocker!.reason, party: r.blocker!.party, nextAction: r.blocker!.nextAction, expected: r.blocker!.expected ?? '' }); setEditing(r.id); }}>Edit</button></>
               ) : <button className="link" onClick={() => { setBl({ reason: '', party: 'client', nextAction: '', expected: '' }); setEditing(r.id); }}>Add</button>}</td>
             </tr>
-            {docs === r.id && <tr><td colSpan={7}><Requests engagementId={r.id} onChange={() => { void load(); }} /></td></tr>}
+            {docs === r.id && <tr><td colSpan={7}><Requests engagementId={r.id} wide={!!wide} onChange={() => { void load(); }} /></td></tr>}
             {editing === r.id && <tr><td colSpan={7}><form className="filters" onSubmit={(e) => { e.preventDefault(); void patch(r.id, { blocker: { reason: bl.reason, party: bl.party, nextAction: bl.nextAction, expected: bl.expected || null } }).then(() => setEditing(null)); }}>
                 <div style={{ flex: 3 }}><label htmlFor={`br${r.id}`}>What is holding it up</label><input id={`br${r.id}`} placeholder="What is missing?" value={bl.reason} onChange={(e) => setBl({ ...bl, reason: e.target.value })} required maxLength={500} /></div>
                 <div><label htmlFor={`bp${r.id}`}>Waiting on</label><select id={`bp${r.id}`} value={bl.party} onChange={(e) => setBl({ ...bl, party: e.target.value })}><option value="client">The client</option><option value="firm">Us</option><option value="third_party">Someone else</option></select></div>
@@ -114,6 +134,22 @@ export default function Work() {
                 <button className="btn">Save</button> <button type="button" className="secondary" onClick={() => setEditing(null)}>Cancel</button>
               </form></td></tr>}</Fragment>))}</tbody>
         </table></div>
+      )}
+      {metrics && (
+        <details className="panel" style={{ marginTop: 16 }}>
+          <summary><b>How the firm is doing, last {metrics.days} days</b> (whole firm, never per person)</summary>
+          <table className="t" aria-label="Firm figures"><tbody>
+            <tr><td>Work finished</td><td>{metrics.closed}</td></tr>
+            <tr><td>Median days from start to finished</td><td>{dash(metrics.medianDaysToClose)}</td></tr>
+            <tr><td>Median hours for a reviewer to decide</td><td>{dash(metrics.medianReviewHours)}</td></tr>
+            <tr><td>Median days from asking for a document to accepting it</td><td>{dash(metrics.medianRequestDays)}</td></tr>
+            <tr><td>Reminders per document asked for</td><td>{dash(metrics.remindersPerRequest)}</td></tr>
+            <tr><td>Reviews sent back, of those decided</td><td>{metrics.reviewsReturned} of {metrics.reviewsDecided}</td></tr>
+            <tr><td>Finished work that was reopened</td><td>{metrics.reopened}</td></tr>
+            <tr><td>Files from the client's link / added by your team</td><td>{metrics.filesViaClientLink} / {metrics.filesAddedByStaff}</td></tr>
+          </tbody></table>
+          <p className="muted" style={{ fontSize: 13 }}>“Not enough yet” means nothing has happened to measure, which is different from zero. Compare these with how long the same work took before.</p>
+        </details>
       )}
       <p className="muted" style={{ marginTop: 12, fontSize: 13 }}>Due dates are the standard monthly ones (GSTR-1 on the 11th, GSTR-3B on the 20th of the next month). Quarterly filers have no date until you set it, and extensions are not tracked. Kora does not file returns or know whether one was filed.</p>
     </>

@@ -81,5 +81,18 @@ test('work goes from checklist to review by a second person to a recorded filing
   await expect(page.getByText('Kora has not checked it with the GST portal.')).toBeVisible();
   await page.getByRole('button', { name: 'Close this work' }).click();
   await expect(page.getByLabel('Status of GSTR-1 for Alpha Foods')).toHaveValue('done');
+
+  // Finished work with no fee decided shows as unbilled; opening the count lists it; recording and billing the fee clears it.
+  await expect(page.getByTestId('card-unbilled')).toContainText('1');
+  await page.getByTestId('card-unbilled').click();
+  await expect(page.getByRole('table', { name: 'Work' })).toContainText('Alpha Foods');
+  const docsButton = page.getByRole('button', { name: 'Documents' }).first();
+  if ((await docsButton.getAttribute('aria-expanded')) !== 'true') await docsButton.click();   // it may already be open from before
+  await page.getByLabel('Fee (rupees)').fill('2500');
+  await page.getByRole('button', { name: 'Set the fee' }).click();
+  await page.getByLabel('Invoice number').fill('INV-1');
+  await page.getByRole('button', { name: 'Mark as billed' }).click();
+  await expect(page.getByText(/Billed \d{4}-\d{2}-\d{2} \(INV-1\)/)).toBeVisible();
+  await expect(page.getByTestId('card-unbilled')).toContainText('0');
   await rcontext.close();
 });

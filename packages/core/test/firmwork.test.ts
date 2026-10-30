@@ -48,6 +48,18 @@ describe('owner and reviewer', () => {
   });
 });
 
+describe('choosing people at the same moment', () => {
+  it('keeps both the preparer and the reviewer when they are chosen at the same time, in either order', async () => {
+    for (let i = 0; i < 6; i++) {
+      await assignEngagement(db.web, partner, e2, { ownerId: null, reviewerId: null });
+      await Promise.all(i % 2 ? [assignEngagement(db.web, partner, e2, { ownerId: prep.userId }), assignEngagement(db.web, partner, e2, { reviewerId: rev.userId })]
+                              : [assignEngagement(db.web, partner, e2, { reviewerId: rev.userId }), assignEngagement(db.web, partner, e2, { ownerId: prep.userId })]);
+      const e = (await listEngagements(db.web, partner)).engagements.find((x) => x.id === e2)!;
+      expect({ owner: e.ownerId, reviewer: e.reviewerId }, `round ${i}`).toEqual({ owner: prep.userId, reviewer: rev.userId });
+    }
+  });
+});
+
 describe('blockers', () => {
   it('records a blocker while status moves on, then clears it', async () => {
     await setEngagementStatus(db.web, prep, e1, 'preparing');

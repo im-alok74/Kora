@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { Sql } from '@kora/db';
 import { getBlobStore } from './blobs.js';
+import { logFirmEvent } from './firmoverview.js';
 import { keep } from './firmrequests.js';
 import { reviewStateOf } from './firmsubmission.js';
 import { inFirm, seesAllClients, type FirmSession } from './firmtenancy.js';
@@ -77,5 +78,6 @@ export async function closeEngagement(sql: Sql, s: FirmSession, engagementId: st
     const [ev] = await tx`select 1 as ok from filing_evidence where engagement_id = ${engagementId} limit 1`;
     if (!ev) throw new ValidationError('Record the filing (reference, date and acknowledgement file) before closing.');
     await tx`update engagement set status = 'done', updated_at = now() where id = ${engagementId}`;
+    await logFirmEvent(tx, s.firmId, 'engagement_closed', { engagementId });
   });
 }
