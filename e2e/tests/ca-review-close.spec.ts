@@ -31,7 +31,7 @@ test('work goes from checklist to review by a second person to a recorded filing
   await expect(invitee.getByRole('heading', { name: 'Work', exact: true })).toBeVisible();
   await invitee.close();
   await page.goto('/ca/clients');
-  await page.getByRole('button', { name: 'Show' }).click();
+  await page.getByRole('button', { name: 'Show', exact: true }).click();
   await page.getByLabel('Give Alpha Foods to').selectOption({ label: `${reviewer.email} (reviewer)` });
   await expect(page.getByRole('button', { name: 'Remove' })).toBeVisible();   // the reviewer now shows as looking after Alpha Foods
 

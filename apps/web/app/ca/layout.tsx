@@ -6,6 +6,7 @@ import SignOut from '../app/sign-out';
 import CaNav from './ca-nav';
 import CaSetup from './setup';
 import Invites from './invites';
+import './ca.css';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: { default: 'Your firm', template: '%s | Kora for CAs' }, robots: { index: false, follow: false } };

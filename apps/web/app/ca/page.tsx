@@ -71,7 +71,7 @@ export default function Work() {
         <section aria-label="Needs attention">
           <div className="stats" role="group" aria-label="Open any count to see the work behind it">
             {CARDS.map(([k, label]) => (
-              <button key={k} type="button" className="stat" aria-pressed={card === k} data-testid={`card-${k}`} onClick={() => setCard(card === k ? '' : k)} style={{ textAlign: 'left', cursor: 'pointer', outline: card === k ? '2px solid var(--accent)' : undefined }}>
+              <button key={k} type="button" className="stat ca-card" aria-pressed={card === k} data-testid={`card-${k}`} onClick={() => setCard(card === k ? '' : k)}>
                 <div className="label">{label}</div><div className="value">{ov.counts[k] ?? 0}</div>
               </button>))}
           </div>
@@ -80,10 +80,10 @@ export default function Work() {
       )}
 
       <div className="stats">
-        <div className="stat"><div className="label">Shown</div><div className="value">{list.total}</div></div>
-        <div className="stat"><div className="label">Due in 5 days</div><div className="value" data-testid="ca-due">{dueSoon}</div></div>
-        <div className="stat"><div className="label">Date passed, not done</div><div className="value" data-testid="ca-passed">{passed}</div></div>
-        <div className="stat"><div className="label">Blocked</div><div className="value" data-testid="ca-blocked">{blocked}</div></div>
+        <div className="stat"><div className="label">Work in the month shown</div><div className="value">{list.total}</div></div>
+        <div className="stat"><div className="label">…of it due in 5 days</div><div className="value" data-testid="ca-due">{dueSoon}</div></div>
+        <div className="stat"><div className="label">…of it with the date passed</div><div className="value" data-testid="ca-passed">{passed}</div></div>
+        <div className="stat"><div className="label">…of it held up</div><div className="value" data-testid="ca-blocked">{blocked}</div></div>
       </div>
 
       <div className="filters">
@@ -101,25 +101,25 @@ export default function Work() {
       {rows.length === 0 ? (
         <div className="panel empty"><h3>No work for {period}</h3><p>{wide ? 'Press “Create ' + period + ' work” to add GSTR-1 and GSTR-3B for every client.' : 'Nothing is assigned to you for this month.'}</p></div>
       ) : (
-        <div style={{ overflowX: 'auto' }}><table className="t" aria-label="Work">
+        <div style={{ overflowX: 'auto' }}><table className="t ca-table" aria-label="Work">
           <thead><tr><th>Client</th><th>Form</th><th>Due</th><th>Status</th><th>Preparer</th><th>Reviewer</th><th>Held up</th></tr></thead>
           <tbody>{rows.map((r) => (
             <Fragment key={r.id}><tr>
-              <td><b>{r.clientName}</b><br /><span className="muted">{r.gstin}</span><br /><button className="link" aria-expanded={docs === r.id} onClick={() => setDocs(docs === r.id ? null : r.id)}>Documents</button></td>
-              <td>{r.form}</td>
-              <td>{r.statutoryDeadline ?? (<><span className="chip cancelled" title={r.deadlineSource}>no date yet</span><br />
+              <td data-label="Client"><b>{r.clientName}</b><br /><span className="muted">{r.gstin}</span><br /><button className="link" aria-expanded={docs === r.id} onClick={() => setDocs(docs === r.id ? null : r.id)}>Documents</button></td>
+              <td data-label="Form">{r.form}</td>
+              <td data-label="Due">{r.statutoryDeadline ?? (<><span className="chip cancelled" title={r.deadlineSource}>no date yet</span><br />
                 <input type="date" aria-label={`Set the due date of ${r.form} for ${r.clientName}`} onChange={(e) => e.target.value && patch(r.id, { statutoryDeadline: e.target.value, deadlineSource: 'Set by hand' })} /></>)}
                 {r.statutoryDeadline && r.status !== 'done' && r.statutoryDeadline < today() && <><br /><span className="chip" title="Kora does not know whether this was filed">date passed</span></>}
                 {r.internalTarget && <><br /><span className="muted">aim {r.internalTarget}</span></>}</td>
-              <td><select style={{ minWidth: 120 }} aria-label={`Status of ${r.form} for ${r.clientName}`} value={r.status} onChange={(e) => patch(r.id, { status: e.target.value })}>
+              <td data-label="Status"><select style={{ minWidth: 120 }} aria-label={`Status of ${r.form} for ${r.clientName}`} value={r.status} onChange={(e) => patch(r.id, { status: e.target.value })}>
                 {(Object.keys(STATUS) as Row['status'][]).filter((s) => s !== 'done' || r.status === 'done').map((s) => <option key={s} value={s} disabled={s === 'done'}>{STATUS[s]}</option>)}</select></td>
-              <td>{wide ? (
+              <td data-label="Preparer">{wide ? (
                 <select style={{ minWidth: 140 }} aria-label={`Preparer for ${r.form} for ${r.clientName}`} value={r.ownerId ?? ''} onChange={(e) => patch(r.id, { ownerId: e.target.value || null })}>
                   <option value="">Nobody</option>{me.members.filter((m) => !m.pending).map((m) => <option key={m.userId} value={m.userId}>{m.email}</option>)}</select>) : (name.get(r.ownerId ?? '') ?? <span className="muted">Nobody</span>)}</td>
-              <td>{wide ? (
+              <td data-label="Reviewer">{wide ? (
                 <select style={{ minWidth: 140 }} aria-label={`Reviewer for ${r.form} for ${r.clientName}`} value={r.reviewerId ?? ''} onChange={(e) => patch(r.id, { reviewerId: e.target.value || null })}>
                   <option value="">Nobody</option>{me.members.filter((m) => !m.pending).map((m) => <option key={m.userId} value={m.userId}>{m.email}</option>)}</select>) : (name.get(r.reviewerId ?? '') ?? <span className="muted">Nobody</span>)}</td>
-              <td>{r.blocker ? (
+              <td data-label="Held up">{r.blocker ? (
                 <><span className="chip cancelled">Waiting on {PARTY[r.blocker.party]}</span> {r.blocker.reason}
                   <br /><span className="muted">{ageDays(r.blocker.since)} day(s){r.blocker.expected ? `, expected ${r.blocker.expected}` : ''}{r.blocker.nextAction ? ` · next: ${r.blocker.nextAction}` : ''}</span>
                   <br /><button className="link" onClick={() => patch(r.id, { blocker: null })}>Clear</button> <button className="link" onClick={() => { setBl({ reason: r.blocker!.reason, party: r.blocker!.party, nextAction: r.blocker!.nextAction, expected: r.blocker!.expected ?? '' }); setEditing(r.id); }}>Edit</button></>
