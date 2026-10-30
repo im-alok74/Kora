@@ -22,11 +22,11 @@ export default function Review({ engagementId, version, onChange }: { engagement
   const [f, setF] = useState({ reference: '', filedOn: '' });
   const load = useCallback(async () => {
     const [r, e] = await Promise.all([api<State>(`/api/ca/engagements/${engagementId}/review`), api<{ evidence: Ev[] }>(`/api/ca/engagements/${engagementId}/filing`)]);
-    setSt(r); setEv(e.evidence); onChange?.();
-  }, [engagementId, onChange]);
+    setSt(r); setEv(e.evidence);
+  }, [engagementId]);
   // Reload when the checklist beside it changes, so a stale approval shows as soon as it happens.
   useEffect(() => { load().catch((e) => setErr(e.message)); }, [load, version]);
-  const run = async (fn: () => Promise<unknown>) => { setErr(''); try { await fn(); await load(); } catch (e) { setErr((e as Error).message); } };
+  const run = async (fn: () => Promise<unknown>) => { setErr(''); try { await fn(); await load(); onChange?.(); } catch (e) { setErr((e as Error).message); } };
   if (!st) return err ? <p className="error" role="alert">{err}</p> : null;
   const sub = st.submission;
   const open = sub?.issues.filter((i) => i.status === 'open').length ?? 0;

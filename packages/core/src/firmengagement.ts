@@ -1,5 +1,6 @@
 import type { Sql, Tx } from '@kora/db';
 import { assertClientAccess } from './firmclients.js';
+import { ENGAGEMENT_VIEWS, viewFilter, type EngagementView } from './firmoverview.js';
 import { inFirm, seesAllClients, type FirmSession } from './firmtenancy.js';
 import { ValidationError } from './validation.js';
 
@@ -67,14 +68,16 @@ export interface EngagementRow {
 }
 
 /** One page of engagements the person may see (preparers and reviewers: only for clients assigned to them). */
-export async function listEngagements(sql: Sql, s: FirmSession, opts: { period?: string; status?: EngagementStatus; blocked?: boolean; mine?: boolean; limit?: number; offset?: number } = {}) {
+export async function listEngagements(sql: Sql, s: FirmSession, opts: { period?: string; status?: EngagementStatus; blocked?: boolean; mine?: boolean; view?: EngagementView; limit?: number; offset?: number } = {}) {
   const limit = Math.min(Math.max(opts.limit ?? 100, 1), 200), offset = Math.max(opts.offset ?? 0, 0);
+  if (opts.view && !ENGAGEMENT_VIEWS.includes(opts.view)) throw new ValidationError('That view does not exist.', 'view');
   if (opts.period && !PERIOD.test(opts.period)) throw new ValidationError('Period must look like 2026-09.', 'period');
   const all = seesAllClients(s.role);
   return inFirm(sql, s, 'engagement.read', async (tx) => {
     const where = (t: Tx) => t`e.firm_id = ${s.firmId}
       ${opts.period ? t`and e.period = ${opts.period}` : t``} ${opts.status ? t`and e.status = ${opts.status}` : t``}
       ${opts.blocked === undefined ? t`` : opts.blocked ? t`and e.blocker_reason is not null` : t`and e.blocker_reason is null`}
+      ${opts.view ? t`and ${viewFilter(t, opts.view)}` : t``}
       ${opts.mine ? t`and (e.owner_id = ${s.userId} or e.reviewer_id = ${s.userId})` : t``}
       ${all ? t`` : t`and exists (select 1 from client_assignment a where a.client_id = e.client_id and a.user_id = ${s.userId})`}`;
     const [{ n }] = (await tx`select count(*)::int as n from engagement e where ${where(tx)}`) as unknown as [{ n: number }];

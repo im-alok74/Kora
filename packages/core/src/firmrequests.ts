@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { Sql, Tx } from '@kora/db';
 import { getBlobStore } from './blobs.js';
+import { logFirmEvent } from './firmoverview.js';
 import { FORM_NAME, type Service } from './firmengagement.js';
 import { inFirm, type FirmSession } from './firmtenancy.js';
 import { loadEngagement } from './firmwork.js';
@@ -33,6 +34,7 @@ export async function addRequest(sql: Sql, s: FirmSession, engagementId: string,
     if (dupe) throw new ValidationError('That item is already on the list.', 'label');
     const [row] = await tx`insert into document_request (firm_id, engagement_id, client_id, label, due_date, created_by)
                            values (${s.firmId}, ${engagementId}, ${e.client_id}, ${label}, ${r.dueDate ?? null}, ${s.userId}) returning id`;
+    await logFirmEvent(tx, s.firmId, 'request_created', { engagementId, requestId: row!.id as string });
     return row!.id as string;
   });
 }
@@ -46,6 +48,7 @@ export async function addDefaultChecklist(sql: Sql, s: FirmSession, engagementId
       const rows = await tx`insert into document_request (firm_id, engagement_id, client_id, label, created_by)
                             values (${s.firmId}, ${engagementId}, ${e.client_id}, ${label}, ${s.userId}) on conflict do nothing returning id`;
       n += rows.length;
+      for (const row of rows) await logFirmEvent(tx, s.firmId, 'request_created', { engagementId, requestId: row.id as string });
     }
     return n;
   });
@@ -85,6 +88,7 @@ export async function addStaffVersion(sql: Sql, s: FirmSession, requestId: strin
     await tx`insert into document_version (id, firm_id, request_id, file_name, content_type, size_bytes, sha256, data, storage_key, uploaded_by, uploaded_via)
              values (${id}, ${s.firmId}, ${requestId}, ${file.name}, ${file.type}, ${file.data.length}, ${sha(file.data)}, ${data}, ${key}, ${s.userId}, 'staff')`;
     await tx`update document_request set status = 'received', reason = null, updated_at = now() where id = ${requestId}`;
+    await logFirmEvent(tx, s.firmId, 'file_received', { engagementId: r.engagement_id as string, requestId, via: 'staff' });
     return id;
   });
 }
@@ -118,6 +122,7 @@ export async function createUploadLink(sql: Sql, s: FirmSession, engagementId: s
     const token = randomBytes(24).toString('base64url');
     const [r] = await tx`insert into upload_link (firm_id, engagement_id, token_hash, expires_at, created_by)
                          values (${s.firmId}, ${engagementId}, ${hashToken(token)}, now() + ${LINK_DAYS + ' days'}::interval, ${s.userId}) returning expires_at`;
+    await logFirmEvent(tx, s.firmId, 'link_created', { engagementId });
     return { token, expiresAt: (r!.expires_at as Date).toISOString() };
   });
 }
