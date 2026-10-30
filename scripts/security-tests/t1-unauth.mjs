@@ -1,9 +1,10 @@
 // T1: every API route and method, called with no session. Anything that answers 2xx or 5xx and is not meant to be public is a finding.
+import { fileURLToPath } from 'node:url';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { Client, record, uuidv4, findings } from './lib.mjs';
 
-const ROOT = new URL('../../apps/web/app/api', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+const ROOT = fileURLToPath(new URL('../../apps/web/app/api', import.meta.url));
 const routes = [];
 (function walk(d) { for (const f of readdirSync(d)) { const p = join(d, f); if (statSync(p).isDirectory()) walk(p); else if (f === 'route.ts') routes.push(p); } })(ROOT);
 

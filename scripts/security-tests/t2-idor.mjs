@@ -1,4 +1,5 @@
 // T2: tenant isolation. B is a real user of a different business and tries every way to reach A's data.
+import { fileURLToPath } from 'node:url';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { Client, record, seededOwner, uuidv4, uniq, findings } from './lib.mjs';
@@ -24,7 +25,7 @@ console.log('A seeded:', JSON.stringify(seeded));
 // Which A id fits a route segment name.
 const idFor = (parent) => ({ documents: a.docId, parties: a.partyId, items: a.itemId, expenses: a.expenseId, matters: a.matterId, 'price-lists': a.priceListId, recurring: a.recurringId, 'outbound-webhooks': a.hookId, keys: a.keyId, payments: a.paymentId, purchases: a.vendorId, stock: a.itemId, inbox: uuidv4(), team: a.me?.userId ?? uuidv4(), 'custom-fields': uuidv4(), 'recurring-expenses': uuidv4(), deliveries: uuidv4(), network: uuidv4() }[parent]);
 
-const ROOT = new URL('../../apps/web/app/api', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+const ROOT = fileURLToPath(new URL('../../apps/web/app/api', import.meta.url));
 const files = [];
 (function walk(d) { for (const f of readdirSync(d)) { const p = join(d, f); if (statSync(p).isDirectory()) walk(p); else if (f === 'route.ts') files.push(p); } })(ROOT);
 
