@@ -2,6 +2,8 @@ import type { Sql } from '@kora/db';
 import { runJobsOnce, type Handlers } from './jobs.js';
 import { processDueReminders } from './reminders.js';
 import { processDueRecurring } from './recurring.js';
+import { processFirmWork } from './firmjobs.js';
+import type { Messenger } from '@kora/adapters';
 
 /** The nightly clean-up of finished jobs, old events and expired sessions runs in the 21:00 UTC hour (02:30 IST), once per day in effect. */
 export const shouldPrune = (now: Date = new Date()) => now.getUTCHours() === 21;
@@ -21,11 +23,12 @@ export async function pruneOperationalData(sql: Sql): Promise<Record<string, unk
  * invoices, then run ready jobs until none are left or the time budget is used. The budget is checked before each claim;
  * an in-progress handler can exceed it. Claims coordinate concurrent runners, but external side effects remain at least once.
  */
-export async function runTick(sql: Sql, handlers: Handlers, o: { worker?: string; budgetMs?: number } = {}) {
+export async function runTick(sql: Sql, handlers: Handlers, o: { worker?: string; budgetMs?: number; firmWork?: { messenger: Messenger; appUrl: string } } = {}) {
   const started = Date.now();
   const budget = o.budgetMs ?? 40_000;
   const reminders = await processDueReminders(sql);
   const recurring = await processDueRecurring(sql);
+  const firms = o.firmWork ? await processFirmWork(sql, o.firmWork) : null;
   const jobs = { claimed: 0, done: 0, retried: 0, failed: 0 };
   while (Date.now() - started < budget) {
     const r = await runJobsOnce(sql, handlers, { worker: o.worker ?? 'cron', limit: 10, deadline: started + budget });
@@ -33,5 +36,5 @@ export async function runTick(sql: Sql, handlers: Handlers, o: { worker?: string
     if (r.claimed === 0) break;
   }
   const pruned = shouldPrune() ? await pruneOperationalData(sql) : null;
-  return { reminders, recurring, jobs, pruned, ms: Date.now() - started };
+  return { reminders, recurring, firms, jobs, pruned, ms: Date.now() - started };
 }

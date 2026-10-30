@@ -3,6 +3,7 @@ import { inTenant, type TenantSession } from './tenancy.js';
 import { str, ValidationError } from './validation.js';
 import { RECEIPT_MAX_BYTES, RECEIPT_TYPES } from './expenses.js';
 import { getBlobStore } from './blobs.js';
+import { scanUpload } from './uploadscan.js';
 
 export const INBOX_STATUSES = ['new', 'done', 'rejected'] as const;
 export type InboxStatus = (typeof INBOX_STATUSES)[number];
@@ -19,6 +20,8 @@ export function checkUpload(i: { name: string; type: string; dataBase64: string 
     : i.type === 'image/png' ? data.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))
     : data.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]));
   if (!magic) throw new ValidationError('The file does not look like a real file of that type.', 'data');
+  const unsafe = scanUpload(data, i.type);
+  if (unsafe) throw new ValidationError(unsafe, 'data');
   return { name, type: i.type, data };
 }
 
