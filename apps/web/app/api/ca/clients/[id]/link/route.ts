@@ -1,4 +1,4 @@
-import { getClientLink, linkedClientSummary, requestClientLink, revokeClientLink } from '@kora/core';
+import { getClientLink, linkedClientReconciliation, linkedClientSummary, previousPeriod, requestClientLink, revokeClientLink } from '@kora/core';
 import { firmRoute } from '../../../../../../lib/firmroute';
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -7,7 +7,7 @@ export async function GET(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   return firmRoute(async ({ s, sql }) => {
     const link = await getClientLink(sql, s, id);
-    return link.status === 'active' ? { link, summary: await linkedClientSummary(sql, s, id) } : { link };
+    return link.status === 'active' ? { link, summary: await linkedClientSummary(sql, s, id), reconciliation: await linkedClientReconciliation(sql, s, id, previousPeriod()) } : { link };
   })(req);
 }
 export async function POST(req: Request, ctx: Ctx) {

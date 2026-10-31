@@ -1,0 +1,17 @@
+/* On a phone the CA tables become one card per row, with each cell labelled. */
+@media (max-width: 760px) {
+  table.ca-table, table.ca-table tbody, table.ca-table tr, table.ca-table td { display: block; width: 100%; }
+  table.ca-table { border: 0; background: none; box-shadow: none; overflow: visible; }
+  table.ca-table thead { display: none; }
+  table.ca-table tr { background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow-card); }
+  table.ca-table td { border: 0; padding: 6px 0; }
+  table.ca-table td[data-label]::before { content: attr(data-label); display: block; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px; }
+  table.ca-table td select, table.ca-table td input[type='date'] { width: 100%; }
+}
+
+/* The counts on the Work screen are buttons: show them as cards, with the number in the ordinary text colour. */
+button.ca-card.stat { height: auto; min-height: 0; padding: 16px 18px; margin: 0; line-height: normal; display: block; width: 100%; text-align: left; cursor: pointer; font: inherit; color: var(--text); background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; }
+button.ca-card.stat { white-space: normal; box-shadow: var(--shadow-card); }
+button.ca-card.stat:hover { background: var(--surface-raised); color: var(--text); border-color: var(--accent); }
+button.ca-card[aria-pressed='true'] { outline: 2px solid var(--accent); outline-offset: -1px; }
+button.ca-card .value { color: var(--text); }

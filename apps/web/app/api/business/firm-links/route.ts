@@ -8,6 +8,6 @@ export const POST = tenantRoute(async ({ t, sql, req }) => {
   return { ok: true };
 });
 export const DELETE = tenantRoute(async ({ t, sql, req }) => {
-  await revokeBusinessLink(sql, t, String((await readJson<{ linkId?: string }>(req)).linkId ?? ''));
+  await revokeBusinessLink(sql, t, String(new URL(req.url).searchParams.get('linkId') ?? (await readJson<{ linkId?: string }>(req)).linkId ?? ''));
   return { ok: true };
 });

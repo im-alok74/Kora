@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { Sql } from '@kora/db';
 import { dashboardSummary } from './dashboard.js';
 import { assertClientAccess } from './firmclients.js';
+import { reconciliationCounts } from './purchases.js';
 import { inFirm, type FirmSession } from './firmtenancy.js';
 import type { TenantSession } from './tenancy.js';
 import { ValidationError } from './validation.js';
@@ -77,4 +78,16 @@ export async function linkedClientSummary(sql: Sql, s: FirmSession, clientId: st
   });
   if (!businessId) throw new ValidationError('This client is not linked to a Kora business.');
   return dashboardSummary(sql, { businessId, userId: s.userId, role: 'accountant', viaFirm: s.firmId });
+}
+
+/** The linked business's books against its GSTR-2B for one month, read-only. Null when the client is not linked. */
+export async function linkedClientReconciliation(sql: Sql, s: FirmSession, clientId: string, period: string) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(period)) throw new ValidationError('Period must look like 2026-09.', 'period');
+  const businessId = await inFirm(sql, s, 'client.read', async (tx) => {
+    await assertClientAccess(tx, s, clientId);
+    const [r] = await tx`select business_id from client_business_link where client_id = ${clientId} and status = 'active'`;
+    return r?.business_id as string | undefined;
+  });
+  if (!businessId) return null;
+  return reconciliationCounts(sql, { businessId, userId: s.userId, role: 'accountant', viaFirm: s.firmId }, period);
 }

@@ -374,3 +374,24 @@ export async function acceptGstr2bEntry(sql: Sql, t: TenantSession, entryId: str
     return { billId: bill!.id as string };
   });
 }
+
+
+/**
+ * Where the books and the GSTR-2B statement stand for a month, read as the business last left them. It does not run the matching (that writes);
+ * it counts what is already matched. A CA firm reading a linked client uses this, so it can show differences without changing anything.
+ */
+export async function reconciliationCounts(sql: Sql, t: TenantSession, period: string) {
+  const { from, to } = monthBounds(period);
+  return inTenant(sql, t, 'purchase.read', async (tx) => {
+    const [c] = await tx`select count(*)::int as loaded,
+        count(*) filter (where e.bill_id is null)::int as only_in_2b,
+        count(*) filter (where e.bill_id is not null and (abs(e.taxable_paise - b.taxable_paise) > 100 or abs(e.cgst_paise - b.cgst_paise) > 100 or abs(e.sgst_paise - b.sgst_paise) > 100
+                                                          or abs(e.igst_paise - b.igst_paise) > 100 or abs(e.cess_paise - b.cess_paise) > 100))::int as mismatched
+      from gstr2b_entry e left join purchase_bill b on b.id = e.bill_id where e.period = ${period}`;
+    const [bk] = await tx`select count(*)::int as n from purchase_bill b join party p on p.id = b.party_id
+                           where b.status = 'recorded' and b.bill_date >= ${from}::date and b.bill_date < ${to}::date and p.gstin is not null and not b.reverse_charge
+                             and not exists (select 1 from gstr2b_entry x where x.bill_id = b.id)`;
+    const loaded = c!.loaded as number;
+    return { period, loaded, matched: loaded - (c!.only_in_2b as number) - (c!.mismatched as number), mismatched: c!.mismatched as number, onlyIn2b: c!.only_in_2b as number, onlyInBooks: bk!.n as number };
+  });
+}

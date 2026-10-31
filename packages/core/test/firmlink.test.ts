@@ -3,7 +3,7 @@ import { makeTestDb, type TestDb } from '@kora/db/src/testing.js';
 import { withLinkedTenant, type Tx } from '@kora/db';
 import {
   acceptClientLink, addClient, addFirmMember, addMember, createBusiness, createFirm, demoGstin, getClientLink, linkedClientSummary, listBusinessLinks, listClients,
-  inTenant, requestClientLink, resolveFirm, resolveTenant, revokeBusinessLink, revokeClientLink, assignClient, type FirmSession, type TenantSession,
+  inTenant, linkedClientReconciliation, requestClientLink, resolveFirm, resolveTenant, revokeBusinessLink, revokeClientLink, assignClient, type FirmSession, type TenantSession,
 } from '../src/index.js';
 
 let db: TestDb;
@@ -95,5 +95,21 @@ describe('client to business link', () => {
     const r = await requestClientLink(db.web, partner, alpha);
     await acceptClientLink(db.web, owner, r.code);
     await expect(requestClientLink(db.web, partner, alpha)).rejects.toThrow(/already linked/);
+  });
+});
+
+describe("reading the linked client's books against GSTR-2B", () => {
+  it('counts what is in the statement and not in the books, read-only, for a linked client only', async () => {
+    expect(await linkedClientReconciliation(db.web, partner, beta, '2026-09')).toBeNull();   // not linked
+    await db.owner`insert into gstr2b_entry (business_id, period, supplier_gstin, invoice_number, taxable_paise, cgst_paise)
+                   values (${owner.businessId}, '2026-09', ${g(40)}, 'S-1', 100000, 9000), (${owner.businessId}, '2026-09', ${g(41)}, 'S-2', 50000, 4500)`;
+    expect(await linkedClientReconciliation(db.web, partner, alpha, '2026-09')).toEqual({ period: '2026-09', loaded: 2, matched: 0, mismatched: 0, onlyIn2b: 2, onlyInBooks: 0 });
+    const [n] = await db.owner`select count(*)::int as n from gstr2b_entry where business_id = ${owner.businessId} and bill_id is not null`;
+    expect(n!.n).toBe(0);                                                                      // nothing was matched or written by looking
+    await expect(linkedClientReconciliation(db.web, partner, alpha, 'soon')).rejects.toThrow(/Period/);
+  });
+  it('stops the moment the link is revoked', async () => {
+    await revokeClientLink(db.web, partner, alpha);
+    expect(await linkedClientReconciliation(db.web, partner, alpha, '2026-09')).toBeNull();
   });
 });

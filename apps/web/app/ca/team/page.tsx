@@ -43,16 +43,16 @@ export default function Team() {
         </form>
       )}
 
-      <table className="t" aria-label="Team">
+      <table className="t ca-table" aria-label="Team">
         <thead><tr><th>Person</th><th>Role</th><th>Can</th>{isPartner && <th />}</tr></thead>
         <tbody>{me.members.map((m) => (
           <tr key={m.userId}>
-            <td><b>{m.email}</b>{m.userId === me.you && <> <span className="chip">you</span></>}{m.pending && <> <span className="chip" title="They have not accepted yet. Nothing of the firm is open to them.">waiting to accept</span></>}</td>
-            <td>{isPartner ? (
+            <td data-label="Person"><b>{m.email}</b>{m.userId === me.you && <> <span className="chip">you</span></>}{m.pending && <> <span className="chip" title="They have not accepted yet. Nothing of the firm is open to them.">waiting to accept</span></>}</td>
+            <td data-label="Role">{isPartner ? (
               <select aria-label={`Role of ${m.email}`} value={m.role} onChange={(e) => run(() => api('/api/ca/team', { body: { identifier: m.email, role: e.target.value } }))}>
                 <option value="preparer">Preparer</option><option value="reviewer">Reviewer</option><option value="manager">Manager</option><option value="partner">Partner</option>
               </select>) : m.role}</td>
-            <td className="muted">{HELP[m.role]}</td>
+            <td data-label="Can" className="muted">{HELP[m.role]}</td>
             {isPartner && <td><button className="link" onClick={() => { if (window.confirm(`Remove ${m.email} from the firm? They lose access to its work.`)) void run(() => api(`/api/ca/team?userId=${m.userId}`, { method: 'DELETE' })); }}>Remove</button></td>}
           </tr>))}</tbody>
       </table>
