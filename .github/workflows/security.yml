@@ -51,9 +51,39 @@ jobs:
           BASE: http://localhost:3320
           PT_DATABASE_URL: postgres://kora_owner:kora_owner_dev@localhost:54329/kora
         run: node scripts/security-tests/run-all.mjs
+      # Plan limits over HTTP: a second copy of the same build with plans enforced.
+      - name: Plan limits (second copy, KORA_PLANS=enforce)
+        env:
+          BASE: http://localhost:3321
+        run: |
+          (cd apps/web && KORA_PLANS=enforce APP_URL=http://localhost:3321 nohup pnpm exec next start -p 3321 > ../../app-plans.log 2>&1 &)
+          for i in $(seq 1 60); do curl -s -o /dev/null localhost:3321/api/me && break; sleep 1; done
+          node scripts/security-tests/plans-e2e.mjs
+      - name: Chromium for the PDF burst
+        run: pnpm --filter @kora/pdf exec playwright install --with-deps chromium
+      - name: PDF burst (90 PDFs from 6 businesses at once)
+        env:
+          BASE: http://localhost:3320
+        run: |
+          psql "$MIGRATE_DATABASE_URL" -c 'truncate rate_event'
+          node scripts/security-tests/pdf-load.mjs
       - name: App log
         if: failure()
         run: tail -n 80 app.log
+
+  # Object storage against a real S3 server that checks request signatures (and wrong credentials).
+  storage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: docker compose --profile s3 up -d --wait s3
+      - run: pnpm --filter @kora/core exec vitest run test/blobs-s3.test.ts
+        env:
+          S3_TEST_ENDPOINT: http://127.0.0.1:54330
 
   # Known advisories are reported, not blocking in ci.yml; here a new high one in what ships is a failed run.
   dependencies:

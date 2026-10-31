@@ -6,7 +6,7 @@ import { keep } from './firmrequests.js';
 import { reviewStateOf } from './firmsubmission.js';
 import { inFirm, seesAllClients, type FirmSession } from './firmtenancy.js';
 import { loadEngagement } from './firmwork.js';
-import { checkUpload } from './inbox.js';
+import { checkUploadScanned } from './inbox.js';
 import { ValidationError } from './validation.js';
 
 const iso = (d: unknown) => new Date(d as string).toISOString().slice(0, 10);
@@ -23,7 +23,7 @@ export async function addFilingEvidence(sql: Sql, s: FirmSession, engagementId: 
   if (!reference || reference.length > 60) throw new ValidationError('Enter the filing reference, for example the ARN (up to 60 characters).', 'reference');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(e.filedOn ?? '') || Number.isNaN(Date.parse(e.filedOn))) throw new ValidationError('Enter the date it was filed, like 2026-10-20.', 'filedOn');
   if (e.filedOn > new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)) throw new ValidationError('The filing date cannot be in the future.', 'filedOn');
-  const file = checkUpload(e.file);
+  const file = await checkUploadScanned(e.file);
   return inFirm(sql, s, 'engagement.work', async (tx) => {
     await loadEngagement(tx, s, engagementId);
     const st = await reviewStateOf(tx, engagementId);

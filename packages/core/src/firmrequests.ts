@@ -5,7 +5,7 @@ import { logFirmEvent } from './firmoverview.js';
 import { FORM_NAME, type Service } from './firmengagement.js';
 import { inFirm, type FirmSession } from './firmtenancy.js';
 import { loadEngagement } from './firmwork.js';
-import { checkUpload } from './inbox.js';
+import { checkUploadScanned } from './inbox.js';
 import { ValidationError } from './validation.js';
 
 export type RequestStatus = 'requested' | 'received' | 'needs_correction' | 'accepted' | 'waived';
@@ -77,7 +77,7 @@ export async function keep(firmId: string, versionId: string, file: { type: stri
 
 /** A firm member uploads a file for an item on the client's behalf, for example one that arrived on WhatsApp. */
 export async function addStaffVersion(sql: Sql, s: FirmSession, requestId: string, f: { name: string; type: string; dataBase64: string }): Promise<string> {
-  const file = checkUpload(f);
+  const file = await checkUploadScanned(f);
   return inFirm(sql, s, 'engagement.work', async (tx) => {
     const [r] = await tx`select engagement_id, status from document_request where id = ${requestId} and firm_id = ${s.firmId}`;
     if (!r) throw new ValidationError('That item was not found.');
@@ -157,7 +157,7 @@ export async function loadUploadPage(sql: Sql, token: string): Promise<UploadPag
 
 /** The client sends a file. Checked like any upload, then handed to the database function that checks the link and the item. */
 export async function uploadViaLink(sql: Sql, token: string, requestId: string, f: { name: string; type: string; dataBase64: string }): Promise<void> {
-  const file = checkUpload(f);
+  const file = await checkUploadScanned(f);
   const hash = hashToken(token);
   const [ctx] = await sql`select firm_id from upload_link_context(${hash}) limit 1`;
   if (!ctx) throw new ValidationError('This link is not valid any more. Ask the firm for a new one.');

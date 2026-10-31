@@ -34,3 +34,30 @@ describe('checkUpload uses the scan', () => {
     expect(checkUpload({ name: 'a.png', type: 'image/png', dataBase64: b64(png()) }).name).toBe('a.png');
   });
 });
+
+describe('clamScan', async () => {
+  const { createServer } = await import('node:net');
+  const { clamScan } = await import('../src/index.js');
+  // A stand-in for clamd: reads the INSTREAM stream and answers FOUND when it contains "VIRUS", otherwise OK.
+  const fake = (reply?: string) => new Promise<{ port: number; close: () => void; seen: () => number }>((resolve) => {
+    let bytes = 0;
+    const srv = createServer((s) => {
+      const parts: Buffer[] = [];
+      s.on('data', (c) => { parts.push(c); const all = Buffer.concat(parts); if (all.subarray(-4).equals(Buffer.alloc(4))) { bytes = all.length; s.end(`${reply ?? (all.includes('VIRUS') ? 'stream: Eicar FOUND' : 'stream: OK')}\0`); } });
+    }).listen(0, '127.0.0.1', () => resolve({ port: (srv.address() as { port: number }).port, close: () => srv.close(), seen: () => bytes }));
+  });
+  it('does nothing without CLAMAV_HOST', async () => { expect(await clamScan(Buffer.from('VIRUS'), {})).toBeNull(); });
+  it('streams the file to clamd and refuses a found virus, accepts a clean one', async () => {
+    const s = await fake();
+    const env = { CLAMAV_HOST: '127.0.0.1', CLAMAV_PORT: String(s.port) };
+    expect(await clamScan(Buffer.from('clean file'), env)).toBeNull();
+    expect(await clamScan(Buffer.from('a VIRUS inside'), env)).not.toBeNull();
+    expect(s.seen()).toBeGreaterThan(10);
+    s.close();
+  });
+  it('lets the upload go on when clamd is down, unless CLAMAV_REQUIRED=1', async () => {
+    const env = { CLAMAV_HOST: '127.0.0.1', CLAMAV_PORT: '1' };
+    expect(await clamScan(Buffer.from('x'), env)).toBeNull();
+    expect(await clamScan(Buffer.from('x'), { ...env, CLAMAV_REQUIRED: '1' })).toMatch(/paused/);
+  });
+});

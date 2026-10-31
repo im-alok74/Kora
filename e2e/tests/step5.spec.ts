@@ -223,6 +223,8 @@ test('only the owner sees Developers, and API keys and webhooks are owner-only o
   const ctx2 = await browser.newContext();
   await ctx2.addCookies([{ name: 'kora_session', value: token, domain: 'localhost', path: '/', httpOnly: true, sameSite: 'Lax' }]);
   const p2 = await ctx2.newPage();
+  const [inv] = await db`select business_id from member_invite where user_id = ${u!.id}`;
+  expect((await p2.request.post('/api/invites', { data: { businessId: inv!.business_id, accept: true } })).status()).toBe(200);   // the invitee accepts
   await p2.goto('/app/invoices');
   await expect(p2.getByRole('link', { name: 'Developers' })).toHaveCount(0);
   await expect(p2.getByRole('link', { name: 'Data' })).toBeVisible();

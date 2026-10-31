@@ -32,7 +32,23 @@ export type Paper = 'A4' | 'A5' | 'THERMAL';
 /** The paper a template prints on: a receipt layout always uses a narrow roll. */
 export const paperFor = (t: { layout?: string; paper?: string } | null | undefined): Paper => (t?.layout === 'thermal' ? 'THERMAL' : t?.paper === 'A5' ? 'A5' : 'A4');
 
-export async function renderPdf(html: string, paper: Paper = 'A4'): Promise<Buffer> {
+/**
+ * At most PDF_CONCURRENCY (default 4) PDFs are drawn at once in a process; the rest wait their turn. Without a cap a burst opens a page per
+ * request in one shared browser and can exhaust the server's memory. A burst of 90 on a laptop took 27 seconds and all 90 were good.
+ */
+const MAX_AT_ONCE = Math.max(1, Number(process.env.PDF_CONCURRENCY ?? 4));
+let running = 0;
+const waiting: (() => void)[] = [];
+async function turn<T>(job: () => Promise<T>): Promise<T> {
+  if (running >= MAX_AT_ONCE) await new Promise<void>((go) => waiting.push(go));
+  else running++;
+  try { return await job(); }
+  finally { const next = waiting.shift(); if (next) next(); else running--; }   // hand the place straight to the next in line
+}
+
+export const renderPdf = (html: string, paper: Paper = 'A4'): Promise<Buffer> => turn(() => draw(html, paper));
+
+async function draw(html: string, paper: Paper): Promise<Buffer> {
   // The serverless Chromium runs as a single process, which exits when its last page closes, so it cannot be kept for the next
   // request. There, each PDF starts its own browser and closes it. Elsewhere one browser is shared by every PDF.
   const own = serverless() ? await launchOptions().then((o) => chromium.launch(o)) : null;

@@ -19,7 +19,7 @@ export function firmRoute(handler: (a: { s: FirmSession; req: Request; sql: Sql 
       }
       const userId = await currentUserId();
       if (!userId) return json({ error: 'Sign in first.' }, 401);
-      const slow = tooManyRequests(userId, req);
+      const slow = await tooManyRequests(userId, req);
       if (slow) return slow;
       const { sql } = services();
       // A firm named in the x-firm-id header is exact: not a firm id is a 400, not one of yours is a 403. Never a silent fallback to another firm.

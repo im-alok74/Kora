@@ -1,6 +1,7 @@
 import { record, seededOwner, newUser, findings } from './lib.mjs';
 const owner = await seededOwner('ro'); const staff = await newUser('st'); const acct = await newUser('ac');
 await owner.post('/api/team', { identifier: staff.email, role: 'staff' }); await owner.post('/api/team', { identifier: acct.email, role: 'accountant' });
+for (const m of [staff, acct]) await m.post('/api/invites', { businessId: owner.businessId, accept: true });
 staff.headers['x-business-id'] = owner.businessId; acct.headers['x-business-id'] = owner.businessId;
 const ownerId = owner.me.userId;
 const att = [
@@ -23,3 +24,13 @@ for (const [label, who, m, path, body] of att) {
 }
 const still = await owner.get('/api/team');
 record('T3b-owner-intact', 'roles', 'owner still owner after the attempts', JSON.stringify(still.json).includes(ownerId) ? 'HELD' : 'VULN', '');
+// An invitation that nobody has accepted must open nothing.
+{
+  const pend = await newUser('pend');
+  const inv = await owner.post('/api/team', { identifier: pend.email, role: 'owner' });
+  pend.headers['x-business-id'] = owner.businessId;
+  const reads = [];
+  for (const p of ['/api/documents', '/api/parties', '/api/team', '/api/business', '/api/data/export?format=backup']) reads.push([p, (await pend.get(p)).status]);
+  const open = reads.filter(([, s]) => s >= 200 && s < 300);
+  record('T3b-pending', 'roles', 'an invited owner who has not accepted reads the business', open.length ? 'VULN' : 'HELD', open.length ? JSON.stringify(open) : `invite ${inv.status}; ${reads.map((r) => r.join(' ')).join(', ')}`, 'high');
+}

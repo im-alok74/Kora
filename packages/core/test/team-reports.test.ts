@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { makeTestDb, type TestDb } from '@kora/db/src/testing.js';
 import {
-  auditLog, changeRole, createBusiness, createParty, customerStatement, dateRange, inviteMember, issueDocument, listBusinesses, listMembers,
+  auditLog, changeRole, createBusiness, createParty, customerStatement, dateRange, answerBusinessInvite, cancelMemberInvite, inviteMember, issueDocument, listMemberInvites, listMyBusinessInvites, listBusinesses, listMembers,
   paymentsReceived, recordPayment, removeMember, resolveTenant, salesByCustomer, salesRegister, saveDraft, toCsv, ForbiddenError, ValidationError,
   type TenantSession,
 } from '../src/index.js';
@@ -23,11 +23,47 @@ beforeAll(async () => {
 }, 60_000);
 afterAll(async () => { await db?.drop(); });
 
+describe('team invitations need an answer', () => {
+  it('a pending invitation grants nothing; accepting joins with the invited role; declining and cancelling leave no trace', async () => {
+    const r = await inviteMember(db.web, owner, { identifier: '9333333333', role: 'staff' });
+    await expect(resolveTenant(db.web, r.userId, owner.businessId)).rejects.toBeInstanceOf(ForbiddenError);
+    expect(await listBusinesses(db.web, r.userId)).toHaveLength(0);
+    expect((await listMemberInvites(db.web, owner)).map((i) => i.userId)).toContain(r.userId);
+    expect(await listMyBusinessInvites(db.web, r.userId)).toMatchObject([{ businessId: owner.businessId, role: 'staff' }]);
+    // Only the invited person can answer, and only once.
+    const [other] = await db.owner`insert into app_user (phone) values ('+919333333334') returning id`;
+    await expect(answerBusinessInvite(db.web, other!.id as string, owner.businessId, true)).rejects.toBeInstanceOf(ValidationError);
+    await answerBusinessInvite(db.web, r.userId, owner.businessId, true);
+    expect((await resolveTenant(db.web, r.userId, owner.businessId)).role).toBe('staff');
+    await expect(answerBusinessInvite(db.web, r.userId, owner.businessId, true)).rejects.toBeInstanceOf(ValidationError);
+
+    const d = await inviteMember(db.web, owner, { identifier: '9333333335', role: 'owner' });
+    await answerBusinessInvite(db.web, d.userId, owner.businessId, false);
+    await expect(resolveTenant(db.web, d.userId, owner.businessId)).rejects.toBeInstanceOf(ForbiddenError);
+    const c = await inviteMember(db.web, owner, { identifier: '9333333336', role: 'staff' });
+    await cancelMemberInvite(db.web, owner, c.userId);
+    expect(await listMyBusinessInvites(db.web, c.userId)).toEqual([]);
+    // Staff cannot invite, list or cancel.
+    const staff = await resolveTenant(db.web, r.userId, owner.businessId);
+    await expect(listMemberInvites(db.web, staff)).rejects.toBeInstanceOf(ForbiddenError);
+    await removeMember(db.web, owner, r.userId);   // leave the team as the next tests expect it
+  });
+  it('an invitation older than 14 days no longer counts', async () => {
+    const r = await inviteMember(db.web, owner, { identifier: '9333333337', role: 'staff' });
+    await db.owner`update member_invite set created_at = now() - interval '15 days' where user_id = ${r.userId}`;
+    expect(await listMyBusinessInvites(db.web, r.userId)).toEqual([]);
+    await expect(answerBusinessInvite(db.web, r.userId, owner.businessId, true)).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
 describe('team', () => {
   it('invites by phone or email, lists members, and the invitee gets the right access', async () => {
     const a = await inviteMember(db.web, owner, { identifier: '98765 43210', role: 'staff' });
     expect(a.identifier).toBe('+919876543210');
-    await inviteMember(db.web, owner, { identifier: 'CA@Example.test', role: 'accountant' });
+    const c = await inviteMember(db.web, owner, { identifier: 'CA@Example.test', role: 'accountant' });
+    expect(a.pending).toBe(true);
+    await answerBusinessInvite(db.web, a.userId, owner.businessId, true);
+    await answerBusinessInvite(db.web, c.userId, owner.businessId, true);
     const ms = await listMembers(db.web, owner);
     expect(ms.map((m) => [m.role, m.phone ?? m.email])).toEqual([['owner', 'own@example.test'], ['staff', '+919876543210'], ['accountant', 'ca@example.test']]);
     const staff = await resolveTenant(db.web, a.userId, owner.businessId);
@@ -39,6 +75,7 @@ describe('team', () => {
     const [u] = await db.owner`insert into app_user (phone) values ('+919000000001') returning id`;
     const r = await inviteMember(db.web, owner, { identifier: '9000000001', role: 'accountant' });
     expect(r.userId).toBe(u!.id);
+    await answerBusinessInvite(db.web, r.userId, owner.businessId, true);
     expect((await fails(inviteMember(db.web, owner, { identifier: '9000000001', role: 'staff' }))).message).toMatch(/already a member/);
     expect(await fails(inviteMember(db.web, owner, { identifier: '123', role: 'staff' }))).toBeInstanceOf(Error);
     expect(await fails(inviteMember(db.web, owner, { identifier: '9000000002', role: 'admin' }))).toBeInstanceOf(ValidationError);
@@ -55,6 +92,7 @@ describe('team', () => {
   });
   it('a removed member loses access at once', async () => {
     const r = await inviteMember(db.web, owner, { identifier: '9111111111', role: 'staff' });
+    await answerBusinessInvite(db.web, r.userId, owner.businessId, true);
     const t = await resolveTenant(db.web, r.userId, owner.businessId);
     await removeMember(db.web, owner, r.userId);
     await expect(resolveTenant(db.web, r.userId, owner.businessId)).rejects.toBeInstanceOf(ForbiddenError);
@@ -77,6 +115,7 @@ describe('audit log', () => {
   });
   it('staff cannot read it', async () => {
     const r = await inviteMember(db.web, owner, { identifier: '9222222222', role: 'staff' });
+    await answerBusinessInvite(db.web, r.userId, owner.businessId, true);
     const staff = await resolveTenant(db.web, r.userId, owner.businessId);
     await expect(auditLog(db.web, staff)).rejects.toBeInstanceOf(ForbiddenError);
   });

@@ -6,6 +6,7 @@ import { gstinValid, STATE_NAMES } from '@kora/tax';
 import { api } from '../../lib/client';
 import ClientOnly from '../../components/ClientOnly';
 import Icon from '../../components/Icon';
+import BusinessInvites from '../../components/BusinessInvites';
 import '../wizard.css';
 
 export default function Setup() {
@@ -52,6 +53,7 @@ function SetupForm() {
     <main className="setup">
       <a className="auth-brand-link" href="/" aria-label="Kora home"><KoraLogo /></a>
       <p className="wiz-progress" role="img" aria-label="Step 1 of 5"><span className="on" /><span /><span /><span /><span /></p>
+      <BusinessInvites />
       <h1>Set up your <span className="hl">business</span></h1>
       <p className="muted">Step 1 of 5. This is printed on every invoice. Next you can add your logo, a customer and your first invoice, and skip anything you like.</p>
       <form className="card" onSubmit={async (e) => {

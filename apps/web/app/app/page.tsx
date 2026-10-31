@@ -3,6 +3,7 @@ import KoraLoader from '../../components/KoraLoader';
 import { useEffect, useState } from 'react';
 import { formatMoney } from '@kora/tax';
 import Icon from '../../components/Icon';
+import BusinessInvites from '../../components/BusinessInvites';
 import { api, DOC_LABEL, rupees } from '../../lib/client';
 
 type Dash = {
@@ -60,6 +61,7 @@ export default function Dashboard() {
 
   return (
     <>
+      <BusinessInvites />
       <div className="toolbar">
         <div>
           <h1>Dashboard</h1>
