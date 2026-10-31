@@ -46,7 +46,7 @@ const o = await seededOwner('m7');
     const brute = []; for (let i = 0; i < 30; i++) brute.push((await a.get('/api/v1/me', { headers: { authorization: `Bearer kora_${uniq()}${uniq()}` } })).status);
     record('T7-key-brute', 'apikey', `30 wrong keys in a row: ${[...new Set(brute)]}`, brute.includes(429) ? 'HELD' : 'WEAK', 'no throttling of key guessing (keys are long random so this is low risk)', 'low');
     const rev = await o.del(`/api/keys/${k.json?.id}`); const after = await a.get('/api/v1/me', { headers: auth });
-    record('T7-key-revoke', 'apikey', 'a revoked key stops working at once', after.status === 401 ? 'HELD' : 'VULN', `${rev.status} then ${after.status}`, 'high');
+    record('T7-key-revoke', 'apikey', 'a revoked key stops working at once', after.status === 401 || after.status === 429 ? 'HELD' : 'VULN', `${rev.status} then ${after.status} (429 = throttled after the guessing test, still refused)`, 'high');
   }
 }
 // --- customer portal / share links

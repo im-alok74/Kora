@@ -1,4 +1,4 @@
-import type { Sql } from '@kora/db';
+import type { Sql, Tx } from '@kora/db';
 import { logFirmEvent } from './firmoverview.js';
 import { inFirm, type FirmSession } from './firmtenancy.js';
 import { loadEngagement } from './firmwork.js';
@@ -45,21 +45,25 @@ export const REMIND_MAX = 4;
  * This only records the decision. Nothing is sent until a sender picks the row up and calls markReminder.
  */
 export async function planReminders(sql: Sql, s: FirmSession, now: Date = new Date()): Promise<{ queued: number; cancelled: number }> {
-  return inFirm(sql, s, 'engagement.write', async (tx) => {
+  return inFirm(sql, s, 'engagement.write', (tx) => planRemindersIn(tx, s.firmId, now));
+}
+
+/** The same planning inside a transaction already open for the firm, for the scheduled job. */
+export async function planRemindersIn(tx: Tx, firmId: string, now: Date = new Date()): Promise<{ queued: number; cancelled: number }> {
     const cancelled = await tx`
       update request_reminder set status = 'cancelled', settled_at = ${now}
-       where firm_id = ${s.firmId} and status = 'queued'
+       where firm_id = ${firmId} and status = 'queued'
          and request_id in (select r.id from document_request r join engagement e on e.id = r.engagement_id
                              where r.status not in ('requested', 'needs_correction') or e.status = 'done')
        returning id`;
     const queued = await tx`
       insert into request_reminder (firm_id, request_id, seq)
-      select ${s.firmId}, r.id, coalesce(x.n, 0) + 1
+      select ${firmId}, r.id, coalesce(x.n, 0) + 1
         from document_request r
         join engagement e on e.id = r.engagement_id
         join client_entity c on c.id = r.client_id
         left join lateral (select count(*)::int as n, max(created_at) as last, bool_or(status = 'queued') as pending from request_reminder q where q.request_id = r.id) x on true
-       where r.firm_id = ${s.firmId} and r.status in ('requested', 'needs_correction') and e.status <> 'done'
+       where r.firm_id = ${firmId} and r.status in ('requested', 'needs_correction') and e.status <> 'done'
          and (c.contact_email <> '' or c.contact_phone <> '')
          and exists (select 1 from upload_link l where l.engagement_id = e.id and l.revoked_at is null and l.expires_at > ${now})
          and coalesce(x.n, 0) < ${REMIND_MAX} and not coalesce(x.pending, false)
@@ -67,9 +71,8 @@ export async function planReminders(sql: Sql, s: FirmSession, now: Date = new Da
                    else x.last <= ${now}::timestamptz - ${REMIND_EVERY_DAYS + ' days'}::interval end)
       on conflict (request_id, seq) do nothing
       returning id, request_id`;
-    for (const q of queued) await logFirmEvent(tx, s.firmId, 'reminder_queued', { requestId: q.request_id as string, via: 'system' });
+    for (const q of queued) await logFirmEvent(tx, firmId, 'reminder_queued', { requestId: q.request_id as string, via: 'system' });
     return { queued: queued.length, cancelled: cancelled.length };
-  });
 }
 
 /** A sender records what happened to a queued reminder. Only a queued one can be settled. */

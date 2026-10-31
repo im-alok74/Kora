@@ -38,10 +38,14 @@ export interface GenerateResult { period: string; created: number; existing: num
  */
 export async function generateEngagements(sql: Sql, s: FirmSession, period: string): Promise<GenerateResult> {
   if (!PERIOD.test(period)) throw new ValidationError('Period must look like 2026-09.', 'period');
+  return inFirm(sql, s, 'engagement.write', (tx) => generateEngagementsIn(tx, s.firmId, period));
+}
+
+/** The same work inside a transaction that is already open for the firm, for the scheduled job. The caller has checked who is asking. */
+export async function generateEngagementsIn(tx: Tx, firmId: string, period: string): Promise<GenerateResult> {
   const month = Number(period.slice(5));
-  return inFirm(sql, s, 'engagement.write', async (tx) => {
     const regs = await tx`select r.id, r.client_id, r.registration_type, r.filing_frequency from client_registration r
-                           join client_entity c on c.id = r.client_id where r.firm_id = ${s.firmId} and c.status = 'active'`;
+                           join client_entity c on c.id = r.client_id where r.firm_id = ${firmId} and c.status = 'active'`;
     let created = 0, existing = 0, other = 0, notQuarterEnd = 0;
     for (const r of regs) {
       if (r.registration_type !== 'regular') { other++; continue; }
@@ -50,14 +54,13 @@ export async function generateEngagements(sql: Sql, s: FirmSession, period: stri
         const d = standardDeadline(service, period, r.registration_type, r.filing_frequency);
         const [row] = await tx`
           insert into engagement (firm_id, client_id, registration_id, service, period, statutory_deadline, deadline_source, internal_target)
-          values (${s.firmId}, ${r.client_id}, ${r.id}, ${service}, ${period}, ${d?.date ?? null},
+          values (${firmId}, ${r.client_id}, ${r.id}, ${service}, ${period}, ${d?.date ?? null},
                   ${d?.source ?? 'Quarterly filer: set the date from the notified schedule'}, ${d ? addDays(d.date, -BUFFER_DAYS) : null})
           on conflict (registration_id, service, period) do nothing returning id`;
         if (row) created++; else existing++;
       }
     }
     return { period, created, existing, skipped: [{ reason: 'Not a regular registration (files other forms)', count: other }, { reason: 'Quarterly filer, not a quarter-end month', count: notQuarterEnd }].filter((x) => x.count > 0) };
-  });
 }
 
 export interface EngagementRow {

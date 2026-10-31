@@ -12,7 +12,7 @@ const att = [
   ['accountant renames the business', acct, 'put', '/api/business', { legalName: 'Acct Renamed' }],
   ['staff changes the plan (POST /api/billing)', staff, 'post', '/api/billing', { plan: 'business' }],
   ['staff creates an outbound webhook (data exfiltration channel)', staff, 'post', '/api/outbound-webhooks', { url: 'https://example.com/x', events: ['invoice.issued'] }],
-  ['accountant imports data', acct, 'post', '/api/data/import', { kind: 'customers', csv: 'name\nX' }],
+  ['accountant commits an import', acct, 'post', '/api/data/import', { kind: 'customers', csv: 'name\nX', commit: true }],
   ['staff cancels an issued invoice', staff, 'post', `/api/documents/${owner.docId}/cancel`, { reason: 'x' }],
   ['staff adds a late fee to an invoice', staff, 'post', `/api/documents/${owner.docId}/late-fee`, {}],
 ];

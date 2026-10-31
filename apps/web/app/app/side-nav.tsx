@@ -26,7 +26,7 @@ export default function SideNav({ role, multi = false, ca = false, children }: {
     { title: 'Money', items: [{ href: '/app/network', label: 'Network', icon: 'team' }, { href: '/app/inbox', label: 'Inbox', icon: 'inbox' }, { href: '/app/purchases', label: 'Purchases', icon: 'cart' }, { href: '/app/vendors', label: 'Vendors', icon: 'user' }, { href: '/app/bank', label: 'Bank', icon: 'database' }, { href: '/app/itc', label: 'Input GST', icon: 'percent' }, { href: '/app/expenses', label: 'Expenses', icon: 'receipt' }, { href: '/app/reports', label: 'Reports', icon: 'chart' }] },
     { title: 'Manage', items: [
       { href: '/app/data', label: 'Data', icon: 'database' }, { href: '/app/import', label: 'Import', icon: 'inbox', show: role !== 'accountant' }, { href: '/app/developers', label: 'Developers', icon: 'code', show: role === 'owner' },
-      { href: '/app/team', label: 'Team', icon: 'team', show: role === 'owner' }, { href: '/app/activity', label: 'Activity', icon: 'clock', show: role !== 'staff' },
+      { href: '/app/team', label: 'Team', icon: 'team', show: role === 'owner' }, { href: '/app/firms', label: 'Accounting firms', icon: 'briefcase', show: role === 'owner' }, { href: '/app/activity', label: 'Activity', icon: 'clock', show: role !== 'staff' },
       { href: '/app/security', label: 'Security', icon: 'shield' }, { href: '/app/privacy', label: 'Privacy', icon: 'shield' }, { href: '/app/billing', label: 'Billing', icon: 'rupee', show: role === 'owner' }, { href: '/app/settings', label: 'Settings', icon: 'settings' }] },
   ];
   const current = (href: string) => (href === '/app' ? path === '/app' : path === href || path.startsWith(href + '/'));

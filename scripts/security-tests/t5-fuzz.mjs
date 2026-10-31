@@ -1,10 +1,11 @@
 // T5: robustness. Every write route gets malformed and hostile values. A 500 or a leaked stack trace is a finding.
+import { fileURLToPath } from 'node:url';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { record, seededOwner, uuidv4, findings } from './lib.mjs';
 
 const o = await seededOwner('fz');
-const ROOT = new URL('../../apps/web/app/api', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+const ROOT = fileURLToPath(new URL('../../apps/web/app/api', import.meta.url));
 const files = [];
 (function walk(d) { for (const f of readdirSync(d)) { const p = join(d, f); if (statSync(p).isDirectory()) walk(p); else if (f === 'route.ts') files.push(p); } })(ROOT);
 const SKIP = /^(auth|portal|webhooks|v1|mock-gateway|gstin|cron|admin|billing|account|demo|ca\/upload)/;

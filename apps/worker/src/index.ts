@@ -1,5 +1,5 @@
 import { createLazyGsp, messengerFromEnv } from '@kora/adapters';
-import { createHandlers, pruneOperationalData, reportError, processDueRecurring, processDueReminders, runJobsOnce } from '@kora/core';
+import { createHandlers, pruneOperationalData, reportError, processDueRecurring, processDueReminders, processFirmWork, runJobsOnce } from '@kora/core';
 import { createSql } from '@kora/db';
 import { createServer } from 'node:http';
 
@@ -26,6 +26,8 @@ for (const s of ['SIGTERM', 'SIGINT'] as const) process.on(s, () => { log('stopp
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let lastReminders = 0;
 let lastRecurring = 0;
+let lastFirm = 0;
+const firmEveryMs = Number(process.env.FIRM_WORK_EVERY_MS ?? 10 * 60_000);   // the monthly work and the client reminders: every ten minutes is plenty
 let lastPrune = 0;
 const pruneEveryMs = 6 * 60 * 60 * 1000;
 let lastTick = Date.now();
@@ -55,6 +57,11 @@ while (!stopping) {
       lastRecurring = Date.now();
       const rr = await processDueRecurring(sql);
       if (rr.created || rr.failed) log('recurring', rr);
+    }
+    if (Date.now() - lastFirm > firmEveryMs) {
+      lastFirm = Date.now();
+      const f = await processFirmWork(sql, { messenger, appUrl: process.env.APP_URL ?? 'http://localhost:3000' });
+      log('firm', f);
     }
     if (Date.now() - lastPrune > pruneEveryMs) {
       lastPrune = Date.now();

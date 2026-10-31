@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import KoraLoader from '../../../components/KoraLoader';
 import { api } from '../../../lib/client';
+import ClientLink from '../client-link';
 
 type Member = { userId: string; email: string; role: string; pending?: boolean };
 type Client = { id: string; legalName: string; pan: string | null; sourceSoftware: string; registrations: { id: string; gstin: string; registrationType: string; filingFrequency: string }[] };
@@ -87,14 +88,15 @@ export default function Clients() {
       {rows.length === 0 ? (
         <div className="panel empty"><h3>No clients {q ? 'match' : 'yet'}</h3><p>{wide ? 'Add one above, or import a file.' : 'Ask a partner to assign clients to you.'}</p></div>
       ) : (
-        <table className="t" aria-label="Clients">
-          <thead><tr><th>Client</th><th>GSTINs</th><th>Books in</th>{wide && <th>Looked after by</th>}</tr></thead>
+        <table className="t ca-table" aria-label="Clients">
+          <thead><tr><th>Client</th><th>GSTINs</th><th>Books in</th><th>Their Kora books</th>{wide && <th>Looked after by</th>}</tr></thead>
           <tbody>{rows.map((c) => (
             <tr key={c.id}>
-              <td><b>{c.legalName}</b>{c.pan && <><br /><span className="muted">{c.pan}</span></>}</td>
-              <td>{c.registrations.map((r) => <div key={r.id} style={{ fontSize: 13 }}>{r.gstin} <span className="muted">{r.filingFrequency}{r.registrationType !== 'regular' ? `, ${r.registrationType}` : ''}</span></div>)}</td>
-              <td>{c.sourceSoftware || <span className="muted">Not said</span>}</td>
-              {wide && <td>
+              <td data-label="Client"><b>{c.legalName}</b>{c.pan && <><br /><span className="muted">{c.pan}</span></>}</td>
+              <td data-label="GSTINs">{c.registrations.map((r) => <div key={r.id} style={{ fontSize: 13 }}>{r.gstin} <span className="muted">{r.filingFrequency}{r.registrationType !== 'regular' ? `, ${r.registrationType}` : ''}</span></div>)}</td>
+              <td data-label="Books in">{c.sourceSoftware || <span className="muted">Not said</span>}</td>
+              <td data-label="Their Kora books"><ClientLink clientId={c.id} wide={!!wide} /></td>
+              {wide && <td data-label="Looked after by">
                 {assignees[c.id] ? (assignees[c.id]!.length ? assignees[c.id]!.map((a) => (
                   <div key={a.userId}>{a.email} <button className="link" onClick={() => run(async () => { await api(`/api/ca/clients/${c.id}/assignees?userId=${a.userId}`, { method: 'DELETE' }); await showAssignees(c.id); })}>Remove</button></div>
                 )) : <span className="muted">Only partners and managers</span>) : <button className="link" onClick={() => showAssignees(c.id).catch((e) => setErr(e.message))}>Show</button>}
