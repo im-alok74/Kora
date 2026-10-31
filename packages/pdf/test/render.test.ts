@@ -256,3 +256,11 @@ describe('the looks', () => {
     }
   }, 60_000);
 });
+
+describe('renderPdf concurrency', () => {
+  it('draws a burst of PDFs one group at a time and every one comes out right', async () => {
+    const { renderPdf } = await import('../src/index.js');
+    const out = await Promise.all(Array.from({ length: 12 }, (_, i) => renderPdf(`<html><body><h1>Invoice ${i}</h1></body></html>`)));
+    for (const b of out) expect(b.subarray(0, 4).toString()).toBe('%PDF');
+  }, 120_000);
+});

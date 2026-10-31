@@ -147,7 +147,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       'These limits are enforced by the database, not only by the screens, so a person cannot get around them.',
       'One login can run more than one business. Use the business switcher at the top of the side menu.',
     ],
-    steps: ['Open Team (owners only).', 'Under Add a person, enter their mobile number or email.', 'Pick a role: Staff, Accountant or Owner. Choose Add person.', 'To take access away later, choose Remove next to their name.'],
+    steps: ['Open Team (owners only).', 'Under Invite a person, enter their mobile number or email.', 'Pick a role: Staff, Accountant or Owner. Choose Send invitation.', 'They sign in with that number or email and accept the invitation; until they do, they see nothing of the business. You can cancel a waiting invitation.', 'To take access away later, choose Remove next to their name.'],
     related: ['security-and-sign-in', 'gstr-1-and-your-ca'],
   },
   {

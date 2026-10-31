@@ -23,16 +23,25 @@ test('an owner adds an accountant, who can read and export but not change anythi
   await page.goto('/app/team');
   await page.getByLabel('Mobile number or email').fill('98765 11111');
   await page.getByLabel('Role').first().selectOption('accountant');
-  await page.getByRole('button', { name: 'Add person' }).click();
-  await expect(page.getByText('Ask them to sign in at Kora with 98765 11111.')).toBeVisible();
-  await expect(page.getByRole('cell', { name: /\+919876511111/ })).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Role of +919876511111' })).toHaveValue('accountant');
+  await page.getByRole('button', { name: 'Send invitation' }).click();
+  await expect(page.getByText('they join once they do')).toBeVisible();
+  // Until they accept the person is only listed as waiting, and has no access.
+  await expect(page.getByRole('region', { name: 'Waiting for an answer' })).toContainText('+919876511111');
+  await expect(page.getByRole('combobox', { name: 'Role of +919876511111' })).toHaveCount(0);
 
-  // the invitee signs in (their own session) and sees the business
+  // the invitee signs in (their own session), sees the invitation on the setup page, and accepts
   const [inv] = await db`select id from app_user where phone = '+919876511111'`;
   const ctx2 = await browser.newContext();
   await sessionFor(ctx2, inv!.id as string);
   const p2 = await ctx2.newPage();
+  await p2.goto('/app/invoices');
+  await expect(p2).toHaveURL(/\/setup/);
+  await expect(p2.getByRole('heading', { name: 'You have been invited' })).toBeVisible();
+  await p2.getByRole('button', { name: 'Accept' }).click();
+  await expect(p2).toHaveURL(/\/app$/);
+  await page.reload();
+  await expect(page.getByRole('cell', { name: /\+919876511111/ })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Role of +919876511111' })).toHaveValue('accountant');
   await p2.goto('/app/invoices');
   await expect(p2.getByRole('heading', { name: 'Documents', exact: true })).toBeVisible();
   await expect(p2.getByRole('link', { name: 'New invoice' })).toHaveCount(0);

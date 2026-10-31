@@ -3,7 +3,7 @@ import { inTenant, type TenantSession } from './tenancy.js';
 import { str, ValidationError } from './validation.js';
 import { RECEIPT_MAX_BYTES, RECEIPT_TYPES } from './expenses.js';
 import { getBlobStore } from './blobs.js';
-import { scanUpload } from './uploadscan.js';
+import { clamScan, scanUpload } from './uploadscan.js';
 
 export const INBOX_STATUSES = ['new', 'done', 'rejected'] as const;
 export type InboxStatus = (typeof INBOX_STATUSES)[number];
@@ -25,9 +25,17 @@ export function checkUpload(i: { name: string; type: string; dataBase64: string 
   return { name, type: i.type, data };
 }
 
+/** checkUpload, then the real virus scan when one is configured (CLAMAV_HOST). Every route that stores a file uses this. */
+export async function checkUploadScanned(i: { name: string; type: string; dataBase64: string }): Promise<{ name: string; type: string; data: Buffer }> {
+  const file = checkUpload(i);
+  const unsafe = await clamScan(file.data);
+  if (unsafe) throw new ValidationError(unsafe, 'data');
+  return file;
+}
+
 /** A client hands over a bill or paper. The accountant later marks it done, or sends it back with a reason. */
 export async function addToInbox(sql: Sql, t: TenantSession, i: { title: string; note?: string | null; name: string; type: string; dataBase64: string }): Promise<{ id: string }> {
-  const { name, data } = checkUpload(i);
+  const { name, data } = await checkUploadScanned(i);
   const title = str(i.title, 'Title', { required: true, max: 120 })!;
   const note = str(i.note, 'Note', { max: 1000 });
   const store = getBlobStore();

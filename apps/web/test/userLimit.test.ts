@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isHeavyPath, userRateCheck } from '../lib/userLimit';
+import { isHeavyPath, sharedUserRateCheck, userRateCheck } from '../lib/userLimit';
 
 describe('userRateCheck', () => {
   it('lets ordinary use through and stops a burst, per person', () => {
@@ -18,5 +18,14 @@ describe('userRateCheck', () => {
   it('knows which routes are heavy', () => {
     for (const p of ['/api/reports/ageing', '/api/data/export', '/api/data/import', '/api/parties/export', '/api/documents/bulk', '/api/documents/abc/pdf']) expect(isHeavyPath(p), p).toBe(true);
     for (const p of ['/api/documents', '/api/parties', '/api/me', '/api/ca/engagements', '/api/search']) expect(isHeavyPath(p), p).toBe(false);
+  });
+  it('counts in a shared limiter when one is given, and lets requests through when it fails', async () => {
+    const seen: string[] = [];
+    const deny = { hitCount: async (k: string) => { seen.push(k); return { allowed: false }; } };
+    expect(await sharedUserRateCheck(deny, 'u1', '/api/documents')).toBeGreaterThan(0);
+    expect(await sharedUserRateCheck(deny, 'u1', '/api/reports/gstr1')).toBeGreaterThan(0);
+    expect(seen).toEqual(['user:g:u1', 'user:h:u1']);
+    const broken = { hitCount: async () => { throw new Error('down'); } };
+    expect(await sharedUserRateCheck(broken, 'u1', '/api/documents')).toBe(0);
   });
 });

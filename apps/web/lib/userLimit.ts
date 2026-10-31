@@ -1,7 +1,7 @@
 /**
  * A per-person request limit for signed-in routes. It counts in memory, per server instance, so it costs no database write per request.
- * That stops one person (or one stolen session) from hammering a single instance; it is not a global cap. With Upstash configured the
- * middleware adds a limit per network address across all instances.
+ * That stops one person (or one stolen session) from hammering a single instance. With Upstash configured, sharedUserRateCheck counts the
+ * same limits across all instances, so the cap is global; the middleware also limits per network address.
  * Ordinary use is far below the limits: a busy screen makes a handful of requests a second at most.
  */
 const WINDOW_MS = 60_000;
@@ -25,4 +25,13 @@ export function userRateCheck(userId: string, path: string, now = Date.now()): n
   e.n++;
   if (map.size > 5000) for (const [k, v] of map) if (v.reset <= now) map.delete(k);   // keep the table small
   return e.n > limit ? Math.max(1, Math.ceil((e.reset - now) / 1000)) : 0;
+}
+
+/** The same limits counted in the shared limiter (Upstash). A limiter that fails lets the request through; the limiter reports its own fault. */
+export async function sharedUserRateCheck(limiter: { hitCount(key: string, limit: number, windowSeconds: number): Promise<{ allowed: boolean }> }, userId: string, path: string): Promise<number> {
+  const heavy = isHeavyPath(path);
+  try {
+    const { allowed } = await limiter.hitCount(`user:${heavy ? 'h' : 'g'}:${userId}`, heavy ? HEAVY : GENERAL, 60);
+    return allowed ? 0 : 30;
+  } catch { return 0; }
 }

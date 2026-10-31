@@ -21,13 +21,22 @@ One page for the owner: what is done, what only the owner can do, what was never
 4. **DPDP items and the GST invoice decision:** `docs/dpdp.md`, `docs/gst-decisions.md`.
 5. **Merge** the pull request that carries scheduled work, the link screens and the security workflow; the migration in it (0214) is applied to production only after a dry run and a yes.
 
-## 3. What was not done, on purpose or for lack of means
+## 3. Closed in the second hardening round
 
-- **Real antivirus on uploads.** The upload check is a heuristic (file type, size, scripts in documents). A scanner service is a purchase and a decision.
-- **Business team invites** still add a person at once; accounting firms ask first.
-- **Rate limits are per server instance.** A global limit needs a shared store (Upstash or similar).
-- **Not exercised end to end:** a real SMS/e-mail code, Razorpay with real money, S3 storage, PDF output under load, plan limits with `KORA_PLANS=enforce`.
-- **The suite attacks a copy with the staging switches on.** It cannot prove what the live site's settings are; only item 1 above does.
+| Gap | Now |
+|---|---|
+| Uploads had a heuristic check only | Set `CLAMAV_HOST` (and `CLAMAV_PORT`) and every upload is streamed to a ClamAV daemon as well; `CLAMAV_REQUIRED=1` pauses uploads while it is unreachable. Tested against a stand-in daemon. The daemon itself is a service to run (see `.env.example`). |
+| Business team invites added a person at once | Migration `0215`: an owner now sends an invitation, the person accepts or declines (setup page or dashboard), invitations lapse after 14 days, waiting ones count toward the plan's member limit, and a waiting invite opens nothing (attack test `T3b-pending`). |
+| Rate limits were per server instance | With `UPSTASH_REDIS_REST_URL` and `_TOKEN` set, the per-person limits are also counted in the shared store, so the cap is global; without them nothing changes. |
+| Plan limits not exercised over HTTP | `scripts/security-tests/plans-e2e.mjs` against a copy with `KORA_PLANS=enforce`: 10 invoices a month, one person, no recurring, reminders or messaging, credit notes still allowed, other businesses unaffected. Passes; runs in the workflow. |
+| S3 storage not exercised | `packages/core/test/blobs-s3.test.ts` against a real S3 server that checks signatures (put, byte-exact read, delete, wrong credentials refused). Passes; runs in the workflow. |
+| PDF under load | 90 PDFs from 6 businesses at once: all 90 good, but 27 s on a laptop (about 3 a second). PDFs are now drawn at most `PDF_CONCURRENCY` (default 4) at a time per process so a burst cannot exhaust memory. Runs in the workflow. |
+
+## 3b. Still not done
+
+- **Real SMS or e-mail codes and real-money Razorpay:** need your provider accounts; the last test before launch is a Rs 1 payment.
+- **ClamAV itself:** the code is ready; someone has to run the daemon and set `CLAMAV_HOST`.
+- **The suite attacks a copy with the staging switches on.** It cannot prove what the live site's settings are; only the Vercel check in section 2 does.
 
 ## 4. How to re-check
 

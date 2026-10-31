@@ -7,7 +7,7 @@ import {
 } from '@kora/core';
 import { isTaxError } from '@kora/tax';
 import { badInputMessage } from './badInput';
-import { userRateCheck } from './userLimit';
+import { sharedUserRateCheck, userRateCheck } from './userLimit';
 import { qrDataUrl, upiBlockFor } from '@kora/pdf';
 
 export const SESSION_COOKIE = 'kora_session';
@@ -117,8 +117,11 @@ export function requestInfo(req: Request): RequestInfo {
 }
 
 /** A 429 answer when this signed-in person has sent too many requests in the last minute, or null. */
-export function tooManyRequests(userId: string, req: Request): Response | null {
-  const wait = userRateCheck(userId, new URL(req.url).pathname);
+export async function tooManyRequests(userId: string, req: Request): Promise<Response | null> {
+  const path = new URL(req.url).pathname;
+  let wait = userRateCheck(userId, path);
+  // With Upstash configured the same limits are also counted across every server instance. Without it only the in-memory count above applies.
+  if (!wait && process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) wait = await sharedUserRateCheck(services().limiter, userId, path);
   return wait ? json({ error: 'Too many requests. Wait a moment and try again.', code: 'rate_limited' }, 429, { 'retry-after': String(wait) }) : null;
 }
 
@@ -142,7 +145,7 @@ export function userRoute(handler: (a: { userId: string; token: string; req: Req
       const token = await currentSessionToken();
       const userId = await currentUserId();
       if (!userId || !token) return json({ error: 'Sign in first.' }, 401);
-      const slow = tooManyRequests(userId, req);
+      const slow = await tooManyRequests(userId, req);
       if (slow) return slow;
       const out = await handler({ userId, token, req, params: await ctx.params, svc: services() });
       return out instanceof Response ? out : json(out ?? { ok: true });
@@ -213,7 +216,7 @@ export function tenantRoute(handler: Handler) {
       }
       const t = await requireTenant(req);
       if (t instanceof Response) return t;
-      const slow = tooManyRequests(t.userId, req);
+      const slow = await tooManyRequests(t.userId, req);
       if (slow) return slow;
       if ((req.headers.get('x-kora-business') && req.headers.get('x-kora-business') !== t.businessId) ||
           (req.headers.get('x-kora-user') && req.headers.get('x-kora-user') !== t.userId))

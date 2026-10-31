@@ -1,6 +1,7 @@
 import { record, seededOwner, newUser, findings } from './lib.mjs';
 const owner = await seededOwner('rc'); const staff = await newUser('st2'); const acct = await newUser('ac2');
 await owner.post('/api/team', { identifier: staff.email, role: 'staff' }); await owner.post('/api/team', { identifier: acct.email, role: 'accountant' });
+for (const m of [staff, acct]) await m.post('/api/invites', { businessId: owner.businessId, accept: true });
 staff.headers['x-business-id'] = owner.businessId; acct.headers['x-business-id'] = owner.businessId;
 const r1 = await acct.post('/api/data/import', { kind: 'customers', csv: 'name\nInjected By Accountant', commit: true });
 const list = await owner.get('/api/parties');

@@ -57,6 +57,7 @@ import { Client, record, seededOwner, signIn, uniq, newUser, findings } from './
   const owner = await seededOwner('roleowner');
   const staff = await newUser('staff'); const acct = await newUser('acct'); const outsider = await newUser('out');
   const i1 = await owner.post('/api/team', { identifier: staff.email, role: 'staff' }); const i2 = await owner.post('/api/team', { identifier: acct.email, role: 'accountant' });
+  for (const m of [staff, acct]) await m.post('/api/invites', { businessId: owner.businessId, accept: true });
   staff.headers['x-business-id'] = owner.businessId; acct.headers['x-business-id'] = owner.businessId;
   const att = [
     ['staff invites a new owner', staff, 'post', '/api/team', { identifier: outsider.email, role: 'owner' }],

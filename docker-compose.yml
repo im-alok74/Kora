@@ -18,3 +18,20 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+
+  # An S3-compatible server that checks request signatures, for the object-storage test (packages/core/test/blobs-s3.test.ts).
+  # Not started by default: docker compose --profile s3 up -d --wait s3
+  s3:
+    profiles: ["s3"]
+    image: zenko/cloudserver:latest
+    environment:
+      SCALITY_ACCESS_KEY_ID: kora_s3
+      SCALITY_SECRET_ACCESS_KEY: kora_s3_dev_secret
+      S3BACKEND: mem
+      REMOTE_MANAGEMENT_DISABLE: "1"
+    ports: ["54330:8000"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8000/_/healthcheck || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 40

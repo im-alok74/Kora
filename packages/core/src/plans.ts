@@ -90,11 +90,12 @@ export async function checkCanIssue(tx: Tx, businessId: string, docType: string)
 }
 
 /** Called before a person is added to the business. */
-export async function checkCanAddMember(tx: Tx, businessId: string): Promise<void> {
+/** `pending` is the number of invitations already out, which count towards the limit so they cannot all be accepted past it. */
+export async function checkCanAddMember(tx: Tx, businessId: string, pending = 0): Promise<void> {
   if (!plansEnforced()) return;
   const { plan } = await effectivePlanTx(tx, businessId);
   const [r] = await tx`select count(*)::int as n from member where business_id = ${businessId}`;
-  if ((r!.n as number) >= plan.limits.members) {
+  if ((r!.n as number) + pending >= plan.limits.members) {
     throw new PlanLimitError(`The ${plan.name} plan has room for ${plan.limits.members} ${plan.limits.members === 1 ? 'person' : 'people'}. ${upgrade}`, 'members', plan.id);
   }
 }
