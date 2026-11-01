@@ -61,14 +61,18 @@ test('the bell lists what needs attention, and a dismissed notice stays dismisse
   await expect(page.getByRole('region', { name: 'Notifications' }).getByText(title, { exact: true })).toBeVisible();
 });
 
-test('the dark theme can be switched on, is remembered, and is applied before the page paints', async ({ page, context }) => {
+test('light is the default even on a dark device, and dark is a choice made only in Settings, remembered and applied before paint', async ({ page, context }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });                                  // a device set to dark still gets the light theme
   const u = await signedIn(context);
   await makeBusiness(u.userId);
   await page.goto('/app');
   await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Switch to the dark theme' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(page.getByRole('button', { name: /dark theme|light theme|Dark mode/ })).toHaveCount(0);   // no toggle in the page header
+  await page.goto('/app/settings');
+  await page.getByRole('button', { name: 'Dark mode' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await expect(page.getByRole('button', { name: 'Switch to the light theme' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Dark mode' })).toHaveAttribute('aria-pressed', 'true');
   // The dark background is whatever the theme's own colour is, so a change of palette does not need this test changed.
   const { bg, want } = await page.evaluate(() => {
     const probe = document.createElement('div');
@@ -82,8 +86,8 @@ test('the dark theme can be switched on, is remembered, and is applied before th
   expect(bg).not.toBe('rgb(247, 245, 240)');                                         // and it is not the light page colour
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await page.getByRole('button', { name: 'Switch to the light theme' }).click();
-  await expect(page.locator('html')).not.toHaveAttribute('data-theme', 'dark');
+  await page.getByRole('button', { name: 'Dark mode' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 });
 
 test('documents can be sorted, selected and issued together, and a customer has a page of their own', async ({ page, context }) => {

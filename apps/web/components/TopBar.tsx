@@ -34,15 +34,6 @@ export default function TopBar() {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [bell, setBell] = useState(false);
   const [dismissed, dismiss, restore] = useDismissed();
-  const [dark, setDark] = useState(false);
-
-  useEffect(() => {
-    const sync = () => setDark(document.documentElement.dataset.theme === 'dark');
-    sync();
-    const observer = new MutationObserver(sync);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => observer.disconnect();
-  }, []);
   useEffect(() => { api('/api/notifications').then((r) => setNotices(r.notices)).catch(() => {}); }, []);
 
   const show = useCallback(() => { opener.current = document.activeElement as HTMLElement | null; setOpen(true); setQ(''); setHits([]); setCur(0); }, []);
@@ -75,11 +66,6 @@ export default function TopBar() {
   const go = (href: string) => { window.location.href = href; };
 
   const live = notices.filter((n) => !dismissed.has(n.id));
-  const toggleTheme = () => {
-    const next = dark ? 'light' : 'dark';
-    document.documentElement.dataset.theme = next; setDark(!dark);
-    try { localStorage.setItem('kora-theme', next); } catch { /* ignore */ }
-  };
 
   return (
     <div className="topbar">
@@ -103,7 +89,6 @@ export default function TopBar() {
             </div>)}
         </div>
         <button type="button" className="iconbtn" onClick={() => window.dispatchEvent(new Event('kora:help'))} aria-label="Keyboard shortcuts and help"><span aria-hidden="true" style={{ fontWeight: 700 }}>?</span></button>
-        <button type="button" className="iconbtn" onClick={toggleTheme} aria-label={dark ? 'Switch to the light theme' : 'Switch to the dark theme'} aria-pressed={dark}><Icon name={dark ? 'sun' : 'moon'} size={19} /></button>
       </div>
 
       {open && (
