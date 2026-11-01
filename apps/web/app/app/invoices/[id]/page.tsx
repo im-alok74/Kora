@@ -111,8 +111,9 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
     setMsg('Sending');
     for (let i = 0; i < 60; i++) {
       const d = await api(`/api/deliveries/${deliveryId}`);
-      if (d.status === 'sent') { setMsg(`Sent by ${channel}.`); await load(); return; }
-      if (d.status === 'failed') { setMsg(''); setErr(`Could not send: ${d.error_message}`); await load(); return; }
+      // Reload first, so the banner and the Sent step change together instead of the banner saying sent while the step still says not.
+      if (d.status === 'sent') { await load(); setMsg(`Sent by ${channel}.`); return; }
+      if (d.status === 'failed') { await load(); setMsg(''); setErr(`Could not send: ${d.error_message}`); return; }
       if (d.error_message && i > 2) setMsg(`Not sent yet (${d.error_message}). Trying again automatically.`);
       await new Promise((r) => setTimeout(r, 1000));
     }
