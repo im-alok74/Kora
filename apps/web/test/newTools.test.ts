@@ -1,13 +1,8 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { PDFDocument } from 'pdf-lib';
 import { gstinCheckChar } from '@kora/tax';
 import { amountToWords, hindiNumber } from '../lib/amountWords';
 import { inspectGstin } from '../lib/gstinInfo';
-import { runTask } from '../lib/runTask';
-import { extractPages, imagesToPdf, mergePdfs, parsePageGroups, parsePageList, PdfProblem, rotatePages } from '../lib/pdfOps';
 import { fitToSize, formatBytes } from '../lib/sizeTarget';
-import { analyseText, minutesLabel, tokenize } from '../lib/textStats';
 import { TOOLS, TOOL_GROUPS } from '../lib/tools';
 import { toolPageInfo } from '../lib/toolPages';
 
@@ -89,47 +84,6 @@ describe('Amount in words', () => {
   });
 });
 
-describe('Word counter and keyword density', () => {
-  const text = 'Cotton kurta for men. Soft cotton kurta, made in India. Buy the cotton kurta online!';
-  it('counts words, sentences and characters', () => {
-    const s = analyseText(text);
-    expect(s.words).toBe(15);
-    expect(s.sentences).toBe(3);
-    expect(s.characters).toBe(text.length);
-    expect(s.charactersNoSpaces).toBe(text.replace(/\s/g, '').length);
-    expect(s.paragraphs).toBe(1);
-  });
-  it('ranks keywords by count with density as a percent of all words', () => {
-    const s = analyseText(text, { stopWords: true });
-    expect(s.keywords[0]).toEqual({ text: 'cotton', count: 3, density: 20 });
-    expect(s.keywords[1]).toMatchObject({ text: 'kurta', count: 3 });
-    expect(s.keywords.find((k) => k.text === 'the')).toBeUndefined();
-    expect(analyseText(text, { stopWords: false, limit: 50 }).keywords.some((k) => k.text === 'the')).toBe(true);
-  });
-  it('finds repeated phrases and never starts or ends one with a stop word', () => {
-    const s = analyseText(text, { stopWords: true });
-    expect(s.twoWord[0]).toEqual({ text: 'cotton kurta', count: 3, density: 20 });
-    expect(s.twoWord.every((p) => p.count >= 2)).toBe(true);
-    const t = analyseText('the red box and the red box', { stopWords: true });
-    expect(t.twoWord.map((p) => p.text)).toEqual(['red box']);
-  });
-  it('handles empty text, numbers, apostrophes and Hindi', () => {
-    const e = analyseText('');
-    expect(e).toMatchObject({ words: 0, sentences: 0, paragraphs: 0, characters: 0, readingMinutes: 0, keywords: [] });
-    expect(tokenize("It's 2024, don’t panic")).toEqual(["It's", '2024', 'don’t', 'panic']);
-    expect(analyseText('12 34 56').keywords).toEqual([]);
-    const hi = analyseText('यह एक अच्छा उत्पाद है। यह सस्ता है।');
-    expect(hi.words).toBe(8);
-    expect(hi.sentences).toBe(2);
-  });
-  it('splits paragraphs on blank lines and estimates reading time', () => {
-    expect(analyseText('One.\n\nTwo.\n\n\nThree.').paragraphs).toBe(3);
-    expect(analyseText('word '.repeat(400)).readingMinutes).toBe(2);
-    expect(minutesLabel(2.5)).toBe('2 min 30 sec');
-    expect(minutesLabel(0.1)).toBe('6 sec');
-  });
-});
-
 describe('size target search', () => {
   // Fake encoder: bytes grow with the square of the scale and linearly with quality.
   const fake = (full: number) => async (scale: number, q: number | null) => ({ out: { scale, q }, size: Math.round(full * scale * scale * (q ?? 1)) });
@@ -163,65 +117,6 @@ describe('size target search', () => {
     expect(formatBytes(900)).toBe('900 B');
     expect(formatBytes(150 * 1024)).toBe('150 KB');
     expect(formatBytes(2.5 * 1048576)).toBe('2.50 MB');
-  });
-});
-
-describe('PDF operations', () => {
-  const make = async (pages: number, size: [number, number] = [200, 300]) => {
-    const d = await PDFDocument.create();
-    for (let i = 0; i < pages; i++) d.addPage(size);
-    return new Uint8Array(await d.save());
-  };
-  const count = async (b: Uint8Array) => (await PDFDocument.load(b)).getPageCount();
-  it('parses page lists and groups', () => {
-    expect(parsePageList('1-3, 5, 8-', 10)).toEqual([0, 1, 2, 4, 7, 8, 9]);
-    expect(parsePageList('3,1', 5)).toEqual([2, 0]);
-    expect(parsePageList('-2', 5)).toEqual([0, 1]);
-    expect(parsePageGroups('1-2, 4', 5)).toEqual([[0, 1], [3]]);
-    for (const bad of ['', '0', '6', '3-2', 'x', '1-9', '2-4-6']) expect(() => parsePageList(bad, 5), bad).toThrow(PdfProblem);
-  });
-  it('merges, extracts and rotates', async () => {
-    const a = await make(2), b = await make(3);
-    const merged = await mergePdfs([{ name: 'a.pdf', bytes: a }, { name: 'b.pdf', bytes: b }]);
-    expect(await count(merged)).toBe(5);
-    const part = await extractPages(merged, [4, 0]);
-    expect(await count(part)).toBe(2);
-    const turned = await PDFDocument.load(await rotatePages(merged, [0, 1], 90));
-    expect(turned.getPage(0).getRotation().angle).toBe(90);
-    expect(turned.getPage(2).getRotation().angle).toBe(0);
-    const twice = await PDFDocument.load(await rotatePages(new Uint8Array(await turned.save()), [0], 270));
-    expect(twice.getPage(0).getRotation().angle).toBe(0);
-  });
-  it('says plainly when a file is not a PDF or has no pages', async () => {
-    await expect(mergePdfs([{ name: 'x.pdf', bytes: new TextEncoder().encode('hello') }])).rejects.toMatchObject({ reason: 'broken' });
-    await expect(mergePdfs([])).rejects.toMatchObject({ reason: 'empty' });
-  });
-  it('names a password protected PDF instead of calling it damaged', async () => {
-    const locked = new Uint8Array(readFileSync(new URL('../../../e2e/fixtures/locked.pdf', import.meta.url)));
-    await expect(mergePdfs([{ name: 'locked.pdf', bytes: locked }])).rejects.toMatchObject({ reason: 'encrypted', message: expect.stringContaining('locked.pdf is password protected') });
-  });
-  it('builds a PDF from pictures with the right page sizes', async () => {
-    // 1x1 pixel PNG
-    const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0));
-    const wide = { bytes: png, type: 'png' as const, width: 400, height: 200 };
-    const tall = { bytes: png, type: 'png' as const, width: 200, height: 400 };
-    const auto = await PDFDocument.load(await imagesToPdf([wide, tall], { size: 'a4', margin: 20 }));
-    expect(auto.getPageCount()).toBe(2);
-    expect(auto.getPage(0).getWidth()).toBeCloseTo(841.89, 1);
-    expect(auto.getPage(1).getWidth()).toBeCloseTo(595.28, 1);
-    const fit = await PDFDocument.load(await imagesToPdf([wide], { size: 'fit', margin: 10 }));
-    expect([fit.getPage(0).getWidth(), fit.getPage(0).getHeight()]).toEqual([420, 220]);
-    await expect(imagesToPdf([], { size: 'a4', margin: 0 })).rejects.toMatchObject({ reason: 'empty' });
-  });
-});
-
-describe('runTask without a Web Worker', () => {
-  it('runs the same task on the page and keeps the typed error', async () => {
-    const d = await PDFDocument.create(); d.addPage([100, 100]);
-    const bytes = new Uint8Array(await d.save());
-    const merged = await runTask('mergePdfs', [[{ name: 'a.pdf', bytes }, { name: 'b.pdf', bytes }]]);
-    expect(await runTask('pageCountOf', [merged, 'm.pdf'])).toBe(2);
-    await expect(runTask('pageCountOf', [new TextEncoder().encode('nope'), 'x.pdf'])).rejects.toMatchObject({ reason: 'broken' });
   });
 });
 

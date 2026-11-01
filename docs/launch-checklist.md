@@ -50,6 +50,7 @@ Names only. Set them in the host (Vercel: Project, Settings, Environment Variabl
 | `BLOB_S3_ENDPOINT`, `BLOB_S3_BUCKET`, `BLOB_S3_ACCESS_KEY_ID`, `BLOB_S3_SECRET_ACCESS_KEY`, `BLOB_S3_REGION` | Receipts, attachments and logos in object storage. Without them files go in the database and grow every backup |
 | `SENTRY_DSN` | Errors go to Sentry as well as the log |
 | `NEXT_PUBLIC_SITE_URL` | The address used in the sitemap, page metadata and share previews. Falls back to `APP_URL`, then to `https://kora-invoice.vercel.app` |
+| `NEXT_PUBLIC_SUPPORT_EMAIL`, `NEXT_PUBLIC_PRIVACY_EMAIL` | The real support and grievance officer addresses on the Terms, Refunds and Privacy pages. Until they are set the pages show `*@kora.example` and a note to replace it |
 | `LOG_LEVEL` | `info` by default |
 
 ### Must NOT be set in production

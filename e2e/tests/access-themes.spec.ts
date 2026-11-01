@@ -6,8 +6,7 @@ const THEMES = ['light', 'dark'] as const;
 const PUBLIC = ['/', '/pricing', '/privacy', '/terms', '/refunds', '/help', '/login', '/download', '/import-guide', '/tools',
   '/tools/gst-calculator', '/tools/invoice-generator', '/tools/quotation-maker', '/tools/proforma-invoice-generator',
   '/tools/purchase-order-generator', '/tools/receipt-maker', '/tools/qr-code-generator', '/tools/barcode-generator',
-  '/tools/qr-code-scanner', '/tools/barcode-scanner', '/tools/logo-maker', '/tools/pdf-to-image', '/tools/image-converter', '/tools/image-compressor',
-  '/tools/images-to-pdf', '/tools/merge-split-pdf', '/tools/gstin-validator', '/tools/amount-in-words', '/tools/word-counter'];
+  '/tools/qr-code-scanner', '/tools/barcode-scanner', '/tools/logo-maker', '/tools/gstin-validator', '/tools/amount-in-words'];
 const APP = ['/app', '/app/invoices', '/app/invoices/new', '/app/customers', '/app/vendors', '/app/items', '/app/expenses', '/app/purchases', '/app/recurring',
   '/app/reports', '/app/bank', '/app/inbox', '/app/projects', '/app/price-lists', '/app/team', '/app/settings', '/app/security', '/app/data', '/app/developers'];
 

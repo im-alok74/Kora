@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import LegalPage from '../../components/LegalPage';
+import { PRIVACY_EMAIL, PRIVACY_IS_PLACEHOLDER } from '../../lib/contact';
 
 export const metadata: Metadata = { title: 'Privacy policy', alternates: { canonical: '/privacy' }, description: 'What data Kora keeps, why, and who can see it.' };
 
@@ -47,7 +48,7 @@ export default function Privacy() {
       <p>If we change this policy in a way that matters, we will tell you in the app before it takes effect.</p>
 
       <h2>Contact and complaints</h2>
-      <p>Privacy questions and complaints: <a href="mailto:privacy@kora.example">privacy@kora.example</a> (replace with your grievance officer&rsquo;s address before launch). If you are not satisfied, you may complain to the Data Protection Board of India under the Digital Personal Data Protection Act, 2023.</p>
+      <p>Privacy questions and complaints: <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a>{PRIVACY_IS_PLACEHOLDER ? ' (replace with your grievance officer’s address before launch)' : ''}. If you are not satisfied, you may complain to the Data Protection Board of India under the Digital Personal Data Protection Act, 2023.</p>
     </LegalPage>
   );
 }

@@ -141,6 +141,7 @@ export default function Login() {
         {step !== 'mfa' && (
           <p className="muted" style={{ marginTop: 12, fontSize: 14 }}>
             {mode !== 'signin' && <><button type="button" className="link" onClick={() => switchTo('signin')}>Use a password instead</button>{' · '}</>}
+            {mode === 'signin' && <><button type="button" className="link" onClick={() => switchTo('code')}>Forgot your password?</button>{' · '}</>}
             {mode !== 'signup' && <><button type="button" className="link" onClick={() => switchTo('signup')}>Create an account</button>{' · '}</>}
             {mode !== 'code' && <button type="button" className="link" onClick={() => switchTo('code')}>Use an emailed or texted code</button>}
           </p>

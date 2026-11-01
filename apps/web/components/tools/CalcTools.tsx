@@ -120,13 +120,14 @@ export function EmiCalculator() {
 
 export function InterestCalculator() {
   const [kind, setKind] = useState<'simple' | 'compound'>('simple');
-  const [amount, setAmount] = useState(''), [rate, setRate] = useState(''), [years, setYears] = useState(''), [per, setPer] = useState<1 | 2 | 4 | 12>(1);
+  const [amount, setAmount] = useState(''), [rate, setRate] = useState(''), [years, setYears] = useState(''), [unit, setUnit] = useState<'years' | 'months' | 'days'>('years'), [per, setPer] = useState<1 | 2 | 4 | 12>(1);
   const out = useMemo(() => {
     if (!amount.trim() || !rate.trim() || !years.trim()) return null;
-    const p = num(amount), r = num(rate), t = num(years);
-    if (p === null || r === null || t === null) return 'Enter the amount, the rate and the time as plain numbers.';
+    const p = num(amount), r = num(rate), raw = num(years);
+    if (p === null || r === null || raw === null) return 'Enter the amount, the rate and the time as plain numbers.';
+    const t = unit === 'years' ? raw : unit === 'months' ? raw / 12 : raw / 365;   // a day is 1/365 of a year, the usual rule for late payment interest
     try { return kind === 'simple' ? simpleInterest(p, r, t) : compoundInterest(p, r, t, per); } catch (e) { return (e as Error).message; }
-  }, [kind, amount, rate, years, per]);
+  }, [kind, amount, rate, years, unit, per]);
   const text = typeof out === 'object' && out ? `Interest ${money(out.interest)}, total ${money(out.total)}` : '';
   return (
     <div className="tl-calc">
@@ -139,7 +140,9 @@ export function InterestCalculator() {
         </fieldset>
         <Rupees id="ic-a" label="Amount (Rs)" value={amount} onChange={setAmount} />
         <Plain id="ic-r" label="Interest rate (% a year)" value={rate} onChange={setRate} />
-        <Plain id="ic-t" label="Time (years)" value={years} onChange={setYears} hint="Use decimals for part of a year, for example 1.5." />
+        <label htmlFor="ic-u">Time is in</label>
+        <select id="ic-u" value={unit} onChange={(e) => setUnit(e.target.value as 'years' | 'months' | 'days')}><option value="years">Years</option><option value="months">Months</option><option value="days">Days (for an overdue invoice)</option></select>
+        <Plain id="ic-t" label={`Time (${unit})`} value={years} onChange={setYears} hint={unit === 'days' ? 'Days from the due date to the day paid. A year is counted as 365 days.' : unit === 'months' ? 'Whole or part months, for example 18 or 4.5.' : 'Use decimals for part of a year, for example 1.5.'} />
         {kind === 'compound' && (
           <>
             <label htmlFor="ic-n">Compounded</label>
@@ -159,7 +162,7 @@ export function InterestCalculator() {
             <div className="tl-actions"><CopyButton text={text} what="the result" /></div>
           </>
         )}
-        <p className="muted">{kind === 'simple' ? 'Simple interest = amount x rate x years / 100.' : 'Compound interest = amount x (1 + rate / (100 x n)) ^ (n x years) - amount, with n the times compounded in a year.'}</p>
+        <p className="muted">{kind === 'simple' ? 'Simple interest = amount x rate x time in years / 100.' : 'Compound interest = amount x (1 + rate / (100 x n)) ^ (n x years) - amount, with n the times compounded in a year.'}</p>
       </div>
     </div>
   );

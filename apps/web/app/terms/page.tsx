@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import LegalPage from '../../components/LegalPage';
+import { SUPPORT_EMAIL, SUPPORT_IS_PLACEHOLDER } from '../../lib/contact';
 
 export const metadata: Metadata = { title: 'Terms of use', alternates: { canonical: '/terms' }, description: 'The terms on which Kora is offered.' };
 
@@ -43,7 +44,7 @@ export default function Terms() {
       <p>These terms are governed by the laws of India. Courts in the city where our registered office is have exclusive jurisdiction, unless the law gives you the right to go elsewhere.</p>
 
       <h2>Contact</h2>
-      <p>Questions about these terms: <a href="mailto:support@kora.example">support@kora.example</a> (replace with your support address before launch).</p>
+      <p>Questions about these terms: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>{SUPPORT_IS_PLACEHOLDER ? ' (replace with your support address before launch)' : ''}.</p>
     </LegalPage>
   );
 }

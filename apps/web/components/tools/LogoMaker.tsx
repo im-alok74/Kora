@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import LogoFit from './LogoFit';
 
 const COLOURS = ['#106cd9', '#0b7d3e', '#c43a2f', '#6a3fb5', '#b45309', '#1f2937'];
 const SHAPES: [string, string][] = [['circle', 'Circle'], ['rounded', 'Rounded square'], ['square', 'Square'], ['none', 'No shape']];
@@ -78,9 +79,10 @@ export default function LogoMaker() {
         <div className="tl-result">
           <canvas ref={canvas} className="tl-img" role="img" aria-label={`Logo preview for ${name}`} style={{ maxWidth: '100%', height: 'auto' }} />
           <div className="tl-actions"><button type="button" onClick={() => { const a = document.createElement('a'); a.href = canvas.current!.toDataURL('image/png'); a.download = 'logo.png'; a.click(); }}>Download PNG</button></div>
-          <p className="muted">A simple starter logo. You can use it as your invoice logo in Kora (PNG under 150 KB works best at a smaller size).</p>
+          <p className="muted">A simple starter logo. Kora takes a PNG or JPG invoice logo under 150 KB; below, you can fit a logo you already have.</p>
         </div>
       </div>
+      <LogoFit />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import TemplateGallery from '../../../components/TemplateGallery';
 import CustomFieldsSettings from '../../../components/CustomFieldsSettings';
 import { useEffect, useState } from 'react';
 import { api } from '../../../lib/client';
+import PreviewFrame from '../../../components/PreviewFrame';
 
 type Rem = { enabled: boolean; channel: string; offsets: number[] };
 type Tpl = { accent: string; font: string; layout: string; paper: string; language?: string; logoDataUrl: string | null; logoSize?: string; signatureDataUrl?: string | null; showBank: boolean; showTerms: boolean;
@@ -183,7 +184,7 @@ export default function Settings() {
               <h3 style={{ marginTop: 24 }}>Always printed, cannot be changed</h3>
               <ul className="locked">{locked.map((l) => <li key={l}>{l}</li>)}</ul>
             </div>
-            <iframe className="preview" style={{ height: 640 }} title="Template preview" sandbox="" srcDoc={preview} />
+            <PreviewFrame title="Template preview" srcDoc={preview} height={640} />
           </div>
         </div>
       )}

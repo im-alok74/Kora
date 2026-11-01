@@ -6,9 +6,10 @@ import GstCalculator from '../../../components/tools/GstCalculator';
 import { BarcodeGenerator, QrGenerator, ScanTool } from '../../../components/tools/CodeTools';
 import { EmiCalculator, InterestCalculator, ProfitMargin } from '../../../components/tools/CalcTools';
 import LogoMaker from '../../../components/tools/LogoMaker';
-import { Band, Cards, Cross, Faq, MoreTools, Steps, ToolHero, ToolsShell } from '../../../components/tools/ToolShell';
+import { AutoNote, Band, Cards, Cross, Faq, MoreTools, Steps, ToolHero, ToolsShell } from '../../../components/tools/ToolShell';
 import { TOOLS, toolBySlug } from '../../../lib/tools';
 import { GST_SLABS, toolPageInfo } from '../../../lib/toolPages';
+import { KORA_CTA } from '../../../lib/toolKora';
 import { RELATED } from '../../../lib/toolPagesCalc';
 import { SITE_URL } from '../../../lib/site';
 import '../../landing.css';
@@ -16,16 +17,9 @@ import '../../landing-dark.css';
 import '../../site.css';
 import '../../tools.css';
 
-// Each group of tools is its own chunk, so a page only downloads the code of the tool it shows (pdf-lib is large).
-const tool = <K extends string>(load: () => Promise<Record<K, React.ComponentType<any>>>, name: K) => dynamic(() => load().then((m) => m[name]));
-const ImageConverter = tool(() => import('../../../components/tools/ImageTools'), 'ImageConverter');
-const ImageCompressor = tool(() => import('../../../components/tools/ImageTools'), 'ImageCompressor');
-const PdfToImage = dynamic(() => import('../../../components/tools/PdfToImage'));
-const ImagesToPdf = tool(() => import('../../../components/tools/PdfTools'), 'ImagesToPdf');
-const MergeSplitPdf = tool(() => import('../../../components/tools/PdfTools'), 'MergeSplitPdf');
-const AmountInWords = tool(() => import('../../../components/tools/TextTools'), 'AmountInWords');
-const GstinValidator = tool(() => import('../../../components/tools/TextTools'), 'GstinValidator');
-const WordCounter = tool(() => import('../../../components/tools/TextTools'), 'WordCounter');
+// The text tools are their own chunk, so the other pages do not download their code.
+const AmountInWords = dynamic(() => import('../../../components/tools/TextTools').then((m) => m.AmountInWords));
+const GstinValidator = dynamic(() => import('../../../components/tools/TextTools').then((m) => m.GstinValidator));
 
 export const dynamicParams = false;
 export const generateStaticParams = () => TOOLS.map((t) => ({ slug: t.slug }));
@@ -48,14 +42,8 @@ function Body({ slug }: { slug: string }) {
     case 'qr-code-scanner': return <ScanTool mode="qr" />;
     case 'barcode-scanner': return <ScanTool mode="barcode" />;
     case 'logo-maker': return <LogoMaker />;
-    case 'pdf-to-image': return <PdfToImage />;
-    case 'image-converter': return <ImageConverter />;
-    case 'image-compressor': return <ImageCompressor />;
-    case 'images-to-pdf': return <ImagesToPdf />;
-    case 'merge-split-pdf': return <MergeSplitPdf />;
     case 'gstin-validator': return <GstinValidator />;
     case 'amount-in-words': return <AmountInWords />;
-    case 'word-counter': return <WordCounter />;
     case 'profit-margin-calculator': return <ProfitMargin />;
     case 'emi-calculator': return <EmiCalculator />;
     case 'interest-calculator': return <InterestCalculator />;
@@ -113,6 +101,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
           <Body slug={t.slug} />
         </div>
       </section>
+      {KORA_CTA[t.slug] && <AutoNote cta={KORA_CTA[t.slug]!} />}
       {info.about && (
         <Band id="about" tone="alt" title={info.about.title} accent={info.about.accent}>
           <div className="vt-text">{info.about.body.map((p) => <p key={p}>{p}</p>)}</div>
@@ -124,7 +113,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         {related.length > 0 && <p className="vt-related">Often used with: {related.map((r, i) => <span key={r.slug}>{i > 0 && ', '}<a href={`/tools/${r.slug}`}>{r.title}</a></span>)}.</p>}
       </Band>
       <Band id="why" title="Why use this" accent="tool" tone="alt"><Cards items={info.features} /></Band>
-      <Cross title={info.crossTitle} text={info.crossText} />
+      <Cross title={info.crossTitle} text={info.crossText} cta={KORA_CTA[t.slug]?.button} />
       <Band id="faq" title="Frequently asked" accent="questions"><Faq items={info.faq} /></Band>
       <Band id="more" title="More free" accent="tools" tone="alt"><MoreTools current={t.slug} /></Band>
     </ToolsShell>
