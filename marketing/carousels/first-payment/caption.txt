@@ -1,0 +1,1 @@
+From first login to first payment in three steps: add your business, create an invoice, send it and collect with a UPI QR.

@@ -1,0 +1,1 @@
+A GST invoice with the tax worked out and a UPI QR on it. Example figures. Kora is in early access.

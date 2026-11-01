@@ -1,0 +1,1 @@
+Why a sent invoice should not be editable, and what to do instead: a credit note, a debit note or a new invoice.

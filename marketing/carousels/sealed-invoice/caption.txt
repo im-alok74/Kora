@@ -1,0 +1,1 @@
+Why an issued invoice should not be editable, and what to do when it has a mistake: credit note, debit note, new invoice.
