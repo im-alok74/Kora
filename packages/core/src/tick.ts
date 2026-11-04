@@ -3,6 +3,7 @@ import { runJobsOnce, type Handlers } from './jobs.js';
 import { processDueReminders } from './reminders.js';
 import { processDueRecurring } from './recurring.js';
 import { processFirmWork } from './firmjobs.js';
+import { log } from './observe.js';
 import type { Messenger } from '@kora/adapters';
 
 /** The nightly clean-up of finished jobs, old events and expired sessions runs in the 21:00 UTC hour (02:30 IST), once per day in effect. */
@@ -26,9 +27,13 @@ export async function pruneOperationalData(sql: Sql): Promise<Record<string, unk
 export async function runTick(sql: Sql, handlers: Handlers, o: { worker?: string; budgetMs?: number; firmWork?: { messenger: Messenger; appUrl: string } } = {}) {
   const started = Date.now();
   const budget = o.budgetMs ?? 40_000;
-  const reminders = await processDueReminders(sql);
-  const recurring = await processDueRecurring(sql);
-  const firms = o.firmWork ? await processFirmWork(sql, o.firmWork) : null;
+  // Each phase is on its own: one that throws is logged and the rest still run, so a bad row can never stop the queued jobs.
+  const phase = async <T>(name: string, fn: () => Promise<T>, fallback: T): Promise<T> => {
+    try { return await fn(); } catch (e) { log('error', `tick.${name}_failed`, { message: String((e as Error).message ?? e).slice(0, 200) }); return fallback; }
+  };
+  const reminders = await phase('reminders', () => processDueReminders(sql), { queued: 0, skipped: 0 });
+  const recurring = await phase('recurring', () => processDueRecurring(sql), { created: 0, failed: 0 });
+  const firms = o.firmWork ? await phase('firms', () => processFirmWork(sql, o.firmWork!), null) : null;
   const jobs = { claimed: 0, done: 0, retried: 0, failed: 0 };
   while (Date.now() - started < budget) {
     const r = await runJobsOnce(sql, handlers, { worker: o.worker ?? 'cron', limit: 10, deadline: started + budget });

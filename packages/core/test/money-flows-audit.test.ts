@@ -102,7 +102,7 @@ describe('the statement always adds up', () => {
     const { payments } = await partyCredit(db.web, owner, buyer);
     await refundCredit(db.web, owner, payments[0]!.id as string, { amount: '50.50', method: 'upi', refundedOn: '2026-09-26' });
     await writeOffInvoice(db.web, owner, b.id as string, 'small balance');
-    const s = await customerStatement(db.web, owner, buyer, { from: '2026-09-10', to: '2026-10-31' });
+    const s = await customerStatement(db.web, owner, buyer, { from: '2026-09-10', to: new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10) });   // the write-off is dated today, so the range must reach it
     const billed = s.rows.reduce((n, r) => n + BigInt(r.debit), 0n), credited = s.rows.reduce((n, r) => n + BigInt(r.credit), 0n);
     expect(BigInt(s.opening) + billed - credited).toBe(BigInt(s.closing));
     expect(s.rows.at(-1)!.balance).toBe(s.closing);

@@ -1,6 +1,7 @@
 import { SYSTEM_USER, withTenant, type Sql, type Tx } from '@kora/db';
 import { issueTx, persist, previewTotals, type DocIn, type LineIn } from './documents.js';
 import { enqueue } from './jobs.js';
+import { log } from './observe.js';
 import { requireFeature } from './plans.js';
 import { inTenant, type TenantSession } from './tenancy.js';
 import { isDate, str, todayIn, ValidationError } from './validation.js';
@@ -259,6 +260,7 @@ export async function processDueRecurring(sql: Sql, limit = 20): Promise<{ creat
   const due = await sql`select id, business_id from due_recurring(${limit})`;
   let created = 0, failed = 0;
   for (const row of due) {
+    try {
     await withTenant(sql, { businessId: row.business_id as string, userId: SYSTEM_USER }, async (tx) => {
       const [p] = await tx`select * from recurring_profile where id = ${row.id} and active for update skip locked` as unknown as Profile[];
       if (!p) return;
@@ -287,6 +289,11 @@ export async function processDueRecurring(sql: Sql, limit = 20): Promise<{ creat
       if (p.end_date && next > p.end_date) active = false;
       await tx`update recurring_profile set occurrence = ${k}, next_run_date = ${next}, active = ${active} where id = ${p.id}`;
     });
+    } catch (e) {
+      // This schedule's pass rolled back as a whole; the others still run. It is tried again on the next tick.
+      failed++;
+      log('error', 'recurring.profile_failed', { profile: row.id, message: String((e as Error).message ?? e).slice(0, 200) });
+    }
   }
   return { created, failed };
 }

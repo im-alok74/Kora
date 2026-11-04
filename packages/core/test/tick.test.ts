@@ -32,6 +32,16 @@ describe('runTick', () => {
     expect((await runTick(db.web, { 'test.flaky': async () => {} })).jobs.claimed).toBe(0);
   });
 
+  it('still runs the queued jobs when the reminder phase throws', async () => {
+    const broken = new Proxy(db.web, { apply: (t, self, args) => { if (String(args[0]?.[0]).includes('due_reminders')) throw new Error('boom'); return Reflect.apply(t, self, args as never); } });
+    await enqueue(db.web, 'test.after', {});
+    let ran = 0;
+    const r = await runTick(broken, { 'test.after': async () => { ran++; } });
+    expect(ran).toBe(1);
+    expect(r.jobs.done).toBe(1);
+    expect(r.reminders).toEqual({ queued: 0, skipped: 0 });
+  });
+
   it('respects the time budget', async () => {
     for (let i = 0; i < 30; i++) await enqueue(db.web, 'test.slow', { i });
     const r = await runTick(db.web, { 'test.slow': () => new Promise((res) => setTimeout(res, 50)) }, { budgetMs: 200 });

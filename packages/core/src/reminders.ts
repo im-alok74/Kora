@@ -65,6 +65,7 @@ export async function processDueReminders(sql: Sql, limit = 50): Promise<{ queue
   const due = await sql`select id, business_id, document_id from due_reminders(${limit})`;
   let queued = 0, skipped = 0;
   for (const r of due) {
+    try {
     await withTenant(sql, { businessId: r.business_id as string, userId: SYSTEM_USER }, async (tx) => {
       const [rem] = await tx`select id, channel from reminder where id = ${r.id} and delivery_status = 'scheduled' for update skip locked`;
       if (!rem) return;
@@ -84,6 +85,12 @@ export async function processDueReminders(sql: Sql, limit = 50): Promise<{ queue
       await tx`update reminder set delivery_status = 'queued' where id = ${r.id}`;
       queued++;
     });
+    } catch (e) {
+      // A reminder that cannot be queued is failed, not left 'scheduled': otherwise the same row is picked first on every tick, forever.
+      skipped++;
+      const msg = String((e as Error).message ?? e).slice(0, 300);
+      await withTenant(sql, { businessId: r.business_id as string, userId: SYSTEM_USER }, (tx) => tx`update reminder set delivery_status = 'failed', error_message = ${msg} where id = ${r.id} and delivery_status = 'scheduled'`).catch(() => {});
+    }
   }
   return { queued, skipped };
 }
