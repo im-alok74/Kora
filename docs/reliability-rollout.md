@@ -15,7 +15,7 @@ Updated 25 October 2026. This is a code/test milestone, not a production readine
 
 1. Back up and verify a restore before production migration. Pause all old workers and scheduled tick consumers. Do not deploy mixed fenced/unfenced consumers.
 2. Check existing gateway duplicates with `select gateway, gateway_payment_id, count(*) from payment where gateway is not null and gateway_payment_id is not null group by gateway, gateway_payment_id having count(*) > 1`. Reconcile any results; never delete financial rows automatically to satisfy an index.
-3. Apply migrations 0180, 0181 and 0182 using the normal migration runner. The index can require a maintenance window on a large payment table. This repository deploys main automatically, so apply migrations before merging the application change.
+3. Apply migrations 0180 through 0183 using the normal migration runner. The index can require a maintenance window on a large payment table. This repository deploys main automatically, so apply migrations before merging the application change.
 4. Deploy the matching web and worker, then resume consumers. Verify schema health, queue progress, retry behavior and a payment operation replay in staging first.
 5. On application rollback, pause consumers first. Keep the additive columns, operation records and unique index. Rolling back to old workers restores their known stale-acknowledgment race. Do not remove replay records or replay all failed jobs.
 
