@@ -1,6 +1,5 @@
 import KoraLogo from './KoraLogo';
 import Icon from './Icon';
-import SiteThemeToggle from './SiteThemeToggle';
 import ToolsMenu from './ToolsMenu';
 import { TOOLS, TOOL_GROUPS, toolIcon } from '../lib/tools';
 import '../app/site-tools.css';
@@ -23,7 +22,6 @@ export function SiteHeader() {
             <a href="/login">Sign in</a>
             <a className="btn" href="/login?signup=1">Get started <Icon name="arrow" size={15} /></a>
           </nav>
-          <div className="k-header-tools"><SiteThemeToggle /></div>
           <details className="k-mobile-menu"><summary aria-label="Navigation menu"><Icon name="menu" size={24} /></summary>
             <nav aria-label="Mobile navigation">
               {links.map(([h, t]) => <a key={h} href={h}>{t}</a>)}
