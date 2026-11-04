@@ -13,6 +13,7 @@ import Shortcuts from '../../components/Shortcuts';
 import ProductSurface from '../../components/ProductSurface';
 import ScrollableTables from '../../components/ScrollableTables';
 import HelpLauncher, { DemoBanner } from '../../components/HelpLauncher';
+import PlayAppFlag from '../../components/PlayAppFlag';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: { default: 'Dashboard', template: '%s | Kora' }, robots: { index: false, follow: false } };
@@ -28,6 +29,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const active = businesses.find((b) => b.businessId === chosen) ?? businesses[0]!;
   return (
     <div className="shell">
+      <PlayAppFlag />
       <SideNav role={active.role} multi={businesses.length > 1} ca={inFirm}>
         <BusinessSwitcher businesses={businesses} activeId={active.businessId} />
         <span className="role">{active.role}</span>

@@ -1,0 +1,69 @@
+name: release-play
+
+# Builds the signed Android App Bundle (.aab) for Google Play from the website, as a Trusted Web Activity (Bubblewrap).
+# Run it from the Actions tab. Needs, once (docs/play-store.md):
+#   Repository variable  ANDROID_HOST       the site's domain, for example app.kora.in (no https://)
+#   Repository secrets   ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_PASSWORD   (your upload key)
+# Then upload the .aab it produces to Play Console. Not yet run end to end: see the first-run notes in docs/play-store.md.
+on:
+  workflow_dispatch:
+    inputs:
+      version_name: { description: 'Version shown to people, for example 1.0.0', required: true }
+      version_code: { description: 'Whole number, higher than the last upload to Play', required: true }
+
+jobs:
+  aab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - name: Check the settings are there
+        env:
+          HOST: ${{ vars.ANDROID_HOST }}
+          KS: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          test -n "$HOST" || { echo "Set the repository variable ANDROID_HOST (the site's domain)."; exit 1; }
+          test -n "$KS" || { echo "Set the secret ANDROID_KEYSTORE_B64 (docs/play-store.md, step 3)."; exit 1; }
+      - name: Check the site serves what the app needs
+        env: { HOST: '${{ vars.ANDROID_HOST }}' }
+        run: |
+          curl -fsS "https://$HOST/manifest.webmanifest" | head -c 200; echo
+          curl -fsS "https://$HOST/icons/icon-512.png" -o /dev/null
+          curl -fsS "https://$HOST/.well-known/assetlinks.json"; echo
+      - name: Write the project settings
+        working-directory: apps/android
+        env:
+          HOST: ${{ vars.ANDROID_HOST }}
+          VN: ${{ inputs.version_name }}
+          VC: ${{ inputs.version_code }}
+          KS: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          sed -e "s|__HOST__|$HOST|g" -e "s|__VERSION_NAME__|$VN|" -e "s|__VERSION_CODE__|$VC|" twa-manifest.template.json > twa-manifest.json
+          echo "$KS" | base64 -d > upload.keystore
+          mkdir -p ~/.bubblewrap
+          printf '{"jdkPath":"%s","androidSdkPath":"%s"}' "$JAVA_HOME" "$ANDROID_HOME" > ~/.bubblewrap/config.json
+      - name: Generate the Android project
+        working-directory: apps/android
+        run: npx --yes @bubblewrap/cli@1.27.0 update --skipVersionUpgrade --manifest=./twa-manifest.json
+      - name: Refuse an app that targets too old an Android version
+        working-directory: apps/android
+        run: |
+          T=$(grep -rhoE "targetSdk(Version)?[ =]+[0-9]+" app/build.gradle | grep -oE "[0-9]+$" | head -1)
+          echo "targetSdk=$T"
+          test "${T:-0}" -ge 36 || { echo "Google Play needs targetSdk 36 or higher for new apps and updates (from 31 August 2026)."; exit 1; }
+      - name: Build the signed bundle
+        working-directory: apps/android
+        env:
+          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: npx --yes @bubblewrap/cli@1.27.0 build --skipPwaValidation --manifest=./twa-manifest.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kora-play-bundle
+          path: |
+            apps/android/app-release-bundle.aab
+            apps/android/twa-manifest.json
+          if-no-files-found: error

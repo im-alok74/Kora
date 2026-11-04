@@ -1,0 +1,7 @@
+twa-manifest.json
+upload.keystore
+*.aab
+*.apk
+app/
+build/
+.gradle/

@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { api, rupees } from '../../../lib/client';
+import { isPlayApp } from '../../../lib/playApp';
 
 type Data = {
   plan: string; planName: string; status: string; validUntil: string | null; canBuy: boolean; enforced: boolean;
@@ -33,6 +34,7 @@ export default function Billing() {
   const lim = LIMITS[d.plan] ?? LIMITS.starter!;
   const mockSub = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('mock_subscription') : null;
   const paid = d.plan !== 'starter';
+  const play = isPlayApp();   // the Google Play app does not sell plans (lib/playApp.ts)
   return (
     <div>
       <h1>Billing</h1>
@@ -49,7 +51,8 @@ export default function Billing() {
         {paid && !d.subscription?.cancel_at_period_end && d.subscription && <button className="secondary" disabled={busy} onClick={() => { if (confirm('Stop renewing? You keep the plan until the end of the period you paid for.')) void act({ action: 'cancel' }); }}>Cancel at the end of the period</button>}
       </div>
 
-      {!paid && (
+      {!paid && play && <div className="panel" aria-label="Plan changes"><p className="muted">Plan changes are not available in this app.</p></div>}
+      {!paid && !play && (
         <div className="panel" aria-label="Choose a plan">
           <h2>Move up</h2>
           {!d.canBuy && <p className="muted">Plans cannot be bought online yet. Please write to us and we will set it up.</p>}
