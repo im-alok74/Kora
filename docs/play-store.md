@@ -109,6 +109,14 @@ The workflow generates the Android project (tested: it works and targets API 36)
 
 **If the workflow gives you trouble, the fallback that needs no code:** go to pwabuilder.com, enter your site address, choose Android, Google Play, and download the package. It contains the signed `.aab`, the key and the exact `assetlinks.json` entry to use. The Play Console steps are the same.
 
+## 6b. Test APK (built and run on the Android emulator, 4 November 2026)
+
+`apps/android/out/Kora-test-1.0.0.apk` is a **debug-signed test build** of the same project, pointed at `https://kora-swart-six.vercel.app`. It is for trying the app on a phone, not for Play (Play needs the signed `.aab` from the workflow).
+- Checked in the file: package `in.kora.app`, version 1.0.0, minimum Android 7 (API 24), target Android 16 (API 36), signed (APK Signature Scheme v2), start page `/app/invoices?source=play`.
+- Run on the Android 15 emulator: it installs, shows the Kora splash, and opens the site's sign-in page. It shows a browser address bar because the test key is not listed in `/.well-known/assetlinks.json`; the Play build gets the full-screen look once `ANDROID_SHA256_FINGERPRINTS` has Google's key.
+- Install on a phone: copy the file to the phone, open it, allow "install unknown apps" for the app you opened it from. Or with a cable and USB debugging: `adb install Kora-test-1.0.0.apk`.
+- Two template settings were needed to make the build work and are now in `twa-manifest.template.json`: `splashScreenFadeOutDuration` and `minSdkVersion: 24`.
+
 ## 7. Updates after launch
 
 Site changes need no new app version. Build a new bundle (higher version code) only when you change the app itself (icon, name, start page, target API level). Google raises the minimum target API level every August; the workflow stops with a clear message if the generated project is below it.

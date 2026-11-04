@@ -11,6 +11,8 @@
   "navigationColorDark": "#121315",
   "backgroundColor": "#ffffff",
   "enableNotifications": false,
+  "splashScreenFadeOutDuration": 300,
+  "minSdkVersion": 24,
   "startUrl": "/app/invoices?source=play",
   "iconUrl": "https://__HOST__/icons/icon-512.png",
   "maskableIconUrl": "https://__HOST__/icons/icon-maskable-512.png",
